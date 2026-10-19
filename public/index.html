@@ -168,12 +168,14 @@ dialog::backdrop{background:rgba(10,16,22,.45)}
 .dlg-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
 .dlg-foot .inline{margin-left:auto}
 .err{color:var(--bad);font-size:12.5px;min-height:1em}
+.envbar{background:repeating-linear-gradient(-45deg,var(--warn) 0 14px,#8a560c 14px 28px);color:#fff;font-weight:600;font-size:12.5px;letter-spacing:.04em;text-align:center;padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:13px;z-index:20}
 @media (prefers-reduced-motion:no-preference){.tab,.btn,.pitem{transition:background .15s,border-color .15s,box-shadow .15s}}
 </style>
 </head>
 <body>
 
+<div id="envbar" class="envbar" hidden></div>
 <div class="wrap">
   <header class="top">
     <div class="brand">
@@ -697,6 +699,12 @@ async function load(first) {
   }
 }
 load(true);
+// Hiện dải cảnh báo ở mọi môi trường không phải production
+fetch('api/info').then(r => r.json()).then(({env}) => {
+  if (!env || env === 'production') return;
+  const b = $('#envbar'); b.textContent = `MÔI TRƯỜNG THỬ NGHIỆM (${env}) · dữ liệu ở đây tách biệt với hệ thống chính`; b.hidden = false;
+  document.title = `[${env}] ` + document.title;
+}).catch(() => {});
 setInterval(() => { if (!document.hidden) load(false); }, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(false); });
 </script>

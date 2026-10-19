@@ -110,6 +110,10 @@ if (PASS) {
 app.use(express.json({ limit: '100kb' }));
 const wrap = fn => (req, res) => fn(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'Lỗi máy chủ' }); });
 
+// Tên môi trường: Railway tự đặt RAILWAY_ENVIRONMENT_NAME (production, staging…); APP_ENV ghi đè nếu cần
+const ENV_NAME = process.env.APP_ENV || process.env.RAILWAY_ENVIRONMENT_NAME || 'local';
+app.get('/api/info', (req, res) => res.set('Cache-Control', 'no-store').json({ env: ENV_NAME }));
+
 app.get('/api/data', wrap(async (req, res) => {
   const [projects, transactions] = await Promise.all([store.all('projects'), store.all('transactions')]);
   res.set('Cache-Control', 'no-store').json({ projects, transactions });
@@ -146,5 +150,5 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m' }));
 
 store.init()
   .then(seedOnce)
-  .then(() => app.listen(PORT, () => console.log(`Sổ Tài Chính Dự Án chạy ở cổng ${PORT}, lưu dữ liệu vào ${store.kind}`)))
+  .then(() => app.listen(PORT, () => console.log(`Sổ Tài Chính Dự Án [${ENV_NAME}] chạy ở cổng ${PORT}, lưu dữ liệu vào ${store.kind}`)))
   .catch(e => { console.error('Không khởi động được:', e); process.exit(1); });

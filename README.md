@@ -49,3 +49,18 @@ Sau đó vào service vừa tạo trên railway.com:
 | `SEED_SAMPLE` | Đặt `false` để không nạp dữ liệu ví dụ ở lần chạy đầu. |
 | `PGSSL` | Đặt `true` nếu kết nối Postgres qua địa chỉ công khai cần SSL. |
 | `DATA_DIR` | Thư mục lưu tệp JSON khi không dùng Postgres (gắn Railway Volume vào đây). |
+
+## Môi trường thử nghiệm (staging) chạy song song
+
+Hai bản chạy cùng lúc, mỗi bản có cơ sở dữ liệu và địa chỉ riêng:
+
+| | Chính (production) | Thử nghiệm (staging) |
+|---|---|---|
+| Nhánh Git | `main` | `staging` |
+| Môi trường Railway | `production` | `staging` |
+| Cơ sở dữ liệu | Postgres riêng (số liệu thật) | Postgres riêng (dữ liệu thử) |
+| Nhận diện | bình thường | dải sọc vàng "MÔI TRƯỜNG THỬ NGHIỆM" |
+
+Ứng dụng tự đọc `RAILWAY_ENVIRONMENT_NAME` do Railway đặt; mọi môi trường khác `production` đều hiện dải cảnh báo.
+
+Quy trình: sửa trên nhánh `staging` → Railway tự deploy bản thử → kiểm tra → gộp `staging` vào `main` → bản chính tự cập nhật.
