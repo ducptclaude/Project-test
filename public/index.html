@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sổ Tài Chính Dự Án</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: ledger workspace — header + period bar, three views (portfolio / project / journal), numbers right-aligned in mono */
+:root{
+  --bg:#F3F5F7; --surface:#FFFFFF; --sunk:#E9EDF1; --ink:#14202B; --muted:#5A6A78; --line:#D9E0E6;
+  --accent:#2B4C9B; --accent-ink:#FFFFFF; --accent-soft:#E3E9F7;
+  --rev:#1C7F55; --rev-soft:#DDF1E7; --exp:#B9542A; --exp-soft:#F7E4DA;
+  --warn:#A86A10; --warn-soft:#F8EDD3; --bad:#B8322C; --bad-soft:#F8DEDC;
+  --display:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1418; --surface:#151E25; --sunk:#1B262E; --ink:#E5ECF1; --muted:#93A2AE; --line:#26343E;
+  --accent:#8CA6EE; --accent-ink:#0E1418; --accent-soft:#1E2A47;
+  --rev:#55C690; --rev-soft:#163226; --exp:#EE8D61; --exp-soft:#3A2419;
+  --warn:#E2B04E; --warn-soft:#352A12; --bad:#F07068; --bad-soft:#3D1C1A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1418; --surface:#151E25; --sunk:#1B262E; --ink:#E5ECF1; --muted:#93A2AE; --line:#26343E;
+  --accent:#8CA6EE; --accent-ink:#0E1418; --accent-soft:#1E2A47;
+  --rev:#55C690; --rev-soft:#163226; --exp:#EE8D61; --exp-soft:#3A2419;
+  --warn:#E2B04E; --warn-soft:#352A12; --bad:#F07068; --bad-soft:#3D1C1A; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:22px;font-weight:700}
+h2{font-size:18px;font-weight:600}
+h3{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:36px;height:36px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--num);font-weight:500;font-size:13px}
+.brand p{margin:0;font-size:12.5px;color:var(--muted)}
+.tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:9px}
+.tab{border:0;background:transparent;padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:500;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.bar .grow{flex:1}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>span{font-size:11.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;font-weight:500}
+select,input[type=text],input[type=date],input[type=search]{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:7px 10px;min-height:36px;max-width:100%}
+.inline{display:flex;align-items:center;gap:8px}
+.inline label{font-size:12.5px;color:var(--muted)}
+
+.btn{border:1px solid var(--line);background:var(--surface);padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:500;min-height:36px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--bad)}
+.btn.danger.armed{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+.btn.sm{padding:3px 9px;min-height:28px;font-size:12.5px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.notice{display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;background:var(--accent-soft);border-radius:var(--r);padding:10px 14px;font-size:13px}
+.notice.warn{background:var(--warn-soft)}
+
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.kpi .lab{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.kpi .val{font-family:var(--num);font-size:22px;font-weight:500;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .sub{font-size:12px;color:var(--muted);font-family:var(--num)}
+.dot{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
+.c-rev{color:var(--rev)} .c-exp{color:var(--exp)} .c-pro{color:var(--accent)} .c-bad{color:var(--bad)}
+.bg-rev{background:var(--rev)} .bg-exp{background:var(--exp)} .bg-pro{background:var(--accent)}
+
+/* chips */
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:99px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.active{background:var(--accent-soft);color:var(--accent)}
+.chip.done{background:var(--rev-soft);color:var(--rev)}
+.chip.paused{background:var(--warn-soft);color:var(--warn)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.code{font-family:var(--num);background:transparent;border:1px solid var(--line);color:var(--ink)}
+
+/* tables */
+.tbl-wrap{overflow-x:auto;margin:0 -16px;padding:0 16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:500;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+td.num{white-space:nowrap}
+tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
+tbody tr.link{cursor:pointer}
+tbody tr.link:hover{background:var(--sunk)}
+.pname{font-weight:600}
+.psub{font-size:12px;color:var(--muted)}
+.meter{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden;min-width:70px}
+.meter>i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+.meter.warn>i{background:var(--warn)} .meter.bad>i{background:var(--bad)} .meter.rev>i{background:var(--rev)}
+.tag-in{color:var(--rev);font-weight:500} .tag-out{color:var(--exp);font-weight:500}
+.actions{display:flex;gap:6px;justify-content:flex-end}
+
+/* chart */
+.chart{position:relative;width:100%;min-height:260px}
+.chart svg{display:block}
+.chart text{font-family:var(--num);font-size:10.5px;fill:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:7px;padding:8px 10px;font-size:12px;line-height:1.55;white-space:nowrap;transform:translate(-50%,-100%);z-index:2}
+.tip b{font-family:var(--body)}
+.tip .num{display:inline-block;min-width:90px;text-align:right}
+
+/* category bars */
+.cats{display:flex;flex-direction:column;gap:9px}
+.cat{display:grid;grid-template-columns:minmax(90px,140px) minmax(0,1fr) 118px;gap:10px;align-items:center;font-size:13px}
+.cat .meter{height:10px}
+.cat .v{font-family:var(--num);font-size:12.5px;text-align:right;white-space:nowrap}
+.cat .v small{color:var(--muted);margin-left:6px}
+
+/* project view */
+.pv{display:grid;grid-template-columns:260px minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:900px){.pv{grid-template-columns:minmax(0,1fr)}}
+.plist{display:flex;flex-direction:column;gap:6px}
+@media (max-width:900px){.plist{flex-direction:row;overflow-x:auto;padding-bottom:4px}.plist .pitem{min-width:200px}}
+.pitem{text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.pitem[aria-current="true"]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.pitem .row{display:flex;justify-content:space-between;gap:8px;font-size:12px}
+.phead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:flex-start}
+.phead .meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);margin-top:6px}
+.plan{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+@media (max-width:760px){.plan{grid-template-columns:minmax(0,1fr)}}
+.plan .item{display:flex;flex-direction:column;gap:6px;min-width:0}
+.plan .line{display:flex;justify-content:space-between;gap:8px;font-size:12.5px}
+.plan .big{font-family:var(--num);font-size:17px;font-weight:500}
+
+.empty{padding:32px 16px;text-align:center;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:10px}
+
+/* dialog */
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:0;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
+dialog::backdrop{background:rgba(10,16,22,.45)}
+.dlg{display:flex;flex-direction:column;gap:14px;padding:20px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.form .full{grid-column:1/-1}
+@media (max-width:520px){.form{grid-template-columns:minmax(0,1fr)}}
+.form input,.form select{width:100%}
+.seg{display:flex;gap:0;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg label{flex:1;text-align:center;padding:7px;cursor:pointer;font-weight:500;color:var(--muted)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg input:checked+label.in{background:var(--rev-soft);color:var(--rev)}
+.seg input:checked+label.out{background:var(--exp-soft);color:var(--exp)}
+.dlg-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
+.dlg-foot .inline{margin-left:auto}
+.err{color:var(--bad);font-size:12.5px;min-height:1em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:13px;z-index:20}
+@media (prefers-reduced-motion:no-preference){.tab,.btn,.pitem{transition:background .15s,border-color .15s,box-shadow .15s}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">₫</div>
+      <div><h1>Sổ Tài Chính Dự Án</h1><p>Doanh thu · Chi phí · Lợi nhuận theo từng dự án và toàn danh mục</p></div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-view="overview" id="tab-overview">Tổng quan</button>
+      <button class="tab" role="tab" data-view="project" id="tab-project">Dự án</button>
+      <button class="tab" role="tab" data-view="journal" id="tab-journal">Sổ giao dịch</button>
+    </nav>
+  </header>
+
+  <div id="notice"></div>
+
+  <div class="bar">
+    <div class="inline"><label for="f-year">Năm</label><select id="f-year"></select></div>
+    <div class="inline"><label for="f-period">Kỳ</label><select id="f-period"></select></div>
+    <span class="grow"></span>
+    <button class="btn" id="btn-new-project">+ Dự án</button>
+    <button class="btn primary" id="btn-new-tx">+ Giao dịch</button>
+  </div>
+
+  <main id="main"><div class="panel empty">Đang tải dữ liệu…</div></main>
+</div>
+
+<dialog id="dlg"><form class="dlg" id="dlg-form" novalidate></form></dialog>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const vnd = v => Math.round(v || 0).toLocaleString('vi-VN') + ' ₫';
+const short = v => {
+  const a = Math.abs(v || 0), f = (x, d) => x.toLocaleString('vi-VN', {maximumFractionDigits: d});
+  if (a >= 1e9) return f(v / 1e9, 2) + ' tỷ';
+  if (a >= 1e6) return f(v / 1e6, 1) + ' tr';
+  if (a >= 1e3) return f(v / 1e3, 0) + ' nghìn';
+  return f(v || 0, 0);
+};
+const pct = v => isFinite(v) ? (v * 100).toLocaleString('vi-VN', {maximumFractionDigits: 1}) + '%' : '—';
+const parseMoney = s => Number(String(s).replace(/[^\d]/g, '')) || 0;
+const fmtDate = d => d ? d.split('-').reverse().join('/') : '';
+const today = () => new Date().toISOString().slice(0, 10);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('stc:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('stc:' + k, JSON.stringify(v)); } catch {} }
+};
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, 2600);
+}
+function armButton(btn, label, action) {
+  // two-step confirmation: first click arms, second click acts
+  if (btn.classList.contains('armed')) { action(); return; }
+  const orig = btn.textContent; btn.classList.add('armed'); btn.textContent = label;
+  setTimeout(() => { if (btn.isConnected) { btn.classList.remove('armed'); btn.textContent = orig; } }, 3500);
+}
+
+const STATUS = {active: 'Đang thực hiện', paused: 'Tạm dừng', done: 'Hoàn thành'};
+const CATS = {
+  in: ['Tạm ứng hợp đồng', 'Thanh toán theo nghiệm thu', 'Quyết toán', 'Phát sinh ngoài hợp đồng', 'Dịch vụ / bảo trì', 'Thu khác'],
+  out: ['Nhân công', 'Vật tư', 'Thiết bị / máy móc', 'Thầu phụ', 'Vận chuyển', 'Bản quyền / phần mềm', 'Chi phí quản lý', 'Thuế & phí', 'Chi khác']
+};
+const MONTHS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+
+/* ---------- state ---------- */
+const S = {
+  mode: 'loading', projects: [], txs: [], canWrite: true,
+  view: store.get('view', 'overview'), projectId: store.get('project', null),
+  year: store.get('year', String(new Date().getFullYear())), period: store.get('period', 'all'),
+  jf: {project: '', type: '', q: ''}
+};
+
+
+/* ---------- data layer ---------- */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+async function retry(fn) {
+  for (let i = 0; ; i++) {
+    try { return await fn(); }
+    catch (e) {
+      if (i < 3 && (e?.code === 'unavailable' || e?.code === 'resource_exhausted')) { await new Promise(r => setTimeout(r, 400 * (i + 1) + Math.random() * 300)); continue; }
+      throw e;
+    }
+  }
+}
+function failMsg(e) {
+  if (e?.code === 'quota_exceeded') return 'Cơ sở dữ liệu đã đầy. Hãy xóa bớt giao dịch cũ rồi thử lại.';
+  if (e?.code === 'invalid_argument') return 'Dữ liệu không hợp lệ, chưa lưu được.';
+  return 'Chưa lưu được. Kiểm tra kết nối rồi thử lại.';
+}
+async function api(method, path, body) {
+  const r = await fetch('api/' + path, {method, headers: body ? {'Content-Type': 'application/json'} : {}, body: body ? JSON.stringify(body) : undefined});
+  if (!r.ok) throw {code: r.status === 413 ? 'quota_exceeded' : r.status >= 500 ? 'unavailable' : 'invalid_argument'};
+  return r.status === 204 ? null : r.json();
+}
+async function put(col, id, data) {
+  await retry(() => api('PUT', col + '/' + encodeURIComponent(id), data));
+  const list = col === 'projects' ? S.projects : S.txs, i = list.findIndex(x => x.id === id);
+  if (i >= 0) list[i] = {id, ...data}; else list.push({id, ...data});
+  render();
+}
+async function del(col, id) {
+  await retry(() => api('DELETE', col + '/' + encodeURIComponent(id)));
+  if (col === 'projects') S.projects = S.projects.filter(x => x.id !== id); else S.txs = S.txs.filter(x => x.id !== id);
+  render();
+}
+const strip = o => { const {id, ...rest} = o; return rest; };
+
+/* ---------- derived numbers ---------- */
+function range() {
+  if (S.year === 'all') return [null, null];
+  const y = S.year, p = S.period;
+  if (p === 'all') return [`${y}-01-01`, `${y}-12-31`];
+  if (p[0] === 'q') { const q = +p[1], a = (q - 1) * 3 + 1, b = a + 2; return [`${y}-${String(a).padStart(2,'0')}-01`, `${y}-${String(b).padStart(2,'0')}-31`]; }
+  const m = p.slice(1); return [`${y}-${m}-01`, `${y}-${m}-31`];
+}
+function periodLabel() {
+  if (S.year === 'all') return 'Toàn thời gian';
+  if (S.period === 'all') return 'Năm ' + S.year;
+  if (S.period[0] === 'q') return `Quý ${S.period[1]}/${S.year}`;
+  return `Tháng ${+S.period.slice(1)}/${S.year}`;
+}
+const inRange = t => { const [a, b] = range(); return (!a || t.date >= a) && (!b || t.date <= b); };
+function sum(txs) {
+  let rev = 0, exp = 0; const cat = {in: {}, out: {}};
+  for (const t of txs) {
+    const a = +t.amount || 0;
+    if (t.type === 'in') rev += a; else exp += a;
+    cat[t.type][t.category || 'Khác'] = (cat[t.type][t.category || 'Khác'] || 0) + a;
+  }
+  return {rev, exp, profit: rev - exp, margin: rev ? (rev - exp) / rev : NaN, cat};
+}
+function monthly(txs) {
+  let [a, b] = range();
+  if (!a) {
+    if (!txs.length) return [];
+    const ds = txs.map(t => t.date).sort(); a = ds[0]; b = ds[ds.length - 1];
+  }
+  const out = [], idx = {};
+  let [y, m] = a.slice(0, 7).split('-').map(Number); let end = b.slice(0, 7);
+  const lastTx = txs.reduce((mx, t) => t.date > mx ? t.date : mx, '').slice(0, 7), now = today().slice(0, 7);
+  if (end > now) end = lastTx > now ? lastTx : now;
+  while (true) {
+    const k = `${y}-${String(m).padStart(2, '0')}`; if (k > end) break;
+    idx[k] = out.length; out.push({m: k, rev: 0, exp: 0, profit: 0});
+    if (++m > 12) { m = 1; y++; }
+  }
+  for (const t of txs) { const o = out[idx[t.date.slice(0, 7)]]; if (!o) continue; if (t.type === 'in') o.rev += +t.amount; else o.exp += +t.amount; }
+  out.forEach(o => o.profit = o.rev - o.exp);
+  return out;
+}
+const projTxs = id => S.txs.filter(t => t.projectId === id);
+function health(p) {
+  const all = sum(projTxs(p.id)), used = p.budget ? all.exp / p.budget : 0, flags = [];
+  if (all.profit < 0 && all.exp > 0) flags.push(['bad', 'Đang lỗ']);
+  if (used > 1) flags.push(['bad', 'Vượt ngân sách']); else if (used > 0.9) flags.push(['warn', 'Gần chạm ngân sách']);
+  return {all, used, flags};
+}
+const meterCls = u => u > 1 ? 'bad' : u > 0.9 ? 'warn' : '';
+const statusChip = s => `<span class="chip ${esc(s)}">${STATUS[s] || esc(s)}</span>`;
+const projectName = id => S.projects.find(p => p.id === id)?.name || 'Dự án đã xóa';
+const sortedProjects = () => [...S.projects].sort((a, b) => (a.code || '').localeCompare(b.code || '', 'vi'));
+
+/* ---------- render ---------- */
+function render() {
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.view === S.view));
+  renderNotice(); renderFilters();
+  $('#btn-new-project').hidden = $('#btn-new-tx').hidden = !S.canWrite;
+  $('#btn-new-tx').disabled = !S.projects.length;
+  if (S.mode === 'loading') return;
+  const main = $('#main');
+  main.innerHTML = S.view === 'overview' ? viewOverview() : S.view === 'project' ? viewProject() : viewJournal();
+  if (S.view === 'journal') renderJournalTable();
+  drawCharts();
+}
+function renderNotice() {
+  const el = $('#notice'); let h = '';
+  if (S.mode === 'db' && (S.projects.some(p => p.sample) || S.txs.some(t => t.sample)))
+    h = `<div class="notice"><span>Đang có <b>dữ liệu ví dụ</b> (4 dự án) để bạn xem cách hệ thống hoạt động. Xóa đi khi bắt đầu nhập số liệu thật.</span><button class="btn sm danger" id="btn-clear-sample">Xóa dữ liệu ví dụ</button></div>`;
+  el.innerHTML = h;
+  const b = $('#btn-clear-sample'); if (b) b.onclick = () => armButton(b, 'Bấm lần nữa để xóa', clearSample);
+}
+function renderFilters() {
+  const ys = new Set([String(new Date().getFullYear())]); S.txs.forEach(t => ys.add(t.date.slice(0, 4)));
+  if (S.year !== 'all') ys.add(S.year);
+  $('#f-year').innerHTML = `<option value="all">Tất cả</option>` + [...ys].sort().reverse().map(y => `<option value="${y}">${y}</option>`).join('');
+  $('#f-year').value = S.year;
+  const ps = [['all', 'Cả năm'], ['q1', 'Quý 1'], ['q2', 'Quý 2'], ['q3', 'Quý 3'], ['q4', 'Quý 4'], ...MONTHS.map((m, i) => ['m' + String(i + 1).padStart(2, '0'), 'Tháng ' + (i + 1)])];
+  $('#f-period').innerHTML = ps.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  $('#f-period').value = S.period; $('#f-period').disabled = S.year === 'all';
+}
+
+function kpiRow(st, extra) {
+  return `<section class="kpis">
+    <div class="kpi"><span class="lab"><i class="dot bg-rev"></i>Doanh thu</span><span class="val c-rev" title="${vnd(st.rev)}">${short(st.rev)}</span><span class="sub">${vnd(st.rev)}</span></div>
+    <div class="kpi"><span class="lab"><i class="dot bg-exp"></i>Chi phí</span><span class="val c-exp" title="${vnd(st.exp)}">${short(st.exp)}</span><span class="sub">${vnd(st.exp)}</span></div>
+    <div class="kpi"><span class="lab"><i class="dot bg-pro"></i>Lợi nhuận</span><span class="val ${st.profit < 0 ? 'c-bad' : 'c-pro'}" title="${vnd(st.profit)}">${short(st.profit)}</span><span class="sub">${vnd(st.profit)}</span></div>
+    <div class="kpi"><span class="lab">Biên lợi nhuận</span><span class="val ${st.margin < 0 ? 'c-bad' : ''}">${pct(st.margin)}</span><span class="sub">${extra}</span></div>
+  </section>`;
+}
+function catBlock(title, obj, kind) {
+  const rows = Object.entries(obj).sort((a, b) => b[1] - a[1]), tot = rows.reduce((s, r) => s + r[1], 0);
+  return `<section class="panel"><div class="panel-head"><h3>${title}</h3><span class="num muted">${short(tot)}</span></div>
+    ${rows.length ? `<div class="cats">${rows.map(([k, v]) => `<div class="cat"><span>${esc(k)}</span><div class="meter ${kind === 'in' ? 'rev' : ''}"><i style="width:${(v / rows[0][1] * 100).toFixed(1)}%;${kind === 'out' ? 'background:var(--exp)' : ''}"></i></div><span class="v">${short(v)}<small>${pct(v / tot)}</small></span></div>`).join('')}</div>`
+      : `<p class="muted" style="margin:0">Chưa có khoản nào trong kỳ này.</p>`}
+  </section>`;
+}
+function chartPanel(id, title) {
+  return `<section class="panel"><div class="panel-head"><h3>${title}</h3>
+    <div class="legend"><span><i class="dot bg-rev"></i>Doanh thu</span><span><i class="dot bg-exp"></i>Chi phí</span><span><i class="dot bg-pro" style="border-radius:50%"></i>Lợi nhuận</span></div></div>
+    <div class="chart" data-chart="${id}"></div></section>`;
+}
+function emptyState() {
+  return `<div class="panel empty"><h2>Chưa có dự án nào</h2><p style="margin:0;max-width:46ch">Tạo dự án đầu tiên với giá trị hợp đồng và ngân sách chi phí, sau đó ghi các khoản thu, chi vào sổ giao dịch. Hệ thống tự tính lợi nhuận và biên lợi nhuận cho từng dự án và toàn danh mục.</p>
+    ${S.canWrite ? `<button class="btn primary" data-act="new-project">+ Tạo dự án đầu tiên</button>` : ''}</div>`;
+}
+
+const chartData = {};
+function viewOverview() {
+  if (!S.projects.length) return emptyState();
+  const txs = S.txs.filter(inRange), st = sum(txs);
+  chartData.overview = monthly(txs);
+  const active = S.projects.filter(p => p.status === 'active').length;
+  const rows = sortedProjects().map(p => {
+    const s = sum(projTxs(p.id).filter(inRange)), h = health(p);
+    return {p, s, h};
+  });
+  const contract = S.projects.reduce((a, p) => a + (+p.contractValue || 0), 0);
+  return `<div style="display:flex;flex-direction:column;gap:18px">
+    <div class="panel-head"><h2>Danh mục dự án · ${periodLabel()}</h2><span class="muted">${S.projects.length} dự án · ${active} đang thực hiện · tổng giá trị HĐ <span class="num">${short(contract)}</span></span></div>
+    ${kpiRow(st, `${txs.length} giao dịch`)}
+    ${chartPanel('overview', 'Dòng tiền theo tháng')}
+    <section class="panel"><div class="panel-head"><h3>Kết quả theo dự án</h3><span class="muted" style="font-size:12px">Bấm vào dòng để xem chi tiết</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Dự án</th><th>Trạng thái</th><th class="r">Doanh thu</th><th class="r">Chi phí</th><th class="r">Lợi nhuận</th><th class="r">Biên</th><th>Chi / ngân sách (lũy kế)</th></tr></thead>
+        <tbody>${rows.map(({p, s, h}) => `<tr class="link" data-open="${esc(p.id)}">
+          <td><div class="pname">${esc(p.code)} · ${esc(p.name)}</div><div class="psub">${esc(p.client)}</div></td>
+          <td><div style="display:flex;flex-wrap:wrap;gap:4px">${statusChip(p.status)}${h.flags.map(([c, l]) => `<span class="chip ${c}">${l}</span>`).join('')}</div></td>
+          <td class="r num c-rev">${short(s.rev)}</td><td class="r num c-exp">${short(s.exp)}</td>
+          <td class="r num ${s.profit < 0 ? 'c-bad' : ''}">${short(s.profit)}</td><td class="r num">${pct(s.margin)}</td>
+          <td><div class="inline"><div class="meter ${meterCls(h.used)}" style="flex:1"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></div><span class="num" style="font-size:12px">${pct(h.used)}</span></div></td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="2">Tổng cộng</td><td class="r num c-rev">${short(st.rev)}</td><td class="r num c-exp">${short(st.exp)}</td><td class="r num ${st.profit < 0 ? 'c-bad' : ''}">${short(st.profit)}</td><td class="r num">${pct(st.margin)}</td><td></td></tr></tfoot>
+      </table></div>
+    </section>
+    <div class="grid2">${catBlock('Cơ cấu doanh thu', st.cat.in, 'in')}${catBlock('Cơ cấu chi phí', st.cat.out, 'out')}</div>
+  </div>`;
+}
+
+function viewProject() {
+  if (!S.projects.length) return emptyState();
+  const list = sortedProjects();
+  let p = list.find(x => x.id === S.projectId); if (!p) { p = list[0]; S.projectId = p.id; }
+  const all = projTxs(p.id), txs = all.filter(inRange), st = sum(txs), h = health(p);
+  chartData.project = monthly(txs);
+  const cv = +p.contractValue || 0, bg = +p.budget || 0;
+  const collected = cv ? h.all.rev / cv : 0;
+  const forecast = cv - Math.max(bg, h.all.exp);
+  return `<div class="pv">
+    <nav class="plist" aria-label="Danh sách dự án">${list.map(x => {
+      const s = sum(projTxs(x.id).filter(inRange));
+      return `<button class="pitem" data-pick="${esc(x.id)}" aria-current="${x.id === p.id}"><span class="row"><span class="num">${esc(x.code)}</span>${statusChip(x.status)}</span><span class="pname">${esc(x.name)}</span><span class="row"><span class="muted">LN kỳ này</span><span class="num ${s.profit < 0 ? 'c-bad' : ''}">${short(s.profit)}</span></span></button>`;
+    }).join('')}</nav>
+    <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+      <section class="panel">
+        <div class="phead">
+          <div style="min-width:0"><div class="inline" style="flex-wrap:wrap"><span class="chip code">${esc(p.code)}</span>${statusChip(p.status)}${h.flags.map(([c, l]) => `<span class="chip ${c}">${l}</span>`).join('')}${p.sample ? '<span class="chip">Ví dụ</span>' : ''}</div>
+            <h2 style="margin-top:8px">${esc(p.name)}</h2>
+            <div class="meta"><span>Khách hàng: ${esc(p.client) || '—'}</span><span>Phụ trách: ${esc(p.manager) || '—'}</span><span>Thời gian: ${fmtDate(p.start) || '?'} → ${fmtDate(p.end) || '?'}</span></div></div>
+          ${S.canWrite ? `<div class="inline"><button class="btn" data-act="edit-project" data-id="${esc(p.id)}">Sửa dự án</button><button class="btn primary" data-act="new-tx" data-id="${esc(p.id)}">+ Giao dịch</button></div>` : ''}
+        </div>
+        <div class="plan">
+          <div class="item"><span class="line"><span class="muted">Đã thu / giá trị hợp đồng</span><span class="num">${pct(collected)}</span></span><div class="meter rev"><i style="width:${Math.min(100, collected * 100).toFixed(1)}%"></i></div><span class="line"><span class="big c-rev">${short(h.all.rev)}</span><span class="num muted">/ ${short(cv)}</span></span></div>
+          <div class="item"><span class="line"><span class="muted">Đã chi / ngân sách chi phí</span><span class="num">${pct(h.used)}</span></span><div class="meter ${meterCls(h.used)}"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></div><span class="line"><span class="big c-exp">${short(h.all.exp)}</span><span class="num muted">/ ${short(bg)}</span></span></div>
+          <div class="item"><span class="line"><span class="muted">Lợi nhuận kế hoạch</span><span class="num">${short(cv - bg)} · ${pct(cv ? (cv - bg) / cv : NaN)}</span></span><span class="line"><span class="muted">Lũy kế thực tế</span><span class="num ${h.all.profit < 0 ? 'c-bad' : ''}">${short(h.all.profit)}</span></span><span class="line"><span class="muted">Dự báo khi hoàn thành</span><span class="big ${forecast < 0 ? 'c-bad' : 'c-pro'}">${short(forecast)}</span></span></div>
+        </div>
+      </section>
+      <div class="panel-head"><h3 style="text-transform:none;letter-spacing:0;font-size:15px;color:var(--ink)">Kết quả ${periodLabel().toLowerCase()}</h3></div>
+      ${kpiRow(st, `${txs.length} giao dịch`)}
+      ${chartPanel('project', 'Dòng tiền theo tháng')}
+      <div class="grid2">${catBlock('Cơ cấu doanh thu', st.cat.in, 'in')}${catBlock('Cơ cấu chi phí', st.cat.out, 'out')}</div>
+      <section class="panel"><div class="panel-head"><h3>Giao dịch trong kỳ</h3><span class="muted" style="font-size:12px">${txs.length} dòng</span></div>${txTable(txs, false)}</section>
+    </div>
+  </div>`;
+}
+
+function txTable(txs, showProject) {
+  if (!txs.length) return `<p class="muted" style="margin:0">Không có giao dịch nào khớp bộ lọc.</p>`;
+  const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
+  const st = sum(txs);
+  return `<div class="tbl-wrap"><table>
+    <thead><tr><th>Ngày</th>${showProject ? '<th>Dự án</th>' : ''}<th>Loại</th><th>Hạng mục</th><th>Diễn giải</th><th class="r">Số tiền</th>${S.canWrite ? '<th></th>' : ''}</tr></thead>
+    <tbody>${sorted.map(t => `<tr>
+      <td class="num">${fmtDate(t.date)}</td>
+      ${showProject ? `<td>${esc(S.projects.find(p => p.id === t.projectId)?.code || '')} <span class="psub">${esc(projectName(t.projectId))}</span></td>` : ''}
+      <td><span class="${t.type === 'in' ? 'tag-in' : 'tag-out'}">${t.type === 'in' ? 'Thu' : 'Chi'}</span></td>
+      <td>${esc(t.category)}</td><td class="psub" style="max-width:280px">${esc(t.note)}</td>
+      <td class="r num ${t.type === 'in' ? 'c-rev' : 'c-exp'}">${t.type === 'in' ? '+' : '−'}${Math.round(t.amount).toLocaleString('vi-VN')}</td>
+      ${S.canWrite ? `<td><div class="actions"><button class="btn sm" data-act="edit-tx" data-id="${esc(t.id)}">Sửa</button><button class="btn sm danger" data-act="del-tx" data-id="${esc(t.id)}">Xóa</button></div></td>` : ''}
+    </tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="${showProject ? 5 : 4}">Thu <span class="num c-rev">${vnd(st.rev)}</span> · Chi <span class="num c-exp">${vnd(st.exp)}</span></td><td class="r num ${st.profit < 0 ? 'c-bad' : ''}">${st.profit < 0 ? '−' : ''}${Math.abs(Math.round(st.profit)).toLocaleString('vi-VN')}</td>${S.canWrite ? '<td></td>' : ''}</tr></tfoot>
+  </table></div>`;
+}
+
+function viewJournal() {
+  if (!S.projects.length) return emptyState();
+  return `<section class="panel">
+    <div class="panel-head"><h2>Sổ giao dịch · ${periodLabel()}</h2></div>
+    <div class="bar">
+      <select id="j-project" aria-label="Lọc theo dự án"><option value="">Tất cả dự án</option>${sortedProjects().map(p => `<option value="${esc(p.id)}">${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select>
+      <select id="j-type" aria-label="Lọc theo loại"><option value="">Thu và chi</option><option value="in">Chỉ khoản thu</option><option value="out">Chỉ khoản chi</option></select>
+      <input type="search" id="j-q" placeholder="Tìm hạng mục, diễn giải…" style="flex:1;min-width:160px">
+      <button class="btn" id="j-export">Xuất CSV</button>
+    </div>
+    <div id="j-table"></div>
+  </section>`;
+}
+function journalRows() {
+  const q = S.jf.q.trim().toLowerCase();
+  return S.txs.filter(t => inRange(t) && (!S.jf.project || t.projectId === S.jf.project) && (!S.jf.type || t.type === S.jf.type)
+    && (!q || `${t.category} ${t.note} ${projectName(t.projectId)}`.toLowerCase().includes(q)));
+}
+function renderJournalTable() {
+  const el = $('#j-table'); if (!el) return;
+  $('#j-project').value = S.jf.project; $('#j-type').value = S.jf.type;
+  if (document.activeElement !== $('#j-q')) $('#j-q').value = S.jf.q;
+  el.innerHTML = txTable(journalRows(), true);
+}
+
+/* ---------- chart ---------- */
+function niceStep(span) {
+  const raw = span / 4, mag = Math.pow(10, Math.floor(Math.log10(raw || 1))), n = raw / mag;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+}
+function drawCharts() {
+  document.querySelectorAll('[data-chart]').forEach(el => drawChart(el, chartData[el.dataset.chart] || []));
+}
+function drawChart(el, data) {
+  if (!data.length) { el.innerHTML = `<div class="empty" style="min-height:240px;justify-content:center">Chưa có giao dịch trong kỳ này.</div>`; return; }
+  const W = Math.max(300, el.clientWidth), H = 260, L = 58, R = 10, T = 14, B = 30;
+  const hi = Math.max(1, ...data.map(d => Math.max(d.rev, d.exp, d.profit))), lo = Math.min(0, ...data.map(d => d.profit));
+  const step = niceStep(hi - lo), top = Math.ceil(hi / step) * step, bot = Math.floor(lo / step) * step;
+  const y = v => T + (top - v) / (top - bot) * (H - T - B);
+  const band = (W - L - R) / data.length, bw = Math.max(2, Math.min(16, band * 0.3));
+  const cx = i => L + band * i + band / 2;
+  const every = Math.ceil(data.length / Math.max(1, Math.floor((W - L - R) / 42)));
+  let g = '';
+  for (let v = bot; v <= top + step / 2; v += step)
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" ${v === 0 ? 'stroke-width="1.5"' : 'stroke-dasharray="2 4"'}/><text x="${L - 8}" y="${y(v) + 3.5}" text-anchor="end">${short(v)}</text>`;
+  data.forEach((d, i) => {
+    g += `<rect x="${cx(i) - bw - 1}" y="${y(d.rev)}" width="${bw}" height="${Math.max(0, y(0) - y(d.rev))}" rx="2" fill="var(--rev)"/>`;
+    g += `<rect x="${cx(i) + 1}" y="${y(d.exp)}" width="${bw}" height="${Math.max(0, y(0) - y(d.exp))}" rx="2" fill="var(--exp)"/>`;
+    if (i % every === 0) {
+      const [yy, mm] = d.m.split('-'); const lab = MONTHS[+mm - 1] + (i === 0 || mm === '01' ? '/' + yy.slice(2) : '');
+      g += `<text x="${cx(i)}" y="${H - 10}" text-anchor="middle">${lab}</text>`;
+    }
+  });
+  const pts = data.map((d, i) => `${cx(i)},${y(d.profit)}`).join(' ');
+  g += `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
+  data.forEach((d, i) => g += `<circle cx="${cx(i)}" cy="${y(d.profit)}" r="${i === data.length - 1 ? 4.5 : 3}" fill="${d.profit < 0 ? 'var(--bad)' : 'var(--accent)'}" stroke="var(--surface)" stroke-width="1.5"/>`);
+  data.forEach((d, i) => g += `<rect class="hit" data-i="${i}" x="${L + band * i}" y="${T}" width="${band}" height="${H - T - B}" fill="transparent"/>`);
+  el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Biểu đồ doanh thu, chi phí và lợi nhuận theo tháng">${g}</svg><div class="tip" hidden></div>`;
+  const tip = el.querySelector('.tip');
+  el.querySelectorAll('.hit').forEach(r => {
+    r.addEventListener('pointerenter', () => {
+      const d = data[+r.dataset.i], [yy, mm] = d.m.split('-');
+      tip.innerHTML = `<b>Tháng ${+mm}/${yy}</b><br>Doanh thu <span class="num">${short(d.rev)}</span><br>Chi phí <span class="num">${short(d.exp)}</span><br>Lợi nhuận <span class="num">${short(d.profit)}</span>`;
+      tip.hidden = false;
+      const x = Math.min(Math.max(cx(+r.dataset.i), 80), W - 80);
+      tip.style.left = x + 'px'; tip.style.top = (Math.min(y(d.rev), y(d.exp), y(d.profit)) - 6) + 'px';
+    });
+    r.addEventListener('pointerleave', () => tip.hidden = true);
+  });
+}
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(drawCharts, 120); });
+
+/* ---------- dialogs ---------- */
+const dlg = $('#dlg'), form = $('#dlg-form');
+function moneyInput(id, val) {
+  return `<input type="text" inputmode="numeric" id="${id}" value="${val ? Math.round(val).toLocaleString('vi-VN') : ''}" placeholder="0" autocomplete="off">`;
+}
+function bindMoney() {
+  form.querySelectorAll('input[inputmode=numeric]').forEach(inp => inp.addEventListener('input', () => {
+    const n = parseMoney(inp.value); inp.value = n ? n.toLocaleString('vi-VN') : '';
+    const hint = form.querySelector(`[data-hint="${inp.id}"]`); if (hint) hint.textContent = n ? short(n) : '';
+  }));
+}
+function openTx(tx, projectId) {
+  const t = tx || {type: 'out', date: today(), projectId: projectId || S.projectId || sortedProjects()[0]?.id, category: '', amount: 0, note: ''};
+  form.innerHTML = `<h2>${tx ? 'Sửa giao dịch' : 'Ghi giao dịch mới'}</h2>
+    <div class="form">
+      <label class="field full"><span>Dự án</span><select id="x-project">${sortedProjects().map(p => `<option value="${esc(p.id)}">${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select></label>
+      <div class="field"><span>Loại</span><div class="seg"><input type="radio" name="x-type" id="x-in" value="in"><label for="x-in" class="in">Thu</label><input type="radio" name="x-type" id="x-out" value="out"><label for="x-out" class="out">Chi</label></div></div>
+      <label class="field"><span>Ngày</span><input type="date" id="x-date" value="${esc(t.date)}"></label>
+      <label class="field"><span>Hạng mục</span><input type="text" id="x-cat" list="x-cats" value="${esc(t.category)}" placeholder="Chọn hoặc gõ mới"><datalist id="x-cats"></datalist></label>
+      <label class="field"><span>Số tiền (₫) <b class="num" data-hint="x-amount" style="text-transform:none;letter-spacing:0">${t.amount ? short(t.amount) : ''}</b></span>${moneyInput('x-amount', t.amount)}</label>
+      <label class="field full"><span>Diễn giải</span><input type="text" id="x-note" value="${esc(t.note)}" placeholder="Ví dụ: Thanh toán đợt 2 cho nhà cung cấp thép"></label>
+    </div>
+    <div class="err" id="x-err"></div>
+    <div class="dlg-foot">${tx ? `<button type="button" class="btn danger" id="x-del">Xóa giao dịch</button>` : '<span></span>'}
+      <div class="inline"><button type="button" class="btn" id="x-cancel">Hủy</button><button type="submit" class="btn primary">Lưu giao dịch</button></div></div>`;
+  $('#x-project').value = t.projectId; form.querySelector(`#x-${t.type}`).checked = true;
+  const fillCats = () => { const ty = form.querySelector('input[name=x-type]:checked').value; $('#x-cats').innerHTML = CATS[ty].map(c => `<option value="${esc(c)}">`).join(''); };
+  fillCats(); form.querySelectorAll('input[name=x-type]').forEach(r => r.onchange = fillCats);
+  bindMoney();
+  $('#x-cancel').onclick = () => dlg.close();
+  if (tx) $('#x-del').onclick = e => armButton(e.target, 'Bấm lần nữa để xóa', async () => { dlg.close(); try { await del('transactions', tx.id); toast('Đã xóa giao dịch'); } catch (er) { toast(failMsg(er)); } });
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const data = {projectId: $('#x-project').value, type: form.querySelector('input[name=x-type]:checked').value, date: $('#x-date').value,
+      category: $('#x-cat').value.trim() || 'Khác', amount: parseMoney($('#x-amount').value), note: $('#x-note').value.trim(),
+      createdAt: tx?.createdAt || Date.now()};
+    if (!data.date) return $('#x-err').textContent = 'Chọn ngày phát sinh giao dịch.';
+    if (!data.amount) return $('#x-err').textContent = 'Nhập số tiền lớn hơn 0.';
+    if (tx?.sample) data.sample = true;
+    dlg.close();
+    try { await put('transactions', tx?.id || uid(), data); toast(tx ? 'Đã cập nhật giao dịch' : 'Đã ghi giao dịch'); } catch (er) { toast(failMsg(er)); }
+  };
+  dlg.showModal(); (tx ? $('#x-amount') : $('#x-cat')).focus();
+}
+function openProject(p) {
+  const n = S.projects.length + 1;
+  const x = p || {code: 'DA-' + String(n).padStart(2, '0'), name: '', client: '', manager: '', contractValue: 0, budget: 0, status: 'active', start: today(), end: ''};
+  form.innerHTML = `<h2>${p ? 'Sửa dự án' : 'Tạo dự án mới'}</h2>
+    <div class="form">
+      <label class="field"><span>Mã dự án</span><input type="text" id="p-code" value="${esc(x.code)}"></label>
+      <label class="field"><span>Trạng thái</span><select id="p-status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+      <label class="field full"><span>Tên dự án</span><input type="text" id="p-name" value="${esc(x.name)}" placeholder="Ví dụ: Thi công nhà xưởng giai đoạn 2"></label>
+      <label class="field"><span>Khách hàng</span><input type="text" id="p-client" value="${esc(x.client)}"></label>
+      <label class="field"><span>Người phụ trách</span><input type="text" id="p-manager" value="${esc(x.manager)}"></label>
+      <label class="field"><span>Giá trị hợp đồng (₫) <b class="num" data-hint="p-cv" style="text-transform:none;letter-spacing:0">${x.contractValue ? short(x.contractValue) : ''}</b></span>${moneyInput('p-cv', x.contractValue)}</label>
+      <label class="field"><span>Ngân sách chi phí (₫) <b class="num" data-hint="p-bg" style="text-transform:none;letter-spacing:0">${x.budget ? short(x.budget) : ''}</b></span>${moneyInput('p-bg', x.budget)}</label>
+      <label class="field"><span>Ngày bắt đầu</span><input type="date" id="p-start" value="${esc(x.start)}"></label>
+      <label class="field"><span>Ngày kết thúc dự kiến</span><input type="date" id="p-end" value="${esc(x.end)}"></label>
+    </div>
+    <div class="err" id="p-err"></div>
+    <div class="dlg-foot">${p ? `<button type="button" class="btn danger" id="p-del">Xóa dự án</button>` : '<span></span>'}
+      <div class="inline"><button type="button" class="btn" id="p-cancel">Hủy</button><button type="submit" class="btn primary">${p ? 'Lưu thay đổi' : 'Tạo dự án'}</button></div></div>`;
+  $('#p-status').value = x.status; bindMoney();
+  $('#p-cancel').onclick = () => dlg.close();
+  if (p) {
+    const cnt = projTxs(p.id).length;
+    $('#p-del').onclick = e => armButton(e.target, `Xóa cả ${cnt} giao dịch? Bấm lần nữa`, async () => {
+      dlg.close(); toast('Đang xóa dự án…');
+      try { for (const t of projTxs(p.id)) await del('transactions', t.id); await del('projects', p.id); toast('Đã xóa dự án'); }
+      catch (er) { toast(failMsg(er)); }
+    });
+  }
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const data = {code: $('#p-code').value.trim(), name: $('#p-name').value.trim(), client: $('#p-client').value.trim(), manager: $('#p-manager').value.trim(),
+      contractValue: parseMoney($('#p-cv').value), budget: parseMoney($('#p-bg').value), status: $('#p-status').value, start: $('#p-start').value, end: $('#p-end').value};
+    if (!data.name) return $('#p-err').textContent = 'Nhập tên dự án.';
+    if (!data.code) data.code = 'DA-' + String(n).padStart(2, '0');
+    if (p?.sample) data.sample = true;
+    const id = p?.id || uid();
+    dlg.close();
+    try { await put('projects', id, data); S.projectId = id; store.set('project', id); toast(p ? 'Đã lưu dự án' : 'Đã tạo dự án'); if (!p) { S.view = 'project'; render(); } }
+    catch (er) { toast(failMsg(er)); }
+  };
+  dlg.showModal(); $('#p-name').focus();
+}
+
+async function clearSample() {
+  try { await api('DELETE', 'sample'); S.txs = S.txs.filter(t => !t.sample); S.projects = S.projects.filter(p => !p.sample); render(); toast('Đã xóa dữ liệu ví dụ'); }
+  catch (er) { toast(failMsg(er)); }
+}
+
+async function exportCsv() {
+  const rows = journalRows().sort((a, b) => a.date.localeCompare(b.date));
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = '﻿' + ['Ngày,Mã dự án,Tên dự án,Loại,Hạng mục,Diễn giải,Số tiền (VND)',
+    ...rows.map(t => { const p = S.projects.find(x => x.id === t.projectId) || {}; return [t.date, p.code, p.name, t.type === 'in' ? 'Thu' : 'Chi', t.category, t.note, (t.type === 'in' ? 1 : -1) * t.amount].map(q).join(','); })].join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+  a.download = `so-giao-dich-${periodLabel().replace(/[^\p{L}\d]+/gu, '-').toLowerCase()}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast('Đã xuất CSV');
+}
+
+/* ---------- events ---------- */
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => { S.view = b.dataset.view; store.set('view', S.view); render(); });
+$('#f-year').onchange = e => { S.year = e.target.value; store.set('year', S.year); render(); };
+$('#f-period').onchange = e => { S.period = e.target.value; store.set('period', S.period); render(); };
+$('#btn-new-project').onclick = () => openProject(null);
+$('#btn-new-tx').onclick = () => openTx(null, S.view === 'project' ? S.projectId : null);
+$('#main').addEventListener('click', e => {
+  const open = e.target.closest('[data-open]'), pick = e.target.closest('[data-pick]'), act = e.target.closest('[data-act]');
+  if (act) {
+    const id = act.dataset.id, a = act.dataset.act;
+    if (a === 'new-project') openProject(null);
+    if (a === 'edit-project') openProject(S.projects.find(p => p.id === id));
+    if (a === 'new-tx') openTx(null, id);
+    if (a === 'edit-tx') openTx(S.txs.find(t => t.id === id));
+    if (a === 'del-tx') armButton(act, 'Xóa?', async () => { try { await del('transactions', id); toast('Đã xóa giao dịch'); } catch (er) { toast(failMsg(er)); } });
+    return;
+  }
+  if (open || pick) { S.projectId = (open || pick).dataset.open || (open || pick).dataset.pick; store.set('project', S.projectId); S.view = 'project'; render(); window.scrollTo({top: 0}); }
+});
+$('#main').addEventListener('input', e => {
+  if (e.target.id === 'j-q') { S.jf.q = e.target.value; renderJournalTable(); }
+});
+$('#main').addEventListener('change', e => {
+  if (e.target.id === 'j-project') { S.jf.project = e.target.value; renderJournalTable(); }
+  if (e.target.id === 'j-type') { S.jf.type = e.target.value; renderJournalTable(); }
+});
+$('#main').addEventListener('click', e => { if (e.target.id === 'j-export') exportCsv(); });
+
+/* ---------- boot ---------- */
+render();
+async function load(first) {
+  try {
+    const d = await api('GET', 'data');
+    const same = JSON.stringify(d.projects) === JSON.stringify(S.projects) && JSON.stringify(d.transactions) === JSON.stringify(S.txs);
+    S.projects = d.projects; S.txs = d.transactions.filter(t => t.date); S.mode = 'db';
+    if (first || !same) { if (dlg.open) return; render(); }
+  } catch (e) {
+    if (first) $('#main').innerHTML = `<div class="panel empty">Không kết nối được máy chủ. Tải lại trang để thử lại.</div>`;
+  }
+}
+load(true);
+setInterval(() => { if (!document.hidden) load(false); }, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(false); });
+</script>
+</body>
+</html>
