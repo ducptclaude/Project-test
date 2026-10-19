@@ -169,6 +169,19 @@ dialog::backdrop{background:rgba(10,16,22,.45)}
 .dlg-foot .inline{margin-left:auto}
 .err{color:var(--bad);font-size:12.5px;min-height:1em}
 .envbar{background:repeating-linear-gradient(-45deg,var(--warn) 0 14px,#8a560c 14px 28px);color:#fff;font-weight:600;font-size:12.5px;letter-spacing:.04em;text-align:center;padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.userbox{position:relative}
+.userbtn{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:4px 12px 4px 4px;cursor:pointer;min-height:36px}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:600;font-size:12px}
+.userbtn .who{display:flex;flex-direction:column;align-items:flex-start;line-height:1.2;text-align:left}
+.userbtn .who small{color:var(--muted);font-size:11px}
+.menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.14);padding:6px;min-width:220px;z-index:5;display:flex;flex-direction:column}
+.menu button{border:0;background:transparent;text-align:left;padding:9px 12px;border-radius:7px;cursor:pointer;font-weight:500}
+.menu button:hover{background:var(--sunk)}
+.menu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+dialog.wide{width:min(860px,calc(100vw - 32px))}
+.secret{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--rev-soft);border-radius:8px;padding:10px 12px;font-size:13px}
+.secret code{font-family:var(--num);font-size:15px;font-weight:500;background:var(--surface);padding:3px 8px;border-radius:5px;user-select:all}
+.role-viewer{background:var(--sunk);color:var(--muted)} .role-editor{background:var(--accent-soft);color:var(--accent)} .role-admin{background:var(--warn-soft);color:var(--warn)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:13px;z-index:20}
 @media (prefers-reduced-motion:no-preference){.tab,.btn,.pitem{transition:background .15s,border-color .15s,box-shadow .15s}}
 </style>
@@ -187,6 +200,15 @@ dialog::backdrop{background:rgba(10,16,22,.45)}
       <button class="tab" role="tab" data-view="project" id="tab-project">Dự án</button>
       <button class="tab" role="tab" data-view="journal" id="tab-journal">Sổ giao dịch</button>
     </nav>
+    <div class="userbox" id="userbox" hidden>
+      <button class="userbtn" id="userbtn" aria-haspopup="menu" aria-expanded="false"><span class="avatar" id="u-avatar"></span><span class="who"><b id="u-name"></b><small id="u-role"></small></span></button>
+      <div class="menu" id="usermenu" role="menu" hidden>
+        <button role="menuitem" id="m-password">Đổi mật khẩu</button>
+        <button role="menuitem" id="m-users" hidden>Quản lý tài khoản</button>
+        <hr>
+        <button role="menuitem" id="m-logout">Đăng xuất</button>
+      </div>
+    </div>
   </header>
 
   <div id="notice"></div>
@@ -245,7 +267,7 @@ const MONTHS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
 /* ---------- state ---------- */
 const S = {
-  mode: 'loading', projects: [], txs: [], canWrite: true,
+  mode: 'loading', projects: [], txs: [], canWrite: false, me: null,
   view: store.get('view', 'overview'), projectId: store.get('project', null),
   year: store.get('year', String(new Date().getFullYear())), period: store.get('period', 'all'),
   jf: {project: '', type: '', q: ''}
@@ -264,14 +286,20 @@ async function retry(fn) {
   }
 }
 function failMsg(e) {
+  if (e?.message) return e.message;
   if (e?.code === 'quota_exceeded') return 'Cơ sở dữ liệu đã đầy. Hãy xóa bớt giao dịch cũ rồi thử lại.';
   if (e?.code === 'invalid_argument') return 'Dữ liệu không hợp lệ, chưa lưu được.';
   return 'Chưa lưu được. Kiểm tra kết nối rồi thử lại.';
 }
 async function api(method, path, body) {
-  const r = await fetch('api/' + path, {method, headers: body ? {'Content-Type': 'application/json'} : {}, body: body ? JSON.stringify(body) : undefined});
-  if (!r.ok) throw {code: r.status === 413 ? 'quota_exceeded' : r.status >= 500 ? 'unavailable' : 'invalid_argument'};
-  return r.status === 204 ? null : r.json();
+  const headers = {'X-Requested-With': 'fetch'}; if (body) headers['Content-Type'] = 'application/json';
+  const r = await fetch('api/' + path, {method, headers, body: body ? JSON.stringify(body) : undefined});
+  if (r.status === 401) { location.replace('login'); throw {code: 'unauthenticated', message: 'Phiên đăng nhập đã hết hạn.'}; }
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    throw {code: r.status === 413 ? 'quota_exceeded' : r.status >= 500 ? 'unavailable' : r.status === 403 ? 'forbidden' : 'invalid_argument', message: d.error};
+  }
+  return r.status === 204 || r.status === 201 ? null : r.json();
 }
 async function put(col, id, data) {
   await retry(() => api('PUT', col + '/' + encodeURIComponent(id), data));
@@ -698,7 +726,116 @@ async function load(first) {
     if (first) $('#main').innerHTML = `<div class="panel empty">Không kết nối được máy chủ. Tải lại trang để thử lại.</div>`;
   }
 }
-load(true);
+/* ---------- tài khoản ---------- */
+const ROLE_NAMES = {viewer: 'Chỉ xem', editor: 'Nhập liệu', admin: 'Quản trị'};
+function renderUser() {
+  const u = S.me; if (!u) return;
+  $('#userbox').hidden = false;
+  $('#u-name').textContent = u.name; $('#u-role').textContent = ROLE_NAMES[u.role] || u.role;
+  $('#u-avatar').textContent = u.name.split(/\s+/).filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
+  $('#m-users').hidden = u.role !== 'admin';
+}
+const menu = $('#usermenu');
+const toggleMenu = open => { menu.hidden = !open; $('#userbtn').setAttribute('aria-expanded', open); };
+$('#userbtn').onclick = e => { e.stopPropagation(); toggleMenu(menu.hidden); };
+document.addEventListener('click', e => { if (!menu.hidden && !menu.contains(e.target)) toggleMenu(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleMenu(false); });
+$('#m-logout').onclick = async () => { try { await api('POST', 'logout'); } catch {} location.replace('login'); };
+$('#m-password').onclick = () => { toggleMenu(false); openPassword(false); };
+$('#m-users').onclick = () => { toggleMenu(false); openUsers(); };
+const genPassword = () => { const c = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789', a = crypto.getRandomValues(new Uint32Array(10)); return [...a].map(n => c[n % c.length]).join(''); };
+async function copyText(t, btn) {
+  try { await navigator.clipboard.writeText(t); btn.textContent = 'Đã chép'; } catch { const r = document.createRange(); r.selectNodeContents(btn.previousElementSibling); getSelection().removeAllRanges(); getSelection().addRange(r); }
+}
+
+function openPassword(forced) {
+  dlg.classList.remove('wide');
+  form.innerHTML = `<h2>${forced ? 'Đặt mật khẩu mới' : 'Đổi mật khẩu'}</h2>
+    ${forced ? '<p class="muted" style="margin:0">Bạn đang dùng mật khẩu tạm do quản trị viên cấp. Hãy đặt mật khẩu riêng trước khi tiếp tục.</p>' : ''}
+    <div class="form">
+      <label class="field full"><span>Mật khẩu hiện tại</span><input type="password" id="pw-cur" autocomplete="current-password"></label>
+      <label class="field"><span>Mật khẩu mới</span><input type="password" id="pw-new" autocomplete="new-password" placeholder="Ít nhất 8 ký tự"></label>
+      <label class="field"><span>Nhập lại mật khẩu mới</span><input type="password" id="pw-new2" autocomplete="new-password"></label>
+    </div>
+    <div class="err" id="pw-err"></div>
+    <div class="dlg-foot"><span></span><div class="inline">${forced ? '' : '<button type="button" class="btn" id="pw-cancel">Hủy</button>'}<button type="submit" class="btn primary">Lưu mật khẩu</button></div></div>`;
+  if (!forced) $('#pw-cancel').onclick = () => dlg.close();
+  dlg.oncancel = forced ? e => e.preventDefault() : null;
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const cur = $('#pw-cur').value, nx = $('#pw-new').value;
+    if (nx.length < 8) return $('#pw-err').textContent = 'Mật khẩu mới cần ít nhất 8 ký tự.';
+    if (nx !== $('#pw-new2').value) return $('#pw-err').textContent = 'Hai lần nhập mật khẩu mới chưa khớp.';
+    if (nx === cur) return $('#pw-err').textContent = 'Mật khẩu mới phải khác mật khẩu hiện tại.';
+    try { await api('POST', 'me/password', {current: cur, next: nx}); S.me.mustChange = false; dlg.oncancel = null; dlg.close(); toast('Đã đổi mật khẩu'); }
+    catch (er) { $('#pw-err').textContent = er.message || 'Chưa đổi được mật khẩu.'; }
+  };
+  dlg.showModal(); $('#pw-cur').focus();
+}
+
+async function openUsers(note) {
+  dlg.classList.add('wide'); dlg.oncancel = null;
+  let users = [];
+  try { users = await api('GET', 'users'); } catch (er) { toast(failMsg(er)); return; }
+  const roleSel = (id, v, dis) => `<select data-role="${esc(id)}" ${dis ? 'disabled' : ''} aria-label="Vai trò">${Object.entries(ROLE_NAMES).map(([k, n]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+  form.innerHTML = `<div class="panel-head"><h2>Quản lý tài khoản</h2><button type="button" class="btn sm" id="us-close">Đóng</button></div>
+    ${note ? `<div class="secret">${note}</div>` : ''}
+    <div class="tbl-wrap" style="margin:0"><table>
+      <thead><tr><th>Tài khoản</th><th>Vai trò</th><th>Trạng thái</th><th>Đăng nhập gần nhất</th><th></th></tr></thead>
+      <tbody>${users.map(u => { const me = u.username === S.me.username; return `<tr>
+        <td><div class="pname">${esc(u.name)}${me ? ' <span class="chip">Bạn</span>' : ''}</div><div class="psub num">${esc(u.username)}</div></td>
+        <td>${roleSel(u.username, u.role, me)}</td>
+        <td>${u.active ? (u.mustChange ? '<span class="chip warn">Chờ đổi mật khẩu</span>' : '<span class="chip done">Đang hoạt động</span>') : '<span class="chip bad">Đã khóa</span>'}</td>
+        <td class="psub num">${u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('vi-VN') : 'Chưa đăng nhập'}</td>
+        <td><div class="actions">${me ? '' : `<button type="button" class="btn sm" data-reset="${esc(u.username)}">Cấp lại mật khẩu</button>
+          <button type="button" class="btn sm" data-active="${esc(u.username)}" data-v="${u.active ? 0 : 1}">${u.active ? 'Khóa' : 'Mở khóa'}</button>
+          <button type="button" class="btn sm danger" data-del="${esc(u.username)}">Xóa</button>`}</div></td>
+      </tr>`; }).join('')}</tbody>
+    </table></div>
+    <h3>Thêm tài khoản</h3>
+    <div class="form" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <label class="field"><span>Tên đăng nhập</span><input type="text" id="nu-user" autocomplete="off" autocapitalize="none" placeholder="vd: nguyen.van.a"></label>
+      <label class="field"><span>Họ tên</span><input type="text" id="nu-name" autocomplete="off"></label>
+      <label class="field"><span>Vai trò</span><select id="nu-role">${Object.entries(ROLE_NAMES).map(([k, n]) => `<option value="${k}" ${k === 'editor' ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+      <label class="field"><span>Mật khẩu tạm</span><input type="text" id="nu-pass" value="${genPassword()}" autocomplete="off" class="num"></label>
+    </div>
+    <p class="psub" style="margin:0">Chỉ xem: xem số liệu. Nhập liệu: thêm, sửa, xóa dự án và giao dịch. Quản trị: như Nhập liệu và quản lý tài khoản. Người mới phải đổi mật khẩu tạm ở lần đăng nhập đầu.</p>
+    <div class="err" id="us-err"></div>
+    <div class="dlg-foot"><span></span><button type="submit" class="btn primary">Tạo tài khoản</button></div>`;
+  const fail = er => $('#us-err').textContent = failMsg(er);
+  $('#us-close').onclick = () => dlg.close();
+  form.querySelectorAll('[data-role]').forEach(sel => sel.onchange = async () => {
+    try { await api('PATCH', 'users/' + encodeURIComponent(sel.dataset.role), {role: sel.value}); toast('Đã đổi vai trò'); } catch (er) { fail(er); openUsers(); }
+  });
+  form.querySelectorAll('[data-reset]').forEach(b => b.onclick = () => armButton(b, 'Bấm lần nữa để cấp', async () => {
+    const pw = genPassword(), u = b.dataset.reset;
+    try { await api('PATCH', 'users/' + encodeURIComponent(u), {password: pw}); openUsers(`Mật khẩu tạm mới của <b>${esc(u)}</b>: <code>${pw}</code><button type="button" class="btn sm" data-copy="${pw}">Chép</button><span class="psub">Gửi cho người dùng; họ sẽ phải đổi khi đăng nhập.</span>`); }
+    catch (er) { fail(er); }
+  }));
+  form.querySelectorAll('[data-active]').forEach(b => b.onclick = async () => {
+    try { await api('PATCH', 'users/' + encodeURIComponent(b.dataset.active), {active: b.dataset.v === '1'}); openUsers(); } catch (er) { fail(er); }
+  });
+  form.querySelectorAll('[data-del]').forEach(b => b.onclick = () => armButton(b, 'Xóa?', async () => {
+    try { await api('DELETE', 'users/' + encodeURIComponent(b.dataset.del)); toast('Đã xóa tài khoản'); openUsers(); } catch (er) { fail(er); }
+  }));
+  form.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyText(b.dataset.copy, b));
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const body = {username: $('#nu-user').value.trim().toLowerCase(), name: $('#nu-name').value.trim(), role: $('#nu-role').value, password: $('#nu-pass').value};
+    try { await api('POST', 'users', body); openUsers(`Đã tạo tài khoản <b>${esc(body.username)}</b> · mật khẩu tạm: <code>${esc(body.password)}</code><button type="button" class="btn sm" data-copy="${esc(body.password)}">Chép</button><span class="psub">Gửi cho người dùng cùng địa chỉ trang đăng nhập.</span>`); }
+    catch (er) { fail(er); }
+  };
+  if (!dlg.open) dlg.showModal();
+}
+dlg.addEventListener('close', () => { dlg.classList.remove('wide'); });
+
+(async () => {
+  try { S.me = await api('GET', 'me'); } catch { return; }
+  S.canWrite = S.me.role !== 'viewer';
+  renderUser();
+  await load(true);
+  if (S.me.mustChange) openPassword(true);
+})();
 // Hiện dải cảnh báo ở mọi môi trường không phải production
 fetch('api/info').then(r => r.json()).then(({env}) => {
   if (!env || env === 'production') return;

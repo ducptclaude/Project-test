@@ -1,0 +1,203 @@
+// Tài khoản đăng nhập: trang /login, phiên bằng cookie ký HMAC, phân quyền và quản lý người dùng.
+// Vai trò: viewer (chỉ xem) < editor (nhập liệu) < admin (nhập liệu + quản lý tài khoản).
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const express = require('express');
+
+const ROLES = { viewer: 1, editor: 2, admin: 3 };
+const COOKIE = 'stc_session';
+const SESSION_HOURS = Number(process.env.SESSION_HOURS) || 12;
+const USERNAME_RE = /^[a-z0-9._-]{3,32}$/;
+const PUBLIC_DIR = path.join(__dirname, 'public');
+
+let SECRET = process.env.SESSION_SECRET;
+if (!SECRET) {
+  SECRET = crypto.randomBytes(32).toString('hex');
+  console.warn('Chưa đặt SESSION_SECRET: mọi người sẽ phải đăng nhập lại mỗi khi máy chủ khởi động lại.');
+}
+
+/* ---------- mật khẩu ---------- */
+const scrypt = (pw, salt) => new Promise((ok, no) => crypto.scrypt(pw, salt, 64, (e, k) => e ? no(e) : ok(k)));
+async function hashPassword(pw) {
+  const salt = crypto.randomBytes(16);
+  return 'scrypt$' + salt.toString('hex') + '$' + (await scrypt(pw, salt)).toString('hex');
+}
+async function checkPassword(pw, stored) {
+  const [kind, salt, hash] = String(stored || '').split('$');
+  if (kind !== 'scrypt' || !salt || !hash) return false;
+  const a = await scrypt(pw, Buffer.from(salt, 'hex')), b = Buffer.from(hash, 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+const passwordProblem = pw => typeof pw !== 'string' || pw.length < 8 ? 'Mật khẩu cần ít nhất 8 ký tự.' : null;
+
+/* ---------- phiên đăng nhập ---------- */
+const sign = s => crypto.createHmac('sha256', SECRET).update(s).digest('base64url');
+function makeToken(user) {
+  const body = Buffer.from(JSON.stringify({ u: user.id, v: user.ver || 0, e: Date.now() + SESSION_HOURS * 3600e3 })).toString('base64url');
+  return body + '.' + sign(body);
+}
+function readToken(token) {
+  const [body, sig] = String(token || '').split('.');
+  if (!body || !sig) return null;
+  const want = Buffer.from(sign(body)), got = Buffer.from(sig);
+  if (want.length !== got.length || !crypto.timingSafeEqual(want, got)) return null;
+  try { const p = JSON.parse(Buffer.from(body, 'base64url').toString()); return p.e > Date.now() ? p : null; } catch { return null; }
+}
+const getCookie = (req, name) => {
+  for (const part of (req.headers.cookie || '').split(';')) {
+    const i = part.indexOf('='); if (i > 0 && part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return null;
+};
+function setSession(req, res, user) {
+  res.cookie(COOKIE, makeToken(user), { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: SESSION_HOURS * 3600e3, path: '/' });
+}
+
+// Chặn dò mật khẩu: tối đa 8 lần sai trong 15 phút cho mỗi địa chỉ IP + tên đăng nhập
+const fails = new Map();
+const failKey = (req, u) => req.ip + '|' + u;
+function tooMany(key) { const f = fails.get(key); return f && f.n >= 8 && f.until > Date.now(); }
+function addFail(key) {
+  const f = fails.get(key); const now = Date.now();
+  fails.set(key, f && f.until > now ? { n: f.n + 1, until: f.until } : { n: 1, until: now + 15 * 60e3 });
+  if (fails.size > 5000) for (const [k, v] of fails) if (v.until < now) fails.delete(k);
+}
+
+const publicUser = u => ({ username: u.id, name: u.name || u.id, role: u.role, active: u.active !== false, mustChange: !!u.mustChange, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt || null });
+
+module.exports = function (store, wrap) {
+  const router = express.Router();
+
+  async function currentUser(req) {
+    const t = readToken(getCookie(req, COOKIE));
+    if (!t) return null;
+    const u = await store.get('users', t.u);
+    return u && u.active !== false && (u.ver || 0) === t.v ? u : null;
+  }
+  async function activeAdmins() { return (await store.all('users')).filter(u => u.role === 'admin' && u.active !== false); }
+
+  /* trang đăng nhập và logo: không cần đăng nhập */
+  router.get('/login', async (req, res) => {
+    if (await currentUser(req).catch(() => null)) return res.redirect('./');
+    res.set('Cache-Control', 'no-store').sendFile(path.join(PUBLIC_DIR, 'login.html'));
+  });
+  router.use('/brand', express.static(path.join(PUBLIC_DIR, 'brand'), { maxAge: '1h', fallthrough: false }));
+  router.get('/api/brand', (req, res) => res.json({
+    logo: fs.existsSync(path.join(PUBLIC_DIR, 'brand', 'logo.png')),
+    company: process.env.BRAND_COMPANY || 'TAN MINH NHAN',
+    tagline: process.env.BRAND_TAGLINE || 'CORPORATION',
+    unit: process.env.BRAND_UNIT || 'BAN KIỂM SOÁT',
+    legalName: process.env.BRAND_LEGAL_NAME || 'Công ty Cổ phần Xây dựng Kiến trúc Tân Minh Nhân',
+    footer: process.env.BRAND_FOOTER || 'Produced by the Supervisory Board of Tan Minh Nhan Corporation®'
+  }));
+
+  // Các yêu cầu thay đổi dữ liệu phải gửi kèm X-Requested-With (chặn form giả mạo từ trang khác)
+  router.use('/api', (req, res, next) => {
+    if (req.method !== 'GET' && req.get('X-Requested-With') !== 'fetch') return res.status(403).json({ error: 'Yêu cầu không hợp lệ' });
+    next();
+  });
+
+  router.post('/api/login', express.json({ limit: '10kb' }), wrap(async (req, res) => {
+    const username = String(req.body?.username || '').trim().toLowerCase(), password = String(req.body?.password || '');
+    const key = failKey(req, username);
+    if (tooMany(key)) return res.status(429).json({ error: 'Bạn đã nhập sai quá nhiều lần. Hãy thử lại sau 15 phút.' });
+    const u = username && await store.get('users', username);
+    const ok = u && u.active !== false && await checkPassword(password, u.passHash);
+    if (!ok) { addFail(key); return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không đúng.' }); }
+    fails.delete(key);
+    const { id, ...data } = u;
+    await store.put('users', id, { ...data, lastLoginAt: new Date().toISOString() });
+    setSession(req, res, u);
+    res.json({ ok: true, mustChange: !!u.mustChange });
+  }));
+
+  router.post('/api/logout', (req, res) => { res.clearCookie(COOKIE, { path: '/' }); res.status(204).end(); });
+
+  /* từ đây trở đi cần đăng nhập */
+  const requireLogin = wrap(async (req, res, next) => {
+    const u = await currentUser(req);
+    if (u) { req.user = u; return next(); }
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Phiên đăng nhập đã hết hạn.' });
+    res.redirect(req.baseUrl + '/login');
+  });
+  const requireRole = role => (req, res, next) =>
+    (ROLES[req.user?.role] || 0) >= ROLES[role] ? next() : res.status(403).json({ error: 'Tài khoản của bạn không có quyền thao tác này.' });
+
+  const authed = express.Router();
+  authed.use(express.json({ limit: '10kb' }));
+
+  authed.get('/api/me', (req, res) => res.set('Cache-Control', 'no-store').json(publicUser(req.user)));
+
+  authed.post('/api/me/password', wrap(async (req, res) => {
+    const { current, next } = req.body || {};
+    if (!await checkPassword(String(current || ''), req.user.passHash)) return res.status(400).json({ error: 'Mật khẩu hiện tại không đúng.' });
+    const bad = passwordProblem(next); if (bad) return res.status(400).json({ error: bad });
+    const { id, ...data } = req.user;
+    const updated = { ...data, passHash: await hashPassword(next), ver: (data.ver || 0) + 1, mustChange: false };
+    await store.put('users', id, updated);
+    setSession(req, res, { id, ...updated });
+    res.status(204).end();
+  }));
+
+  const admin = requireRole('admin');
+  authed.get('/api/users', admin, wrap(async (req, res) => {
+    const list = (await store.all('users')).map(publicUser).sort((a, b) => a.username.localeCompare(b.username));
+    res.set('Cache-Control', 'no-store').json(list);
+  }));
+
+  authed.post('/api/users', admin, wrap(async (req, res) => {
+    const b = req.body || {}, username = String(b.username || '').trim().toLowerCase();
+    if (!USERNAME_RE.test(username)) return res.status(400).json({ error: 'Tên đăng nhập gồm 3–32 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang.' });
+    if (!ROLES[b.role]) return res.status(400).json({ error: 'Vai trò không hợp lệ.' });
+    const bad = passwordProblem(b.password); if (bad) return res.status(400).json({ error: bad });
+    if (await store.get('users', username)) return res.status(409).json({ error: 'Tên đăng nhập này đã có người dùng.' });
+    await store.put('users', username, {
+      name: String(b.name || '').trim().slice(0, 80) || username, role: b.role, active: true, ver: 0,
+      passHash: await hashPassword(b.password), mustChange: true, createdAt: new Date().toISOString(), createdBy: req.user.id
+    });
+    res.status(201).json({ ok: true });
+  }));
+
+  authed.patch('/api/users/:u', admin, wrap(async (req, res) => {
+    const u = await store.get('users', req.params.u);
+    if (!u) return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+    const b = req.body || {}, { id, ...data } = u;
+    if ('name' in b) data.name = String(b.name || '').trim().slice(0, 80) || id;
+    if ('role' in b) { if (!ROLES[b.role]) return res.status(400).json({ error: 'Vai trò không hợp lệ.' }); data.role = b.role; }
+    if ('active' in b) { data.active = !!b.active; if (!data.active) data.ver = (data.ver || 0) + 1; }
+    if ('password' in b) {
+      const bad = passwordProblem(b.password); if (bad) return res.status(400).json({ error: bad });
+      data.passHash = await hashPassword(b.password); data.ver = (data.ver || 0) + 1; data.mustChange = id !== req.user.id;
+    }
+    const losesAdmin = u.role === 'admin' && u.active !== false && (data.role !== 'admin' || data.active === false);
+    if (losesAdmin && (await activeAdmins()).length <= 1) return res.status(400).json({ error: 'Phải còn ít nhất một quản trị viên đang hoạt động.' });
+    await store.put('users', id, data);
+    if (id === req.user.id && 'password' in b) setSession(req, res, { id, ...data });
+    res.status(204).end();
+  }));
+
+  authed.delete('/api/users/:u', admin, wrap(async (req, res) => {
+    if (req.params.u === req.user.id) return res.status(400).json({ error: 'Bạn không thể tự xóa tài khoản của mình.' });
+    const u = await store.get('users', req.params.u);
+    if (!u) return res.status(204).end();
+    if (u.role === 'admin' && u.active !== false && (await activeAdmins()).length <= 1) return res.status(400).json({ error: 'Phải còn ít nhất một quản trị viên đang hoạt động.' });
+    await store.del('users', u.id);
+    res.status(204).end();
+  }));
+
+  // Tạo quản trị viên đầu tiên khi chưa có tài khoản nào (ADMIN_USERNAME / ADMIN_PASSWORD)
+  async function bootstrap() {
+    if ((await store.all('users')).length) return;
+    const username = String(process.env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
+    let password = process.env.ADMIN_PASSWORD || process.env.APP_PASSWORD, generated = false;
+    if (!password) { password = crypto.randomBytes(9).toString('base64url'); generated = true; }
+    await store.put('users', username, {
+      name: process.env.ADMIN_NAME || 'Quản trị viên', role: 'admin', active: true, ver: 0,
+      passHash: await hashPassword(password), mustChange: generated, createdAt: new Date().toISOString()
+    });
+    console.log(`Đã tạo tài khoản quản trị "${username}".` + (generated ? ` Mật khẩu tạm: ${password} (đổi ngay sau khi đăng nhập)` : ' Mật khẩu lấy từ ADMIN_PASSWORD.'));
+  }
+
+  return { router, requireLogin: [requireLogin, authed], requireRole, bootstrap };
+};

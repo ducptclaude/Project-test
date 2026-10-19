@@ -21,6 +21,10 @@ function postgresStore(url) {
         col text NOT NULL, id text NOT NULL, data jsonb NOT NULL,
         updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (col, id))`);
     },
+    async get(col, id) {
+      const r = await pool.query('SELECT data FROM records WHERE col = $1 AND id = $2', [col, id]);
+      return r.rows[0] ? { id, ...r.rows[0].data } : null;
+    },
     async all(col) {
       const r = await pool.query('SELECT id, data FROM records WHERE col = $1', [col]);
       return r.rows.map(x => ({ id: x.id, ...x.data }));
@@ -59,6 +63,7 @@ function fileStore(dir) {
       await fs.promises.mkdir(dir, { recursive: true });
       try { db = { meta: {}, ...JSON.parse(await fs.promises.readFile(file, 'utf8')) }; } catch (e) { if (e.code !== 'ENOENT') throw e; }
     },
+    async get(col, id) { const d = (db[col] || {})[id]; return d ? { id, ...d } : null; },
     async all(col) { return Object.entries(db[col] || {}).map(([id, d]) => ({ id, ...d })); },
     async put(col, id, data) { (db[col] ||= {})[id] = data; await save(); },
     async putMany(items) { for (const [col, id, data] of items) (db[col] ||= {})[id] = data; await save(); },
@@ -93,22 +98,15 @@ const app = express();
 app.disable('x-powered-by');
 app.get('/healthz', (req, res) => res.send('ok'));
 
-// Bảo vệ bằng mật khẩu khi đặt APP_PASSWORD (tên đăng nhập: APP_USER, mặc định "admin")
-const PASS = process.env.APP_PASSWORD, USER = process.env.APP_USER || 'admin';
-if (PASS) {
-  const eq = (a, b) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && crypto.timingSafeEqual(x, y); };
-  app.use((req, res, next) => {
-    const [scheme, token] = (req.headers.authorization || '').split(' ');
-    if (scheme === 'Basic' && token) {
-      const raw = Buffer.from(token, 'base64').toString(), i = raw.indexOf(':');
-      if (i >= 0 && eq(raw.slice(0, i), USER) && eq(raw.slice(i + 1), PASS)) return next();
-    }
-    res.set('WWW-Authenticate', 'Basic realm="So Tai Chinh Du An", charset="UTF-8"').status(401).send('Cần đăng nhập');
-  });
-}
-
 app.use(express.json({ limit: '100kb' }));
-const wrap = fn => (req, res) => fn(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'Lỗi máy chủ' }); });
+const wrap = fn => (req, res, next) => fn(req, res, next).catch(e => { console.error(e); res.status(500).json({ error: 'Lỗi máy chủ' }); });
+
+// Trang đăng nhập, logo và tài khoản (xem auth.js); mọi đường dẫn sau đây đều cần đăng nhập
+const auth = require('./auth')(store, wrap);
+app.set('trust proxy', 1);
+app.use(auth.router);
+app.use(auth.requireLogin);
+const canWrite = auth.requireRole('editor');
 
 // Tên môi trường: Railway tự đặt RAILWAY_ENVIRONMENT_NAME (production, staging…); APP_ENV ghi đè nếu cần
 const ENV_NAME = process.env.APP_ENV || process.env.RAILWAY_ENVIRONMENT_NAME || 'local';
@@ -119,7 +117,7 @@ app.get('/api/data', wrap(async (req, res) => {
   res.set('Cache-Control', 'no-store').json({ projects, transactions });
 }));
 
-app.delete('/api/sample', wrap(async (req, res) => { await store.delSample(); res.status(204).end(); }));
+app.delete('/api/sample', canWrite, wrap(async (req, res) => { await store.delSample(); res.status(204).end(); }));
 
 function check(req, res) {
   const { col, id } = req.params;
@@ -133,22 +131,23 @@ function valid(col, d) {
     && /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') && Number.isFinite(d.amount) && d.amount > 0;
 }
 
-app.put('/api/:col/:id', wrap(async (req, res) => {
+app.put('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (!check(req, res)) return;
   if (!valid(req.params.col, req.body)) return res.status(400).json({ error: 'Dữ liệu không hợp lệ' });
   await store.put(req.params.col, req.params.id, req.body);
   res.status(204).end();
 }));
 
-app.delete('/api/:col/:id', wrap(async (req, res) => {
+app.delete('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (!check(req, res)) return;
   await store.del(req.params.col, req.params.id);
   res.status(204).end();
 }));
 
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m' }));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m', index: 'index.html' }));
 
 store.init()
   .then(seedOnce)
+  .then(auth.bootstrap)
   .then(() => app.listen(PORT, () => console.log(`Sổ Tài Chính Dự Án [${ENV_NAME}] chạy ở cổng ${PORT}, lưu dữ liệu vào ${store.kind}`)))
   .catch(e => { console.error('Không khởi động được:', e); process.exit(1); });

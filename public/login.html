@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Đăng nhập · Sổ Tài Chính Dự Án</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+<style>
+/* Một thẻ đăng nhập trắng giữa nền xanh dương chuyển sắc; nhận diện theo thương hiệu Tân Minh Nhân */
+:root{
+  --navy:#1E3A6E; --navy-deep:#16305C; --teal:#12A3A0; --red:#E3262E;
+  --ink:#1E3A6E; --muted:#5F6F86; --field:#F7F9FC; --line:#DCE3EC; --card:#FFFFFF;
+  --font:"Montserrat",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{min-height:100%;background:#1E3A72}
+body{
+  margin:0;font-family:var(--font);color:var(--ink);
+  background:
+    radial-gradient(1200px 700px at 8% 25%, rgba(48,118,140,.55), transparent 60%),
+    radial-gradient(900px 700px at 95% 85%, rgba(86,150,200,.55), transparent 60%),
+    linear-gradient(135deg,#1F4A72 0%,#1E3A72 45%,#245A8C 100%);
+  background-attachment:fixed;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
+  min-height:100vh;
+  padding-block:32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.card{background:var(--card);border-radius:22px;width:min(440px,100%);padding:36px 34px 30px;box-shadow:0 30px 80px rgba(8,22,50,.35);display:flex;flex-direction:column;gap:22px}
+.brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px}
+.brand img{max-width:220px;max-height:150px;height:auto}
+.mark{width:92px;height:92px;position:relative;display:grid;place-items:center;margin-bottom:6px}
+.mark::before{content:"";position:absolute;inset:14px;border:5px solid var(--red);transform:rotate(45deg);border-radius:3px}
+.mark span{position:relative;font-weight:800;font-size:22px;color:var(--navy);letter-spacing:-.04em}
+.company{font-weight:800;font-size:26px;color:var(--red);letter-spacing:-.01em;line-height:1.1}
+.company sup{font-size:9px;color:var(--navy);vertical-align:super;margin-left:1px}
+.tagline{font-weight:500;font-size:11.5px;letter-spacing:.42em;color:var(--navy);margin-right:-.42em}
+.unit{font-weight:800;font-size:23px;color:var(--navy);margin-top:14px;letter-spacing:.01em}
+.legal{font-size:14.5px;color:var(--muted);line-height:1.4;max-width:30ch;text-wrap:balance}
+form{display:flex;flex-direction:column;gap:16px}
+label{display:flex;flex-direction:column;gap:8px;font-weight:600;font-size:13.5px;color:#475A75}
+input{font:inherit;font-size:15px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-height:46px;width:100%}
+input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(18,163,160,.18);background:#fff}
+.pw{position:relative}
+.pw input{padding-right:64px}
+.pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:6px 8px;cursor:pointer;border-radius:6px}
+.submit{margin-top:6px;border:0;border-radius:10px;min-height:50px;font:inherit;font-weight:700;font-size:16px;color:#fff;cursor:pointer;
+  background:linear-gradient(90deg,var(--navy-deep) 0%,#1A5A80 50%,var(--teal) 100%);box-shadow:0 10px 24px rgba(18,120,150,.28);transition:filter .15s,transform .15s}
+.submit:hover{filter:brightness(1.08)}
+.submit:active{transform:translateY(1px)}
+.submit:disabled{opacity:.7;cursor:wait}
+.err{min-height:1.2em;margin:0;color:#C42B2B;font-size:13px;font-weight:500;text-align:center}
+.help{margin:0;text-align:center;color:var(--muted);font-size:13px}
+.foot{color:rgba(255,255,255,.88);font-size:13px;font-weight:600;text-align:center;letter-spacing:.01em}
+.env{position:fixed;top:0;left:0;right:0;background:repeating-linear-gradient(-45deg,#A86A10 0 14px,#8a560c 14px 28px);color:#fff;font-size:12px;font-weight:700;text-align:center;padding:5px 16px}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+@media (max-width:420px){.card{padding:28px 20px 24px}.company{font-size:22px}.unit{font-size:20px}}
+@media (prefers-reduced-motion:reduce){.submit{transition:none}}
+</style>
+</head>
+<body>
+<div class="env" id="env" hidden></div>
+<main class="card">
+  <div class="brand" id="brand">
+    <div class="mark" aria-hidden="true"><span>TMN</span></div>
+    <div class="company" id="b-company">TAN MINH NHAN<sup>®</sup></div>
+    <div class="tagline" id="b-tagline">CORPORATION</div>
+  </div>
+  <div class="brand" style="gap:4px;margin-top:-12px">
+    <div class="unit" id="b-unit">BAN KIỂM SOÁT</div>
+    <div class="legal" id="b-legal">Công ty Cổ phần Xây dựng Kiến trúc Tân Minh Nhân</div>
+  </div>
+  <form id="f" novalidate>
+    <label for="u">Tên đăng nhập<input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <label for="p">Mật khẩu<span class="pw"><input id="p" name="password" type="password" autocomplete="current-password" required><button type="button" id="show" aria-label="Hiện mật khẩu">Hiện</button></span></label>
+    <button class="submit" id="go" type="submit">Đăng nhập</button>
+    <p class="err" id="err" role="alert"></p>
+  </form>
+  <p class="help">Quên mật khẩu? Liên hệ quản trị viên để được cấp lại.</p>
+</main>
+<div class="foot" id="b-footer">Produced by the Supervisory Board of Tan Minh Nhan Corporation®</div>
+<script>
+const $ = s => document.querySelector(s);
+fetch('api/brand').then(r => r.json()).then(b => {
+  if (b.logo) $('#brand').innerHTML = `<img src="brand/logo.png" alt="">`;
+  else { $('#b-company').firstChild.textContent = b.company; $('#b-tagline').textContent = b.tagline; }
+  $('#brand img')?.setAttribute('alt', b.company + ' ' + b.tagline);
+  $('#b-unit').textContent = b.unit; $('#b-legal').textContent = b.legalName; $('#b-footer').textContent = b.footer;
+}).catch(() => {});
+fetch('api/info').then(r => r.ok ? r.json() : null).then(i => {
+  if (i && i.env && i.env !== 'production') { $('#env').textContent = `MÔI TRƯỜNG THỬ NGHIỆM (${i.env})`; $('#env').hidden = false; }
+}).catch(() => {});
+$('#show').onclick = () => { const p = $('#p'), s = p.type === 'password'; p.type = s ? 'text' : 'password'; $('#show').textContent = s ? 'Ẩn' : 'Hiện'; };
+$('#f').onsubmit = async e => {
+  e.preventDefault();
+  const username = $('#u').value.trim(), password = $('#p').value;
+  if (!username || !password) { $('#err').textContent = 'Nhập tên đăng nhập và mật khẩu.'; return; }
+  $('#go').disabled = true; $('#go').textContent = 'Đang đăng nhập…'; $('#err').textContent = '';
+  try {
+    const r = await fetch('api/login', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'fetch'}, body: JSON.stringify({username, password})});
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Không đăng nhập được.');
+    location.replace('./');
+  } catch (er) {
+    $('#err').textContent = er.message === 'Failed to fetch' ? 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.' : er.message;
+    $('#go').disabled = false; $('#go').textContent = 'Đăng nhập'; $('#p').select();
+  }
+};
+$('#u').focus();
+</script>
+</body>
+</html>
