@@ -151,5 +151,9 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m', index: 'i
 store.init()
   .then(seedOnce)
   .then(auth.bootstrap)
-  .then(() => app.listen(PORT, () => console.log(`Sổ Tài Chính Dự Án [${ENV_NAME}] chạy ở cổng ${PORT}, lưu dữ liệu vào ${store.kind}`)))
+  .then(() => app.listen(PORT, () => {
+    // Railway tự đặt RAILWAY_GIT_BRANCH / RAILWAY_GIT_COMMIT_SHA: cho biết bản code nào đang chạy
+    const src = process.env.RAILWAY_GIT_COMMIT_SHA ? ` · mã nguồn ${process.env.RAILWAY_GIT_BRANCH || '?'}@${process.env.RAILWAY_GIT_COMMIT_SHA.slice(0, 7)}` : '';
+    console.log(`Sổ Tài Chính Dự Án [${ENV_NAME}] chạy ở cổng ${PORT}, lưu dữ liệu vào ${store.kind}${src}`);
+  }))
   .catch(e => { console.error('Không khởi động được:', e); process.exit(1); });

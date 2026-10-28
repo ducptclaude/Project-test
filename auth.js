@@ -185,32 +185,46 @@ module.exports = function (store, wrap) {
     res.status(204).end();
   }));
 
-  // Tạo quản trị viên đầu tiên khi chưa có tài khoản nào (ADMIN_USERNAME / ADMIN_PASSWORD).
-  // ADMIN_RESET=true: mỗi lần khởi động, đặt lại (hoặc tạo) tài khoản ADMIN_USERNAME với ADMIN_PASSWORD,
-  // quyền Quản trị, mở khóa và đăng xuất mọi phiên cũ của tài khoản đó. Dùng xong phải xóa biến.
+  // Khởi tạo và khôi phục tài khoản quản trị khi máy chủ khởi động (giá trị biến được cắt khoảng trắng):
+  // - chưa có tài khoản nào: tạo ADMIN_USERNAME (mặc định admin) với ADMIN_PASSWORD, hoặc mật khẩu tạm in ra log;
+  // - ADMIN_RESET=true: đặt lại (hoặc tạo) tài khoản ADMIN_USERNAME với ADMIN_PASSWORD, quyền Quản trị, đăng xuất phiên cũ;
+  // - ADMIN_RESET=all: xóa MỌI tài khoản rồi tạo lại đúng một quản trị viên như trên.
+  // Biến sai thì ghi lỗi vào log và bỏ qua, không làm sập máy chủ. Dùng xong phải xóa ADMIN_RESET.
   async function bootstrap() {
-    const username = String(process.env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
-    if (process.env.ADMIN_RESET === 'true') {
-      const password = process.env.ADMIN_PASSWORD;
-      if (!USERNAME_RE.test(username)) throw new Error('ADMIN_USERNAME không hợp lệ: 3–32 ký tự chữ không dấu, số, dấu chấm, gạch dưới, gạch ngang.');
-      const bad = passwordProblem(password); if (bad) throw new Error('ADMIN_RESET cần ADMIN_PASSWORD hợp lệ. ' + bad);
-      const old = await store.get('users', username);
-      const { id, ...data } = old || { createdAt: new Date().toISOString() };
-      await store.put('users', username, {
-        ...data, name: process.env.ADMIN_NAME || data.name || 'Quản trị viên', role: 'admin', active: true,
-        passHash: await hashPassword(password), ver: (data.ver || 0) + 1, mustChange: false
-      });
-      console.warn(`ADMIN_RESET: đã ${old ? 'đặt lại' : 'tạo'} tài khoản quản trị "${username}" với mật khẩu từ ADMIN_PASSWORD. Hãy xóa biến ADMIN_RESET ngay.`);
-      return;
+    const env = k => String(process.env[k] ?? '').trim();
+    const username = (env('ADMIN_USERNAME') || 'admin').toLowerCase();
+    const mode = env('ADMIN_RESET').toLowerCase();
+    const resetOne = ['true', '1', 'yes', 'on'].includes(mode), resetAll = mode === 'all';
+    if (mode && !resetOne && !resetAll) console.error(`ADMIN_RESET="${mode}" không hợp lệ: dùng true (đặt lại một tài khoản) hoặc all (xóa mọi tài khoản rồi tạo lại).`);
+    if (resetOne || resetAll) {
+      const password = env('ADMIN_PASSWORD');
+      const bad = !USERNAME_RE.test(username) ? `ADMIN_USERNAME "${username}" không hợp lệ: 3–32 ký tự chữ không dấu, số, dấu chấm, gạch dưới, gạch ngang.`
+        : !password ? 'Chưa đặt ADMIN_PASSWORD.' : passwordProblem(password);
+      if (bad) console.error('ADMIN_RESET bị bỏ qua: ' + bad);
+      else {
+        let removed = 0;
+        if (resetAll) for (const u of await store.all('users')) { await store.del('users', u.id); removed++; }
+        const old = resetAll ? null : await store.get('users', username);
+        const { id, ...data } = old || { createdAt: new Date().toISOString() };
+        await store.put('users', username, {
+          ...data, name: env('ADMIN_NAME') || data.name || 'Quản trị viên', role: 'admin', active: true,
+          passHash: await hashPassword(password), ver: (data.ver || 0) + 1, mustChange: false
+        });
+        console.warn(`ADMIN_RESET: ${resetAll ? `đã xóa ${removed} tài khoản cũ và tạo` : old ? 'đã đặt lại' : 'đã tạo'} tài khoản quản trị "${username}" (mật khẩu ${password.length} ký tự, lấy từ ADMIN_PASSWORD). Hãy xóa biến ADMIN_RESET ngay.`);
+      }
     }
-    if ((await store.all('users')).length) return;
-    let password = process.env.ADMIN_PASSWORD || process.env.APP_PASSWORD, generated = false;
-    if (!password) { password = crypto.randomBytes(9).toString('base64url'); generated = true; }
-    await store.put('users', username, {
-      name: process.env.ADMIN_NAME || 'Quản trị viên', role: 'admin', active: true, ver: 0,
-      passHash: await hashPassword(password), mustChange: generated, createdAt: new Date().toISOString()
-    });
-    console.log(`Đã tạo tài khoản quản trị "${username}".` + (generated ? ` Mật khẩu tạm: ${password} (đổi ngay sau khi đăng nhập)` : ' Mật khẩu lấy từ ADMIN_PASSWORD.'));
+    if (!(await store.all('users')).length) {
+      let password = env('ADMIN_PASSWORD') || env('APP_PASSWORD'), generated = false;
+      if (passwordProblem(password)) { password = crypto.randomBytes(9).toString('base64url'); generated = true; }
+      await store.put('users', username, {
+        name: env('ADMIN_NAME') || 'Quản trị viên', role: 'admin', active: true, ver: 0,
+        passHash: await hashPassword(password), mustChange: generated, createdAt: new Date().toISOString()
+      });
+      console.log(`Đã tạo tài khoản quản trị "${username}".` + (generated ? ` Mật khẩu tạm: ${password} (đổi ngay sau khi đăng nhập)` : ' Mật khẩu lấy từ ADMIN_PASSWORD.'));
+    }
+    const users = await store.all('users');
+    const admins = users.filter(u => u.role === 'admin' && u.active !== false).map(u => u.id);
+    console.log(`Tài khoản: ${users.length} · quản trị viên đang hoạt động: ${admins.join(', ') || '(không có)'}`);
   }
 
   return { router, requireLogin: [requireLogin, authed], requireRole, bootstrap };

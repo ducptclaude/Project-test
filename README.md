@@ -50,7 +50,7 @@ Sau đó vào service vừa tạo trên railway.com:
 | `ADMIN_NAME` | Họ tên hiển thị của quản trị viên đầu tiên. |
 | `SESSION_SECRET` | Khóa ký phiên đăng nhập (chuỗi ngẫu nhiên ≥ 32 ký tự). Mỗi môi trường một giá trị khác nhau. |
 | `SESSION_HOURS` | Thời gian giữ đăng nhập, mặc định 12 giờ. |
-| `ADMIN_RESET` | Đặt `true` để khôi phục hoặc đổi tài khoản quản trị (xem bên dưới). **Xóa ngay sau khi dùng.** |
+| `ADMIN_RESET` | `true`: đặt lại hoặc tạo tài khoản `ADMIN_USERNAME`. `all`: xóa mọi tài khoản rồi tạo lại một quản trị viên (dữ liệu dự án giữ nguyên). **Xóa ngay sau khi dùng.** |
 | `BRAND_NAME` | Tên ứng dụng trên thanh bên và trang đăng nhập (mặc định `Sổ Tài Chính Dự Án`). |
 | `BRAND_ORG` | Tên đơn vị hoặc công ty hiện dưới tên ứng dụng (mặc định để trống). |
 | `BRAND_TAGLINE`, `BRAND_FOOTER` | Câu giới thiệu và dòng chân trang trên trang đăng nhập (tùy chọn). |
@@ -86,7 +86,7 @@ Quy trình: sửa trên nhánh `staging` → Railway tự deploy bản thử →
 1. Trên Railway, vào **Variables** của môi trường cần khôi phục và đặt:
    - `ADMIN_USERNAME`: tên đăng nhập muốn dùng (tên cũ để đặt lại mật khẩu, tên mới để tạo thêm quản trị viên)
    - `ADMIN_PASSWORD`: mật khẩu mới, ít nhất 8 ký tự
-   - `ADMIN_RESET` = `true`
+   - `ADMIN_RESET` = `true` (chỉ tài khoản này) hoặc `all` (xóa mọi tài khoản cũ, dữ liệu dự án giữ nguyên)
 2. Đợi deploy xong. Deploy Logs có dòng `ADMIN_RESET: đã đặt lại…` hoặc `ADMIN_RESET: đã tạo…`. Mọi phiên đăng nhập cũ của tài khoản đó bị đăng xuất.
 3. Đăng nhập bằng tài khoản vừa đặt, rồi **xóa biến `ADMIN_RESET`**. Nếu để nguyên, mỗi lần deploy mật khẩu sẽ bị đặt lại.
 4. Tài khoản quản trị cũ không bị xóa; muốn bỏ thì vào **Quản lý tài khoản** để khóa hoặc xóa.

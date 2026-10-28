@@ -116,8 +116,29 @@ const restartChecks = [
       assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'MatKhauMoi9' })).status, 200);
     } finally { await stop(srv); }
   }],
-  ['ADMIN_RESET từ chối mật khẩu quá ngắn', async () => {
-    await assert.rejects(start({ ADMIN_RESET: 'true', ADMIN_PASSWORD: '123' }));
+  ['ADMIN_RESET với mật khẩu quá ngắn: bỏ qua, máy chủ vẫn chạy', async () => {
+    const srv = await start({ ADMIN_RESET: 'true', ADMIN_PASSWORD: '123' });
+    try {
+      assert.match(srv.log, /ADMIN_RESET bị bỏ qua/);
+      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'MatKhauMoi9' })).status, 200);
+    } finally { await stop(srv); }
+  }],
+  ['ADMIN_RESET chấp nhận " TRUE " và cắt khoảng trắng của mật khẩu', async () => {
+    const srv = await start({ ADMIN_RESET: ' TRUE ', ADMIN_USERNAME: ' Admin ', ADMIN_PASSWORD: ' CoKhoangTrang1 \n' });
+    try { assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'CoKhoangTrang1' })).status, 200); }
+    finally { await stop(srv); }
+  }],
+  ['ADMIN_RESET=all xóa mọi tài khoản và tạo lại một quản trị viên', async () => {
+    const srv = await start({ ADMIN_RESET: 'all', ADMIN_USERNAME: 'chu.du.an', ADMIN_PASSWORD: 'KhoiTao2026' });
+    try {
+      assert.match(srv.log, /quản trị viên đang hoạt động: chu\.du\.an\n/);
+      assert.equal((await client()('POST', '/api/login', { username: 'nhap', password: 'Nhap12345' })).status, 401);
+      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'CoKhoangTrang1' })).status, 401);
+      const c = client();
+      assert.equal((await c('POST', '/api/login', { username: 'chu.du.an', password: 'KhoiTao2026' })).status, 200);
+      assert.equal((await c('GET', '/api/users')).json.length, 1);
+      assert.ok((await c('GET', '/api/data')).json.projects.length > 0, 'dữ liệu dự án phải còn nguyên');
+    } finally { await stop(srv); }
   }]
 ];
 
