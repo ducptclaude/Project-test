@@ -177,6 +177,29 @@ tbody tr.link:hover{background:var(--sunk)}
 .meter>i{display:block;height:100%;border-radius:4px;background:var(--grad)}
 .meter.warn>i{background:var(--warn-fill)} .meter.bad>i{background:var(--bad-fill)} .meter.rev>i{background:var(--rev)} .meter.exp>i{background:var(--exp)}
 .actions{display:flex;gap:6px;justify-content:flex-end}
+.entry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+@media (max-width:900px){.entry-grid{grid-template-columns:minmax(0,1fr)}}
+.entry .e-head{display:flex;align-items:center;gap:12px}
+.entry .e-icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none}
+.entry.in .e-icon{background:var(--rev-soft);color:var(--rev-ink)}
+.entry.out .e-icon{background:var(--exp-soft);color:var(--exp-ink)}
+.entry .e-head p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+.entry .form input,.entry .form select{width:100%}
+.amount-wrap{position:relative}
+.amount-wrap input{font-size:20px;font-weight:800;min-height:52px;padding-right:58px}
+.amount-wrap .unit{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--muted)}
+.qcats{display:flex;flex-wrap:wrap;gap:6px}
+.qcat{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;min-height:30px}
+.qcat:hover{border-color:var(--muted);color:var(--ink)}
+.qcat[aria-pressed="true"]{border-color:transparent}
+.entry.in .qcat[aria-pressed="true"]{background:var(--rev-soft);color:var(--rev-ink)}
+.entry.out .qcat[aria-pressed="true"]{background:var(--exp-soft);color:var(--exp-ink)}
+.entry .err{margin:-6px 0 0}
+.entry .err:empty{display:none}
+.entry .save{width:100%;min-height:48px;font-size:15px}
+.entry.out .save{background:linear-gradient(90deg,#16305C 0%,#8A4A2A 60%,#E07B39 100%)}
+.today{font-size:13px;color:var(--muted)}
+.today b{color:var(--ink)}
 .pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted)}
 
 /* danh sách dạng thẻ cho điện thoại */
@@ -321,6 +344,7 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
     <nav class="side-nav" aria-label="Điều hướng chính">
       <button class="nav" data-view="overview" title="Tổng quan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="lbl">Tổng quan</span></button>
       <button class="nav" data-view="project" title="Dự án"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg><span class="lbl">Dự án</span></button>
+      <button class="nav" data-view="entry" title="Nhập liệu" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span class="lbl">Nhập liệu</span></button>
       <button class="nav" data-view="journal" title="Sổ giao dịch"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M9 9v11"/></svg><span class="lbl">Sổ giao dịch</span></button>
     </nav>
     <div class="userbox" id="userbox" hidden>
@@ -351,7 +375,7 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
 <nav class="tabbar" aria-label="Điều hướng nhanh">
   <button class="tb" data-view="overview"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Tổng quan</button>
   <button class="tb" data-view="project"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg>Dự án</button>
-  <button class="tb-new" id="tb-new" aria-label="Ghi giao dịch"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="tb-new" id="tb-new" aria-label="Nhập liệu thu chi"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
   <button class="tb" data-view="journal"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M9 9v11"/></svg>Sổ giao dịch</button>
 </nav>
 
@@ -401,7 +425,8 @@ const S = {
   mode: 'loading', projects: [], txs: [], canWrite: false, me: null,
   view: store.get('view', 'overview'), projectId: store.get('project', null),
   year: store.get('year', String(new Date().getFullYear())), period: store.get('period', 'all'),
-  jf: {project: '', type: '', q: ''}, jpage: 0, psort: store.get('psort', 'code')
+  jf: {project: '', type: '', q: ''}, jpage: 0, psort: store.get('psort', 'code'),
+  entry: {in: {projectId: null, date: null}, out: {projectId: null, date: null}}
 };
 
 
@@ -436,13 +461,15 @@ async function put(col, id, data) {
   await retry(() => api('PUT', col + '/' + encodeURIComponent(id), data));
   const list = col === 'projects' ? S.projects : S.txs, i = list.findIndex(x => x.id === id);
   if (i >= 0) list[i] = {id, ...data}; else list.push({id, ...data});
-  render();
+  refresh();
 }
 async function del(col, id) {
   await retry(() => api('DELETE', col + '/' + encodeURIComponent(id)));
   if (col === 'projects') S.projects = S.projects.filter(x => x.id !== id); else S.txs = S.txs.filter(x => x.id !== id);
-  render();
+  refresh();
 }
+// Ở màn Nhập liệu chỉ vẽ lại danh sách vừa nhập để không xóa những gì đang gõ dở trong ô nhập
+const refresh = () => S.view === 'entry' && $('#entry-recent') ? renderEntryRecent() : render();
 const strip = o => { const {id, ...rest} = o; return rest; };
 
 /* ---------- derived numbers ---------- */
@@ -501,7 +528,7 @@ const projectName = id => S.projects.find(p => p.id === id)?.name || 'Dự án �
 const sortedProjects = () => [...S.projects].sort((a, b) => (a.code || '').localeCompare(b.code || '', 'vi'));
 
 /* ---------- render ---------- */
-const VIEW_TITLES = {overview: 'Tổng quan tài chính', project: 'Chi tiết dự án', journal: 'Sổ giao dịch'};
+const VIEW_TITLES = {overview: 'Tổng quan tài chính', project: 'Chi tiết dự án', entry: 'Nhập liệu thu chi', journal: 'Sổ giao dịch'};
 const PAGE_SIZE = 50;
 const PSORTS = {
   code: ['Mã dự án', (a, b) => (a.p.code || '').localeCompare(b.p.code || '', 'vi')],
@@ -510,16 +537,19 @@ const PSORTS = {
   used: ['Dùng ngân sách nhiều nhất', (a, b) => b.h.used - a.h.used]
 };
 function render() {
+  if (S.view === 'entry' && !S.canWrite && S.mode !== 'loading') S.view = 'overview';
+  document.querySelectorAll('[data-view="entry"]').forEach(b => b.hidden = !S.canWrite);
   document.querySelectorAll('[data-view]').forEach(b => b.dataset.view === S.view ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
-  $('#ph-eyebrow').textContent = (S.view === 'overview' ? 'Danh mục dự án · ' : '') + periodLabel();
+  $('#ph-eyebrow').textContent = S.view === 'entry' ? 'Ghi doanh thu và chi phí theo dự án' : (S.view === 'overview' ? 'Danh mục dự án · ' : '') + periodLabel();
   $('#ph-title').textContent = VIEW_TITLES[S.view];
   renderNotice(); renderFilters();
   $('#btn-new-project').hidden = $('#btn-new-tx').hidden = $('#tb-new').hidden = !S.canWrite;
   $('#btn-new-tx').disabled = $('#tb-new').disabled = !S.projects.length;
   if (S.mode === 'loading') return;
   const main = $('#main');
-  main.innerHTML = S.view === 'overview' ? viewOverview() : S.view === 'project' ? viewProject() : viewJournal();
+  main.innerHTML = S.view === 'overview' ? viewOverview() : S.view === 'project' ? viewProject() : S.view === 'entry' ? viewEntry() : viewJournal();
   if (S.view === 'journal') renderJournalTable();
+  if (S.view === 'entry') renderEntryRecent();
   drawCharts();
 }
 function renderNotice() {
@@ -676,6 +706,69 @@ function viewProject() {
       <section class="panel"><div class="panel-head"><h2>Giao dịch gần đây</h2>${txs.length > 10 ? `<button class="link-btn" data-act="journal-of" data-id="${esc(p.id)}">Xem cả ${txs.length} giao dịch trong sổ →</button>` : ''}</div>${txTable(txs, false, 10)}</section>
     </div>
   </div>`;
+}
+
+/* ---------- nhập liệu thu chi ---------- */
+const ENTRY = {
+  in: {title: 'Ghi doanh thu', lead: 'Khoản tiền thu về: tạm ứng, nghiệm thu, quyết toán…', save: 'Lưu khoản thu',
+    icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>'},
+  out: {title: 'Ghi chi phí', lead: 'Khoản tiền chi ra: nhân công, vật tư, thầu phụ…', save: 'Lưu khoản chi',
+    icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>'}
+};
+function entryForm(type) {
+  const e = ENTRY[type], st = S.entry[type], list = sortedProjects();
+  const pid = list.some(p => p.id === st.projectId) ? st.projectId : (list.find(p => p.status === 'active') || list[0]).id;
+  const id = k => `e-${type}-${k}`;
+  return `<form class="panel entry ${type}" data-entry="${type}" novalidate>
+    <div class="e-head"><span class="e-icon">${e.icon}</span><div><h2>${e.title}</h2><p>${e.lead}</p></div></div>
+    <div class="form">
+      <label class="field full"><span>Dự án</span><select id="${id('project')}">${list.map(p => `<option value="${esc(p.id)}"${p.id === pid ? ' selected' : ''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select></label>
+      <label class="field full"><span>Số tiền <b class="num" data-hint="${id('amount')}" style="text-transform:none;letter-spacing:0"></b></span>
+        <span class="amount-wrap"><input type="text" inputmode="numeric" id="${id('amount')}" data-money placeholder="0" autocomplete="off"><span class="unit">₫</span></span></label>
+      <label class="field"><span>Ngày</span><input type="date" id="${id('date')}" value="${esc(st.date || today())}"></label>
+      <label class="field"><span>Hạng mục</span><input type="text" id="${id('cat')}" list="${id('cats')}" placeholder="Chọn hoặc gõ mới" autocomplete="off"><datalist id="${id('cats')}">${CATS[type].map(c => `<option value="${esc(c)}">`).join('')}</datalist></label>
+      <div class="qcats full" aria-label="Chọn nhanh hạng mục">${CATS[type].slice(0, 6).map(c => `<button type="button" class="qcat" data-qcat="${esc(c)}" aria-pressed="false">${esc(c)}</button>`).join('')}</div>
+      <label class="field full"><span>Diễn giải</span><input type="text" id="${id('note')}" placeholder="${type === 'in' ? 'Ví dụ: Thanh toán đợt 2 theo biên bản nghiệm thu' : 'Ví dụ: Thép hình đợt 4, hóa đơn số 0012'}" autocomplete="off"></label>
+    </div>
+    <p class="err" id="${id('err')}"></p>
+    <button type="submit" class="btn primary save">${e.save}</button>
+  </form>`;
+}
+function viewEntry() {
+  if (!S.projects.length) return emptyState();
+  return `<div class="stack">
+    <div class="entry-grid">${entryForm('in')}${entryForm('out')}</div>
+    <section class="panel" id="entry-recent"></section>
+  </div>`;
+}
+function renderEntryRecent() {
+  const el = $('#entry-recent'); if (!el) return;
+  const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+  const todays = S.txs.filter(t => (t.createdAt || 0) >= t0.getTime()), st = sum(todays);
+  const recent = [...S.txs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 10);
+  el.innerHTML = `<div class="panel-head"><h2>Vừa nhập</h2>
+      <span class="today">Hôm nay: <b class="num">${todays.length}</b> khoản · thu <b class="num c-rev">${short(st.rev)}</b> · chi <b class="num c-exp">${short(st.exp)}</b></span></div>
+    ${recent.length ? txTable(recent, true, 10) : '<p class="muted" style="margin:0">Chưa có giao dịch nào.</p>'}
+    <div><button class="link-btn" data-view-go="journal">Mở sổ giao dịch đầy đủ →</button></div>`;
+}
+async function saveEntry(f) {
+  const type = f.dataset.entry, v = k => $(`#e-${type}-${k}`).value.trim(), err = $(`#e-${type}-err`);
+  const data = {projectId: v('project'), type, date: v('date'), category: v('cat') || 'Khác', amount: parseMoney(v('amount')), note: v('note'), createdAt: Date.now()};
+  if (!data.amount) { err.textContent = 'Nhập số tiền lớn hơn 0.'; $(`#e-${type}-amount`).focus(); return; }
+  if (!data.date) { err.textContent = 'Chọn ngày phát sinh.'; return; }
+  err.textContent = '';
+  const btn = f.querySelector('.save'); btn.disabled = true;
+  try {
+    await put('transactions', uid(), data);
+    S.entry[type] = {projectId: data.projectId, date: data.date};
+    ['amount', 'note', 'cat'].forEach(k => $(`#e-${type}-${k}`).value = '');
+    f.querySelector(`[data-hint="e-${type}-amount"]`).textContent = '';
+    f.querySelectorAll('.qcat').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    const p = S.projects.find(x => x.id === data.projectId);
+    toast(`Đã ghi khoản ${type === 'in' ? 'thu' : 'chi'} ${vnd(data.amount)} · ${p ? p.code : ''}`);
+    $(`#e-${type}-amount`).focus();
+  } catch (er) { err.textContent = failMsg(er); }
+  finally { btn.disabled = false; }
 }
 
 // Bảng giao dịch: bảng đầy đủ trên máy tính, danh sách gọn trên điện thoại; tổng ở chân tính trên toàn bộ txs
@@ -896,7 +989,7 @@ function setSlim(slim) {
 }
 setSlim(store.get('slim', true));
 $('#side-toggle').onclick = () => { const slim = !$('.app').classList.contains('slim'); store.set('slim', slim); setSlim(slim); };
-$('#tb-new').onclick = () => openTx(null, S.view === 'project' ? S.projectId : null);
+$('#tb-new').onclick = () => { if (S.view === 'project') S.entry.in.projectId = S.entry.out.projectId = S.projectId; S.view = 'entry'; store.set('view', S.view); render(); window.scrollTo({top: 0}); };
 $('#f-year').onchange = e => { S.year = e.target.value; S.jpage = 0; store.set('year', S.year); render(); };
 $('#f-period').onchange = e => { S.period = e.target.value; S.jpage = 0; store.set('period', S.period); render(); };
 $('#btn-new-project').onclick = () => openProject(null);
@@ -917,7 +1010,13 @@ $('#main').addEventListener('click', e => {
   if (pg && !pg.disabled) { S.jpage = +pg.dataset.page; renderJournalTable(); $('#j-table').scrollIntoView({block: 'start'}); return; }
   if (open || pick) { S.projectId = (open || pick).dataset.open || (open || pick).dataset.pick; store.set('project', S.projectId); S.view = 'project'; render(); window.scrollTo({top: 0}); }
 });
+$('#main').addEventListener('submit', e => { const f = e.target.closest('form[data-entry]'); if (f) { e.preventDefault(); saveEntry(f); } });
 $('#main').addEventListener('input', e => {
+  if (e.target.matches('[data-money]')) {
+    const inp = e.target, n = parseMoney(inp.value); inp.value = n ? n.toLocaleString('vi-VN') : '';
+    const hint = $(`[data-hint="${inp.id}"]`); if (hint) hint.textContent = n ? short(n) : '';
+  }
+  if (e.target.matches('form[data-entry] input[list]')) e.target.closest('form').querySelectorAll('.qcat').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.qcat === e.target.value)));
   if (e.target.id === 'j-q') { S.jf.q = e.target.value; S.jpage = 0; renderJournalTable(); }
 });
 $('#main').addEventListener('change', e => {
@@ -925,7 +1024,20 @@ $('#main').addEventListener('change', e => {
   if (e.target.id === 'j-type') { S.jf.type = e.target.value; S.jpage = 0; renderJournalTable(); }
   if (e.target.id === 'p-sort') { S.psort = e.target.value; store.set('psort', S.psort); render(); }
 });
-$('#main').addEventListener('click', e => { if (e.target.id === 'j-export') exportCsv(); });
+$('#main').addEventListener('click', e => {
+  if (e.target.id === 'j-export') exportCsv();
+  const q = e.target.closest('[data-qcat]');
+  if (q) { const f = q.closest('form'), inp = $(`#e-${f.dataset.entry}-cat`); inp.value = q.dataset.qcat; f.querySelectorAll('.qcat').forEach(b => b.setAttribute('aria-pressed', String(b === q))); $(`#e-${f.dataset.entry}-amount`).focus(); }
+  const go = e.target.closest('[data-view-go]');
+  if (go) { S.view = go.dataset.viewGo; store.set('view', S.view); render(); window.scrollTo({top: 0}); }
+});
+// Nhớ dự án và ngày đang chọn trong từng ô nhập liệu
+$('#main').addEventListener('change', e => {
+  const f = e.target.closest('form[data-entry]'); if (!f) return;
+  const t = f.dataset.entry;
+  if (e.target.id === `e-${t}-project`) S.entry[t].projectId = e.target.value;
+  if (e.target.id === `e-${t}-date`) S.entry[t].date = e.target.value;
+});
 
 /* ---------- boot ---------- */
 render();
@@ -934,7 +1046,7 @@ async function load(first) {
     const d = await api('GET', 'data');
     const same = JSON.stringify(d.projects) === JSON.stringify(S.projects) && JSON.stringify(d.transactions) === JSON.stringify(S.txs);
     S.projects = d.projects; S.txs = d.transactions.filter(t => t.date); S.mode = 'db';
-    if (first || !same) { if (dlg.open) return; render(); }
+    if (first || !same) { if (dlg.open) return; refresh(); }
   } catch (e) {
     if (first) $('#main').innerHTML = `<div class="panel empty">Không kết nối được máy chủ. Tải lại trang để thử lại.</div>`;
   }
