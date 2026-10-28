@@ -161,7 +161,18 @@ async function factoryReset() {
   try { file = JSON.parse(fs.readFileSync(process.env.RESET_FILE || path.join(__dirname, 'deploy', 'reset.json'), 'utf8')); } catch (e) { if (e.code !== 'ENOENT') console.error('deploy/reset.json không đọc được:', e.message); }
   const tokens = [String(process.env.FACTORY_RESET || '').trim(), String(file?.token || '').trim()].filter(Boolean);
   if (!tokens.length) return;
-  if (ENV_NAME === 'production') return console.log('FACTORY_RESET / deploy/reset.json bị bỏ qua: không xóa dữ liệu ở môi trường production.');
+  if (ENV_NAME === 'production') {
+    // Production không bao giờ bị xóa. Chỉ khi production chưa có tài khoản nào thì tạo quản trị viên từ tệp
+    // (lần đầu chuyển sang đăng nhập bằng tài khoản); đã có tài khoản thì bỏ qua hoàn toàn.
+    console.log('FACTORY_RESET / deploy/reset.json: không xóa dữ liệu ở môi trường production.');
+    const a = file?.admin;
+    if (a?.username && /^scrypt\$/.test(a.passHash || '') && !(await store.all('users')).length) {
+      await store.put('users', String(a.username).toLowerCase(), { name: a.name || a.username, role: 'admin', active: true, ver: 0,
+        passHash: a.passHash, mustChange: true, createdAt: new Date().toISOString() });
+      console.warn(`Production chưa có tài khoản: đã tạo quản trị viên "${a.username}" từ deploy/reset.json (phải đổi mật khẩu ở lần đăng nhập đầu).`);
+    }
+    return;
+  }
   const meta = (await store.all('meta')).find(m => m.id === 'factoryReset') || {};
   const done = new Set(meta.tokens || (meta.token ? [meta.token] : []));
   const pending = tokens.filter(t => !done.has(t));

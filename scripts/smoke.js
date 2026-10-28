@@ -213,10 +213,28 @@ const restartChecks = [
       assert.equal((await c('POST', '/api/me/password', { current: 'ChiTaiKhoan1', next: 'DaDoi2026' })).status, 204);
     } finally { await stop(srv); }
   }],
+  ['production chưa có tài khoản: tạo quản trị viên từ tệp, không xóa dữ liệu', async () => {
+    const crypto = require('crypto'), salt = crypto.randomBytes(16);
+    const passHash = 'scrypt$' + salt.toString('hex') + '$' + crypto.scryptSync('ChinhThuc26', salt, 64).toString('hex');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stc-prod-')), file = path.join(dir, 'reset.json');
+    fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({ projects: { p1: { name: 'Dự án thật', code: 'X-01' } }, transactions: {}, meta: { seeded: { at: 'x' } } }));
+    fs.writeFileSync(file, JSON.stringify({ token: 'tk-prod', scope: 'all', admin: { username: 'admin', passHash } }));
+    const blank = { ADMIN_USERNAME: '', ADMIN_PASSWORD: '', APP_ENV: 'production', DATA_DIR: dir, RESET_FILE: file, DATABASE_URL: '' };
+    let srv = await start(blank);
+    try {
+      const c = client();
+      assert.equal((await c('POST', '/api/login', { username: 'admin', password: 'ChinhThuc26' })).json.mustChange, true);
+      assert.deepEqual((await c('GET', '/api/data')).json.projects.map(p => p.id), ['p1']);
+      assert.equal((await c('POST', '/api/me/password', { current: 'ChinhThuc26', next: 'RiengToi2026' })).status, 204);
+    } finally { await stop(srv); }
+    srv = await start(blank);
+    try { assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'RiengToi2026' })).status, 200); }
+    finally { await stop(srv); fs.rmSync(dir, { recursive: true, force: true }); }
+  }],
   ['FACTORY_RESET không chạy ở production', async () => {
     const srv = await start({ APP_ENV: 'production', FACTORY_RESET: 'lan-2' });
     try {
-      assert.match(srv.log, /bị bỏ qua: không xóa dữ liệu ở môi trường production/);
+      assert.match(srv.log, /không xóa dữ liệu ở môi trường production/);
       assert.equal((await client()('POST', '/api/login', { username: 'quantri', password: 'DaDoi2026' })).status, 200);
     } finally { await stop(srv); }
   }]
