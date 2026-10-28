@@ -504,10 +504,11 @@ function failMsg(e) {
   if (e?.code === 'invalid_argument') return 'Dữ liệu không hợp lệ, chưa lưu được.';
   return 'Chưa lưu được. Kiểm tra kết nối rồi thử lại.';
 }
-async function api(method, path, body) {
+async function api(method, path, body, background = false) {
   const headers = {'X-Requested-With': 'fetch'}; if (body) headers['Content-Type'] = 'application/json';
+  if (background) headers['X-Background'] = '1'; else lastPing = Date.now();
   const r = await fetch('api/' + path, {method, headers, body: body ? JSON.stringify(body) : undefined});
-  if (r.status === 401) { location.replace('login'); throw {code: 'unauthenticated', message: 'Phiên đăng nhập đã hết hạn.'}; }
+  if (r.status === 401) { location.replace('login#het-phien'); throw {code: 'unauthenticated', message: 'Phiên đăng nhập đã hết hạn.'}; }
   if (!r.ok) {
     const d = await r.json().catch(() => ({}));
     throw {code: r.status === 413 ? 'quota_exceeded' : r.status >= 500 ? 'unavailable' : r.status === 403 ? 'forbidden' : 'invalid_argument', message: d.error};
@@ -1233,7 +1234,7 @@ $('#main').addEventListener('change', e => {
 render();
 async function load(first) {
   try {
-    const d = await api('GET', 'data');
+    const d = await api('GET', 'data', null, !first);
     const same = JSON.stringify(d.projects) === JSON.stringify(S.projects) && JSON.stringify(d.transactions) === JSON.stringify(S.txs);
     S.projects = d.projects; S.txs = d.transactions.filter(t => t.date); S.mode = 'db';
     if (first || !same) { if (dlg.open) return; refresh(); }
@@ -1344,8 +1345,22 @@ async function openUsers(note) {
 }
 dlg.addEventListener('close', () => { dlg.classList.remove('wide'); });
 
+/* ---------- tự đăng xuất khi không hoạt động ---------- */
+// Thao tác chuột, bàn phím, cuộn, chạm là hoạt động. Đang hoạt động thì cứ 5 phút gia hạn phiên ở máy chủ một lần;
+// không hoạt động quá idleMinutes (mặc định 60) thì đăng xuất. Cập nhật số liệu ngầm không tính là hoạt động.
+let lastAct = Date.now(), lastPing = Date.now(), idleMs = 60 * 60e3;
+['pointerdown', 'keydown', 'wheel', 'touchstart', 'input'].forEach(ev => addEventListener(ev, () => lastAct = Date.now(), {passive: true, capture: true}));
+async function logoutIdle() { try { await api('POST', 'logout', null, true); } catch {} location.replace('login#khong-hoat-dong'); }
+setInterval(() => {
+  const now = Date.now();
+  if (now - lastAct >= idleMs) return logoutIdle();
+  if (now - lastAct < 5 * 60e3 && now - lastPing > 5 * 60e3) api('GET', 'me').catch(() => {});
+}, 30e3);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastAct >= idleMs) logoutIdle(); });
+
 (async () => {
   try { S.me = await api('GET', 'me'); } catch { return; }
+  if (S.me.idleMinutes) idleMs = S.me.idleMinutes * 60e3;
   S.canWrite = S.me.role !== 'viewer';
   renderUser();
   await load(true);

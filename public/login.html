@@ -122,6 +122,8 @@ $('#f').onsubmit = async e => {
     $('#go').disabled = false; $('#go').textContent = 'Đăng nhập'; $('#p').select();
   }
 };
+const why = {'#khong-hoat-dong': 'Bạn đã được đăng xuất vì không thao tác quá 60 phút. Đăng nhập lại để tiếp tục.', '#het-phien': 'Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.'}[location.hash];
+if (why) { $('#err').textContent = why; $('#err').style.color = 'var(--navy)'; history.replaceState(null, '', location.pathname); }
 $('#u').focus();
 </script>
 </body>

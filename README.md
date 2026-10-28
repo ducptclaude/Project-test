@@ -48,8 +48,8 @@ Sau đó vào service vừa tạo trên railway.com:
 | `ADMIN_USERNAME` | Tên đăng nhập của quản trị viên đầu tiên (mặc định `admin`). Chỉ dùng khi chưa có tài khoản nào hoặc khi có `ADMIN_RESET`. Cũng đọc được từ `ADMIN_USER`. |
 | `ADMIN_PASSWORD` | Mật khẩu của quản trị viên đầu tiên. Không đặt thì máy chủ tạo mật khẩu tạm và in ra Deploy Logs. |
 | `ADMIN_NAME` | Họ tên hiển thị của quản trị viên đầu tiên. |
-| `SESSION_SECRET` | Khóa ký phiên đăng nhập (chuỗi ngẫu nhiên ≥ 32 ký tự). Mỗi môi trường một giá trị khác nhau. |
-| `SESSION_HOURS` | Thời gian giữ đăng nhập, mặc định 12 giờ. |
+| `SESSION_SECRET` | Khóa ký phiên đăng nhập (tùy chọn). Không đặt thì hệ thống tự tạo và lưu trong cơ sở dữ liệu. |
+| `SESSION_IDLE_MINUTES` | Tự đăng xuất sau bấy nhiêu phút không thao tác, mặc định 60. Deploy lại không đăng xuất. |
 | `FACTORY_RESET` | Một chuỗi bất kỳ (vd `2026-10-28`): xóa **sạch** dự án, giao dịch và tài khoản đúng một lần cho mỗi giá trị, rồi khởi động như mới. Không chạy ở production. |
 | `ADMIN_RESET` | `true`: đặt lại hoặc tạo tài khoản `ADMIN_USERNAME`. `all`: xóa mọi tài khoản rồi tạo lại một quản trị viên (dữ liệu dự án giữ nguyên). **Xóa ngay sau khi dùng.** |
 | `BRAND_NAME` | Tên ứng dụng trên thanh bên và trang đăng nhập (mặc định `Sổ Tài Chính Dự Án`). |

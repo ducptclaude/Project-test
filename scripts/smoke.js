@@ -247,6 +247,31 @@ const restartChecks = [
     }
     fs.rmSync(dir, { recursive: true, force: true });
   }],
+  ['không có SESSION_SECRET: khởi động lại (deploy) vẫn giữ đăng nhập', async () => {
+    const c = client();
+    let srv = await start({ SESSION_SECRET: '' });
+    try {
+      assert.equal((await c('POST', '/api/login', { username: 'quantri', password: 'DaDoi2026' })).status, 200);
+    } finally { await stop(srv); }
+    srv = await start({ SESSION_SECRET: '' });
+    try { assert.equal((await c('GET', '/api/data')).status, 200); } finally { await stop(srv); }
+  }],
+  ['phiên trượt: thao tác thì gia hạn, chạy ngầm không gia hạn, quá hạn thì đăng xuất', async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms)), bg = { 'X-Background': '1' };
+    const srv = await start({ SESSION_IDLE_MINUTES: '0.05' });   // 3 giây
+    try {
+      const a = client(), b = client();
+      await a('POST', '/api/login', { username: 'quantri', password: 'DaDoi2026' });
+      await b('POST', '/api/login', { username: 'quantri', password: 'DaDoi2026' });
+      assert.equal((await a('GET', '/api/me')).json.idleMinutes, 0.05);
+      await wait(1600);
+      assert.equal((await a('GET', '/api/data')).status, 200);            // thao tác: gia hạn
+      assert.equal((await b('GET', '/api/data', null, bg)).status, 200);  // chạy ngầm: còn hạn nhưng không gia hạn
+      await wait(2000);
+      assert.equal((await a('GET', '/api/data', null, bg)).status, 200);  // đã được gia hạn ở lần trước
+      assert.equal((await b('GET', '/api/data', null, bg)).status, 401);  // quá 3 giây không thao tác
+    } finally { await stop(srv); }
+  }],
   ['FACTORY_RESET không chạy ở production', async () => {
     const srv = await start({ APP_ENV: 'production', FACTORY_RESET: 'lan-2' });
     try {

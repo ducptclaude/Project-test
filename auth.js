@@ -7,15 +7,16 @@ const express = require('express');
 
 const ROLES = { viewer: 1, editor: 2, admin: 3 };
 const COOKIE = 'stc_session';
-const SESSION_HOURS = Number(process.env.SESSION_HOURS) || 12;
+// Phiên trượt: hết hạn sau IDLE_MIN phút không hoạt động; mỗi yêu cầu do người dùng thao tác gia hạn lại.
+// Yêu cầu chạy ngầm (trang tự cập nhật số liệu, gửi kèm X-Background: 1) không tính là hoạt động.
+const IDLE_MIN = Number(process.env.SESSION_IDLE_MINUTES) || 60;
+const IDLE_MS = IDLE_MIN * 60e3, RENEW_MS = Math.min(60e3, IDLE_MS / 4);
 const USERNAME_RE = /^[a-z0-9._-]{3,32}$/;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-let SECRET = process.env.SESSION_SECRET;
-if (!SECRET) {
-  SECRET = crypto.randomBytes(32).toString('hex');
-  console.warn('Chưa đặt SESSION_SECRET: mọi người sẽ phải đăng nhập lại mỗi khi máy chủ khởi động lại.');
-}
+// Khóa ký phiên: SESSION_SECRET nếu có, không thì tạo một lần và lưu trong cơ sở dữ liệu (bootstrap),
+// để deploy lại hay khởi động lại máy chủ cũng không đăng xuất mọi người.
+let SECRET = String(process.env.SESSION_SECRET || '').trim() || null;
 
 /* ---------- mật khẩu ---------- */
 const scrypt = (pw, salt) => new Promise((ok, no) => crypto.scrypt(pw, salt, 64, (e, k) => e ? no(e) : ok(k)));
@@ -34,7 +35,8 @@ const passwordProblem = pw => typeof pw !== 'string' || pw.length < 8 ? 'Mật k
 /* ---------- phiên đăng nhập ---------- */
 const sign = s => crypto.createHmac('sha256', SECRET).update(s).digest('base64url');
 function makeToken(user) {
-  const body = Buffer.from(JSON.stringify({ u: user.id, v: user.ver || 0, e: Date.now() + SESSION_HOURS * 3600e3 })).toString('base64url');
+  const now = Date.now();
+  const body = Buffer.from(JSON.stringify({ u: user.id, v: user.ver || 0, i: now, e: now + IDLE_MS })).toString('base64url');
   return body + '.' + sign(body);
 }
 function readToken(token) {
@@ -51,7 +53,7 @@ const getCookie = (req, name) => {
   return null;
 };
 function setSession(req, res, user) {
-  res.cookie(COOKIE, makeToken(user), { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: SESSION_HOURS * 3600e3, path: '/' });
+  res.cookie(COOKIE, makeToken(user), { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: IDLE_MS, path: '/' });
 }
 
 // Chặn dò mật khẩu: tối đa 8 lần sai trong 15 phút cho mỗi địa chỉ IP + tên đăng nhập
@@ -73,7 +75,9 @@ module.exports = function (store, wrap) {
     const t = readToken(getCookie(req, COOKIE));
     if (!t) return null;
     const u = await store.get('users', t.u);
-    return u && u.active !== false && (u.ver || 0) === t.v ? u : null;
+    if (!(u && u.active !== false && (u.ver || 0) === t.v)) return null;
+    req.sessionToken = t;
+    return u;
   }
   async function activeAdmins() { return (await store.all('users')).filter(u => u.role === 'admin' && u.active !== false); }
 
@@ -145,7 +149,12 @@ module.exports = function (store, wrap) {
   /* từ đây trở đi cần đăng nhập */
   const requireLogin = wrap(async (req, res, next) => {
     const u = await currentUser(req);
-    if (u) { req.user = u; return next(); }
+    if (u) {
+      req.user = u;
+      // Gia hạn phiên khi người dùng thực sự thao tác (không gia hạn cho yêu cầu chạy ngầm)
+      if (req.get('X-Background') !== '1' && Date.now() - (req.sessionToken.i || 0) > RENEW_MS) setSession(req, res, u);
+      return next();
+    }
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Phiên đăng nhập đã hết hạn.' });
     res.redirect(req.baseUrl + '/login');
   });
@@ -155,7 +164,7 @@ module.exports = function (store, wrap) {
   const authed = express.Router();
   authed.use(express.json({ limit: '10kb' }));
 
-  authed.get('/api/me', (req, res) => res.set('Cache-Control', 'no-store').json(publicUser(req.user)));
+  authed.get('/api/me', (req, res) => res.set('Cache-Control', 'no-store').json({ ...publicUser(req.user), idleMinutes: IDLE_MIN }));
 
   authed.post('/api/me/password', wrap(async (req, res) => {
     const { current, next } = req.body || {};
@@ -220,6 +229,11 @@ module.exports = function (store, wrap) {
   // - ADMIN_RESET=all: xóa MỌI tài khoản rồi tạo lại đúng một quản trị viên như trên.
   // Biến sai thì ghi lỗi vào log và bỏ qua, không làm sập máy chủ. Dùng xong phải xóa ADMIN_RESET.
   async function bootstrap() {
+    if (!SECRET) {
+      const m = await store.get('meta', 'sessionSecret');
+      SECRET = m?.secret || crypto.randomBytes(32).toString('hex');
+      if (!m?.secret) { await store.put('meta', 'sessionSecret', { secret: SECRET, at: new Date().toISOString() }); console.log('Đã tạo khóa phiên và lưu trong cơ sở dữ liệu (deploy lại không đăng xuất người dùng).'); }
+    }
     const env = k => String(process.env[k] ?? '').trim();
     // ADMIN_USER / APP_USER được chấp nhận như tên khác của ADMIN_USERNAME
     const username = (env('ADMIN_USERNAME') || env('ADMIN_USER') || env('APP_USER') || 'admin').toLowerCase();
