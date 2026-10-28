@@ -99,5 +99,7 @@ Khi chưa có tài khoản nào và không đặt `ADMIN_PASSWORD`, máy chủ i
 nhập mã đó cùng tên đăng nhập và mật khẩu muốn dùng để tạo quản trị viên đầu tiên. Trang chỉ dùng được một lần;
 mã đổi mỗi lần máy chủ khởi động lại.
 
+Chỉ làm lại tài khoản trên môi trường thử nghiệm (giữ dữ liệu): sửa `deploy/reset.json` với `token` mới, `"scope": "accounts"` và mã băm scrypt của mật khẩu tạm, rồi đẩy lên nhánh `staging`.
+
 Muốn làm lại từ đầu một môi trường thử nghiệm: xóa các biến `ADMIN_*`, đặt `FACTORY_RESET` = một giá trị mới, deploy,
 rồi làm theo bước khởi tạo ở trên.

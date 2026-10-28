@@ -189,11 +189,35 @@ const restartChecks = [
       assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'DaDoi2026' })).status, 200);
     } finally { await stop(srv); }
   }],
+  ['deploy/reset.json scope "accounts": chỉ xóa tài khoản, giữ dữ liệu', async () => {
+    const crypto = require('crypto'), salt = crypto.randomBytes(16);
+    const passHash = 'scrypt$' + salt.toString('hex') + '$' + crypto.scryptSync('ChiTaiKhoan1', salt, 64).toString('hex');
+    const file = path.join(dataDir, 'reset2.json');
+    let srv = await start(), before;
+    try {
+      const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'DaDoi2026' });
+      assert.equal((await c('PUT', '/api/transactions/giu-lai', { projectId: 'da01', type: 'in', date: '2026-10-02', amount: 5000000, category: 'Thu khác', note: 'giữ' })).status, 204);
+      before = (await c('GET', '/api/data')).json.transactions.length;
+    } finally { await stop(srv); }
+    fs.writeFileSync(file, JSON.stringify({ token: 'tk-1', scope: 'accounts', admin: { username: 'quantri', passHash } }));
+    srv = await start({ RESET_FILE: file });
+    try {
+      assert.match(srv.log, /giữ nguyên dự án và giao dịch/);
+      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'DaDoi2026' })).status, 401);
+      const c = client();
+      assert.equal((await c('POST', '/api/login', { username: 'quantri', password: 'ChiTaiKhoan1' })).json.mustChange, true);
+      assert.equal((await c('GET', '/api/users')).json.length, 1);
+      const d = (await c('GET', '/api/data')).json;
+      assert.equal(d.transactions.length, before);
+      assert.ok(d.transactions.some(t => t.id === 'giu-lai'));
+      assert.equal((await c('POST', '/api/me/password', { current: 'ChiTaiKhoan1', next: 'DaDoi2026' })).status, 204);
+    } finally { await stop(srv); }
+  }],
   ['FACTORY_RESET không chạy ở production', async () => {
     const srv = await start({ APP_ENV: 'production', FACTORY_RESET: 'lan-2' });
     try {
       assert.match(srv.log, /bị bỏ qua: không xóa dữ liệu ở môi trường production/);
-      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'DaDoi2026' })).status, 200);
+      assert.equal((await client()('POST', '/api/login', { username: 'quantri', password: 'DaDoi2026' })).status, 200);
     } finally { await stop(srv); }
   }]
 ];

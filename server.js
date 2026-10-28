@@ -152,8 +152,9 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m', index: 'i
 
 // Xóa sạch dữ liệu (dự án, giao dịch, tài khoản) rồi khởi động như lần đầu, đúng một lần cho mỗi token. Token lấy từ:
 // - biến FACTORY_RESET=<chuỗi bất kỳ>;
-// - tệp deploy/reset.json {token, admin:{username, name, passHash}}: sau khi xóa, tạo sẵn quản trị viên đó
+// - tệp deploy/reset.json {token, scope, admin:{username, name, passHash}}: sau khi xóa, tạo sẵn quản trị viên đó
 //   (bắt buộc đổi mật khẩu khi đăng nhập), để khởi tạo lại môi trường thử nghiệm chỉ bằng một lần đẩy code.
+//   scope "accounts": chỉ xóa tài khoản, giữ nguyên dự án và giao dịch; mặc định "all" xóa tất cả.
 // Các token đã chạy được ghi lại nên để nguyên biến/tệp cũng không xóa lại. Không bao giờ chạy ở production.
 async function factoryReset() {
   let file = null;
@@ -165,12 +166,15 @@ async function factoryReset() {
   const done = new Set(meta.tokens || (meta.token ? [meta.token] : []));
   const pending = tokens.filter(t => !done.has(t));
   if (!pending.length) return console.log(`Xóa dữ liệu theo mã ${tokens.map(t => `"${t}"`).join(', ')} đã chạy trước đó; không xóa lại.`);
-  await store.wipe();
+  const fileToken = String(file?.token || '').trim();
+  const accountsOnly = pending.every(t => t === fileToken) && file.scope === 'accounts';
+  if (accountsOnly) for (const u of await store.all('users')) await store.del('users', u.id);
+  else await store.wipe();
   tokens.forEach(t => done.add(t));
   await store.put('meta', 'factoryReset', { tokens: [...done], at: new Date().toISOString() });
-  console.warn(`FACTORY_RESET: đã xóa toàn bộ dữ liệu và tài khoản (mã ${pending.map(t => `"${t}"`).join(', ')}).`);
+  console.warn(`FACTORY_RESET: đã xóa ${accountsOnly ? 'mọi tài khoản (giữ nguyên dự án và giao dịch)' : 'toàn bộ dữ liệu và tài khoản'} (mã ${pending.map(t => `"${t}"`).join(', ')}).`);
   const a = file?.admin;
-  if (file && pending.includes(String(file.token).trim()) && a?.username && /^scrypt\$/.test(a.passHash || '')) {
+  if (file && pending.includes(fileToken) && a?.username && /^scrypt\$/.test(a.passHash || '')) {
     await store.put('users', String(a.username).toLowerCase(), { name: a.name || a.username, role: 'admin', active: true, ver: 0,
       passHash: a.passHash, mustChange: true, createdAt: new Date().toISOString() });
     console.warn(`FACTORY_RESET: đã tạo quản trị viên "${a.username}" từ deploy/reset.json (phải đổi mật khẩu ở lần đăng nhập đầu).`);
