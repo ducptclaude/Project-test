@@ -9,7 +9,7 @@ const assert = require('assert/strict');
 const PORT = 3900 + Math.floor(Math.random() * 90);
 const BASE = `http://127.0.0.1:${PORT}`;
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stc-smoke-'));
-const env = { ...process.env, PORT, DATA_DIR: dataDir, SESSION_SECRET: 'smoke', ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'Admin12345', APP_ENV: 'test' };
+const env = { ...process.env, PORT, DATA_DIR: dataDir, RESET_FILE: path.join(dataDir, 'khong-co.json'), SESSION_SECRET: 'smoke', ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'Admin12345', APP_ENV: 'test' };
 // Mặc định dùng tệp JSON tạm. Muốn thử với PostgreSQL: SMOKE_DATABASE_URL=<một cơ sở dữ liệu TRỐNG, không phải production>
 if (process.env.SMOKE_DATABASE_URL) env.DATABASE_URL = process.env.SMOKE_DATABASE_URL; else delete env.DATABASE_URL;
 
@@ -166,15 +166,34 @@ const restartChecks = [
     } finally { await stop(srv); }
     srv = await start({ ...blank, FACTORY_RESET: 'lan-1' });
     try {
-      assert.match(srv.log, /đã chạy lúc/);
+      assert.match(srv.log, /đã chạy trước đó/);
       assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'MoiTinh2026' })).status, 200);
+    } finally { await stop(srv); }
+  }],
+  ['deploy/reset.json xóa sạch và tạo quản trị viên phải đổi mật khẩu, chỉ một lần', async () => {
+    const crypto = require('crypto'), salt = crypto.randomBytes(16);
+    const passHash = 'scrypt$' + salt.toString('hex') + '$' + crypto.scryptSync('TuFile2026', salt, 64).toString('hex');
+    const file = path.join(dataDir, 'reset.json');
+    fs.writeFileSync(file, JSON.stringify({ token: 'tep-1', admin: { username: 'admin', name: 'QTV', passHash } }));
+    let srv = await start({ RESET_FILE: file });
+    try {
+      assert.match(srv.log, /đã tạo quản trị viên "admin" từ deploy\/reset.json/);
+      const c = client();
+      assert.equal((await c('POST', '/api/login', { username: 'admin', password: 'MoiTinh2026' })).status, 401);
+      assert.equal((await c('POST', '/api/login', { username: 'admin', password: 'TuFile2026' })).json.mustChange, true);
+      assert.equal((await c('POST', '/api/me/password', { current: 'TuFile2026', next: 'DaDoi2026' })).status, 204);
+    } finally { await stop(srv); }
+    srv = await start({ RESET_FILE: file });
+    try {
+      assert.match(srv.log, /đã chạy trước đó/);
+      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'DaDoi2026' })).status, 200);
     } finally { await stop(srv); }
   }],
   ['FACTORY_RESET không chạy ở production', async () => {
     const srv = await start({ APP_ENV: 'production', FACTORY_RESET: 'lan-2' });
     try {
-      assert.match(srv.log, /FACTORY_RESET bị bỏ qua/);
-      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'MoiTinh2026' })).status, 200);
+      assert.match(srv.log, /bị bỏ qua: không xóa dữ liệu ở môi trường production/);
+      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'DaDoi2026' })).status, 200);
     } finally { await stop(srv); }
   }]
 ];

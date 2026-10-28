@@ -150,18 +150,31 @@ app.delete('/api/:col/:id', canWrite, wrap(async (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m', index: 'index.html' }));
 
-// FACTORY_RESET=<một chuỗi bất kỳ>: xóa SẠCH dữ liệu (dự án, giao dịch, tài khoản) đúng một lần cho mỗi giá trị,
-// rồi khởi động như lần đầu. Để nguyên biến cũng không xóa lại; đổi sang giá trị khác mới xóa lần nữa.
-// Không bao giờ chạy ở môi trường production.
+// Xóa sạch dữ liệu (dự án, giao dịch, tài khoản) rồi khởi động như lần đầu, đúng một lần cho mỗi token. Token lấy từ:
+// - biến FACTORY_RESET=<chuỗi bất kỳ>;
+// - tệp deploy/reset.json {token, admin:{username, name, passHash}}: sau khi xóa, tạo sẵn quản trị viên đó
+//   (bắt buộc đổi mật khẩu khi đăng nhập), để khởi tạo lại môi trường thử nghiệm chỉ bằng một lần đẩy code.
+// Các token đã chạy được ghi lại nên để nguyên biến/tệp cũng không xóa lại. Không bao giờ chạy ở production.
 async function factoryReset() {
-  const token = String(process.env.FACTORY_RESET || '').trim();
-  if (!token) return;
-  if (ENV_NAME === 'production') return console.error('FACTORY_RESET bị bỏ qua: không cho phép xóa dữ liệu ở môi trường production.');
-  const done = (await store.all('meta')).find(m => m.id === 'factoryReset');
-  if (done && done.token === token) return console.log(`FACTORY_RESET="${token}" đã chạy lúc ${done.at}; không xóa lại. Có thể xóa biến này.`);
+  let file = null;
+  try { file = JSON.parse(fs.readFileSync(process.env.RESET_FILE || path.join(__dirname, 'deploy', 'reset.json'), 'utf8')); } catch (e) { if (e.code !== 'ENOENT') console.error('deploy/reset.json không đọc được:', e.message); }
+  const tokens = [String(process.env.FACTORY_RESET || '').trim(), String(file?.token || '').trim()].filter(Boolean);
+  if (!tokens.length) return;
+  if (ENV_NAME === 'production') return console.log('FACTORY_RESET / deploy/reset.json bị bỏ qua: không xóa dữ liệu ở môi trường production.');
+  const meta = (await store.all('meta')).find(m => m.id === 'factoryReset') || {};
+  const done = new Set(meta.tokens || (meta.token ? [meta.token] : []));
+  const pending = tokens.filter(t => !done.has(t));
+  if (!pending.length) return console.log(`Xóa dữ liệu theo mã ${tokens.map(t => `"${t}"`).join(', ')} đã chạy trước đó; không xóa lại.`);
   await store.wipe();
-  await store.put('meta', 'factoryReset', { token, at: new Date().toISOString() });
-  console.warn(`FACTORY_RESET: đã xóa toàn bộ dữ liệu và tài khoản (mã "${token}").`);
+  tokens.forEach(t => done.add(t));
+  await store.put('meta', 'factoryReset', { tokens: [...done], at: new Date().toISOString() });
+  console.warn(`FACTORY_RESET: đã xóa toàn bộ dữ liệu và tài khoản (mã ${pending.map(t => `"${t}"`).join(', ')}).`);
+  const a = file?.admin;
+  if (file && pending.includes(String(file.token).trim()) && a?.username && /^scrypt\$/.test(a.passHash || '')) {
+    await store.put('users', String(a.username).toLowerCase(), { name: a.name || a.username, role: 'admin', active: true, ver: 0,
+      passHash: a.passHash, mustChange: true, createdAt: new Date().toISOString() });
+    console.warn(`FACTORY_RESET: đã tạo quản trị viên "${a.username}" từ deploy/reset.json (phải đổi mật khẩu ở lần đăng nhập đầu).`);
+  }
 }
 
 store.init()

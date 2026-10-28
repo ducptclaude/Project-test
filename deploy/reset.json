@@ -1,0 +1,9 @@
+{
+  "_ghi_chu": "Chỉ có tác dụng ở môi trường KHÔNG phải production. Khi máy chủ khởi động gặp token mới: xóa sạch dữ liệu và tài khoản, rồi tạo quản trị viên dưới đây (bắt buộc đổi mật khẩu ở lần đăng nhập đầu). Mỗi token chỉ chạy một lần.",
+  "token": "repo-2026-10-28",
+  "admin": {
+    "username": "admin",
+    "name": "Quản trị viên",
+    "passHash": "scrypt$48be1caec354131b9d63d201a72e0708$9f8865bb0a635d7f9e9444225566b8f5bbdbb2f114b7a719e138a5e502b236b2bdfc5b26be33a0a1e80a1c656ac5c19f771803540f3af400940ee0e39b364fbf"
+  }
+}
