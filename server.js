@@ -152,7 +152,7 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m', index: 'i
 
 // Xóa sạch dữ liệu (dự án, giao dịch, tài khoản) rồi khởi động như lần đầu, đúng một lần cho mỗi token. Token lấy từ:
 // - biến FACTORY_RESET=<chuỗi bất kỳ>;
-// - tệp deploy/reset.json {token, scope, admin:{username, name, passHash}}: sau khi xóa, tạo sẵn quản trị viên đó
+// - tệp deploy/reset.json {token, scope, productionAccountsToken, admin:{username, name, passHash}}: sau khi xóa, tạo sẵn quản trị viên đó
 //   (bắt buộc đổi mật khẩu khi đăng nhập), để khởi tạo lại môi trường thử nghiệm chỉ bằng một lần đẩy code.
 //   scope "accounts": chỉ xóa tài khoản, giữ nguyên dự án và giao dịch; mặc định "all" xóa tất cả.
 // Các token đã chạy được ghi lại nên để nguyên biến/tệp cũng không xóa lại. Không bao giờ chạy ở production.
@@ -165,8 +165,17 @@ async function factoryReset() {
     // Production không bao giờ bị xóa. Chỉ khi production chưa có tài khoản nào thì tạo quản trị viên từ tệp
     // (lần đầu chuyển sang đăng nhập bằng tài khoản); đã có tài khoản thì bỏ qua hoàn toàn.
     console.log('FACTORY_RESET / deploy/reset.json: không xóa dữ liệu ở môi trường production.');
-    const a = file?.admin;
-    if (a?.username && /^scrypt\$/.test(a.passHash || '') && !(await store.all('users')).length) {
+    const a = file?.admin, valid = a?.username && /^scrypt\$/.test(a.passHash || '');
+    // productionAccountsToken mới: xóa MỌI tài khoản production (dự án, giao dịch giữ nguyên) rồi tạo lại quản trị viên; một lần mỗi token
+    const pt = String(file?.productionAccountsToken || '').trim();
+    const pmeta = (await store.all('meta')).find(m => m.id === 'productionAccountsReset') || {};
+    if (valid && pt && !(pmeta.tokens || []).includes(pt)) {
+      let removed = 0;
+      for (const u of await store.all('users')) { await store.del('users', u.id); removed++; }
+      await store.put('meta', 'productionAccountsReset', { tokens: [...(pmeta.tokens || []), pt], at: new Date().toISOString() });
+      console.warn(`Production: đã xóa ${removed} tài khoản (dự án, giao dịch giữ nguyên) theo mã "${pt}".`);
+    }
+    if (valid && !(await store.all('users')).length) {
       await store.put('users', String(a.username).toLowerCase(), { name: a.name || a.username, role: 'admin', active: true, ver: 0,
         passHash: a.passHash, mustChange: true, createdAt: new Date().toISOString() });
       console.warn(`Production chưa có tài khoản: đã tạo quản trị viên "${a.username}" từ deploy/reset.json (phải đổi mật khẩu ở lần đăng nhập đầu).`);

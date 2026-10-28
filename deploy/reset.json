@@ -1,7 +1,8 @@
 {
-  "_ghi_chu": "Chỉ có tác dụng ở môi trường KHÔNG phải production. Token mới chạy đúng một lần khi máy chủ khởi động. scope \"accounts\": xóa mọi tài khoản, GIỮ NGUYÊN dự án và giao dịch, rồi tạo quản trị viên dưới đây (bắt buộc đổi mật khẩu ở lần đăng nhập đầu). scope \"all\": xóa cả dữ liệu.",
+  "_ghi_chu": "Token mới chạy đúng một lần khi máy chủ khởi động. Staging (token, scope \"accounts\"): xóa mọi tài khoản, giữ dự án và giao dịch, tạo quản trị viên dưới đây. Production (productionAccountsToken): cũng chỉ xóa tài khoản, KHÔNG BAO GIỜ xóa dữ liệu. Quản trị viên mới phải đổi mật khẩu ở lần đăng nhập đầu.",
   "token": "tk-staging-2026-10-28",
   "scope": "accounts",
+  "productionAccountsToken": "tk-production-2026-10-28",
   "admin": {
     "username": "admin",
     "name": "Quản trị viên",

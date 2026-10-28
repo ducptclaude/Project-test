@@ -229,7 +229,23 @@ const restartChecks = [
     } finally { await stop(srv); }
     srv = await start(blank);
     try { assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'RiengToi2026' })).status, 200); }
-    finally { await stop(srv); fs.rmSync(dir, { recursive: true, force: true }); }
+    finally { await stop(srv); }
+    // productionAccountsToken: xóa tài khoản production, giữ dữ liệu, tạo lại admin; chỉ một lần
+    fs.writeFileSync(file, JSON.stringify({ token: 'tk-prod', productionAccountsToken: 'pa-1', admin: { username: 'admin', passHash } }));
+    for (let i = 0; i < 2; i++) {
+      srv = await start(blank);
+      try {
+        const c = client();
+        if (i === 0) {
+          assert.match(srv.log, /Production: đã xóa 1 tài khoản/);
+          assert.equal((await c('POST', '/api/login', { username: 'admin', password: 'RiengToi2026' })).status, 401);
+          assert.equal((await c('POST', '/api/login', { username: 'admin', password: 'ChinhThuc26' })).json.mustChange, true);
+          assert.deepEqual((await c('GET', '/api/data')).json.projects.map(p => p.id), ['p1']);
+          assert.equal((await c('POST', '/api/me/password', { current: 'ChinhThuc26', next: 'LanHai2026' })).status, 204);
+        } else assert.equal((await c('POST', '/api/login', { username: 'admin', password: 'LanHai2026' })).status, 200);
+      } finally { await stop(srv); }
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
   }],
   ['FACTORY_RESET không chạy ở production', async () => {
     const srv = await start({ APP_ENV: 'production', FACTORY_RESET: 'lan-2' });
