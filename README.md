@@ -45,7 +45,7 @@ Sau đó vào service vừa tạo trên railway.com:
 | Biến | Ý nghĩa |
 |---|---|
 | `DATABASE_URL` | Chuỗi kết nối PostgreSQL. Không đặt thì dữ liệu lưu vào tệp JSON (mất khi deploy lại, trừ khi gắn Volume). |
-| `ADMIN_USERNAME` | Tên đăng nhập của quản trị viên đầu tiên (mặc định `admin`). Chỉ dùng khi chưa có tài khoản nào. |
+| `ADMIN_USERNAME` | Tên đăng nhập của quản trị viên đầu tiên (mặc định `admin`). Chỉ dùng khi chưa có tài khoản nào hoặc khi có `ADMIN_RESET`. Cũng đọc được từ `ADMIN_USER`. |
 | `ADMIN_PASSWORD` | Mật khẩu của quản trị viên đầu tiên. Không đặt thì máy chủ tạo mật khẩu tạm và in ra Deploy Logs. |
 | `ADMIN_NAME` | Họ tên hiển thị của quản trị viên đầu tiên. |
 | `SESSION_SECRET` | Khóa ký phiên đăng nhập (chuỗi ngẫu nhiên ≥ 32 ký tự). Mỗi môi trường một giá trị khác nhau. |

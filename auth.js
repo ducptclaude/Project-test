@@ -192,7 +192,8 @@ module.exports = function (store, wrap) {
   // Biến sai thì ghi lỗi vào log và bỏ qua, không làm sập máy chủ. Dùng xong phải xóa ADMIN_RESET.
   async function bootstrap() {
     const env = k => String(process.env[k] ?? '').trim();
-    const username = (env('ADMIN_USERNAME') || 'admin').toLowerCase();
+    // ADMIN_USER / APP_USER được chấp nhận như tên khác của ADMIN_USERNAME
+    const username = (env('ADMIN_USERNAME') || env('ADMIN_USER') || env('APP_USER') || 'admin').toLowerCase();
     const mode = env('ADMIN_RESET').toLowerCase();
     const resetOne = ['true', '1', 'yes', 'on'].includes(mode), resetAll = mode === 'all';
     if (mode && !resetOne && !resetAll) console.error(`ADMIN_RESET="${mode}" không hợp lệ: dùng true (đặt lại một tài khoản) hoặc all (xóa mọi tài khoản rồi tạo lại).`);

@@ -128,6 +128,11 @@ const restartChecks = [
     try { assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'CoKhoangTrang1' })).status, 200); }
     finally { await stop(srv); }
   }],
+  ['ADMIN_RESET đọc tên đăng nhập từ ADMIN_USER khi không có ADMIN_USERNAME', async () => {
+    const srv = await start({ ADMIN_RESET: 'true', ADMIN_USER: 'ketoan', ADMIN_PASSWORD: 'KeToan2026' });
+    try { assert.equal((await client()('POST', '/api/login', { username: 'ketoan', password: 'KeToan2026' })).status, 200); }
+    finally { await stop(srv); }
+  }],
   ['ADMIN_RESET=all xóa mọi tài khoản và tạo lại một quản trị viên', async () => {
     const srv = await start({ ADMIN_RESET: 'all', ADMIN_USERNAME: 'chu.du.an', ADMIN_PASSWORD: 'KhoiTao2026' });
     try {
