@@ -85,11 +85,10 @@ module.exports = function (store, wrap) {
   router.use('/brand', express.static(path.join(PUBLIC_DIR, 'brand'), { maxAge: '1h', fallthrough: false }));
   router.get('/api/brand', (req, res) => res.json({
     logo: fs.existsSync(path.join(PUBLIC_DIR, 'brand', 'logo.png')),
-    company: process.env.BRAND_COMPANY || 'TAN MINH NHAN',
-    tagline: process.env.BRAND_TAGLINE || 'CORPORATION',
-    unit: process.env.BRAND_UNIT || 'BAN KIỂM SOÁT',
-    legalName: process.env.BRAND_LEGAL_NAME || 'Công ty Cổ phần Xây dựng Kiến trúc Tân Minh Nhân',
-    footer: process.env.BRAND_FOOTER || 'Produced by the Supervisory Board of Tan Minh Nhan Corporation®'
+    name: process.env.BRAND_NAME || 'Sổ Tài Chính Dự Án',
+    org: process.env.BRAND_ORG || '',
+    tagline: process.env.BRAND_TAGLINE || '',
+    footer: process.env.BRAND_FOOTER || ''
   }));
 
   // Các yêu cầu thay đổi dữ liệu phải gửi kèm X-Requested-With (chặn form giả mạo từ trang khác)
@@ -186,10 +185,25 @@ module.exports = function (store, wrap) {
     res.status(204).end();
   }));
 
-  // Tạo quản trị viên đầu tiên khi chưa có tài khoản nào (ADMIN_USERNAME / ADMIN_PASSWORD)
+  // Tạo quản trị viên đầu tiên khi chưa có tài khoản nào (ADMIN_USERNAME / ADMIN_PASSWORD).
+  // ADMIN_RESET=true: mỗi lần khởi động, đặt lại (hoặc tạo) tài khoản ADMIN_USERNAME với ADMIN_PASSWORD,
+  // quyền Quản trị, mở khóa và đăng xuất mọi phiên cũ của tài khoản đó. Dùng xong phải xóa biến.
   async function bootstrap() {
-    if ((await store.all('users')).length) return;
     const username = String(process.env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
+    if (process.env.ADMIN_RESET === 'true') {
+      const password = process.env.ADMIN_PASSWORD;
+      if (!USERNAME_RE.test(username)) throw new Error('ADMIN_USERNAME không hợp lệ: 3–32 ký tự chữ không dấu, số, dấu chấm, gạch dưới, gạch ngang.');
+      const bad = passwordProblem(password); if (bad) throw new Error('ADMIN_RESET cần ADMIN_PASSWORD hợp lệ. ' + bad);
+      const old = await store.get('users', username);
+      const { id, ...data } = old || { createdAt: new Date().toISOString() };
+      await store.put('users', username, {
+        ...data, name: process.env.ADMIN_NAME || data.name || 'Quản trị viên', role: 'admin', active: true,
+        passHash: await hashPassword(password), ver: (data.ver || 0) + 1, mustChange: false
+      });
+      console.warn(`ADMIN_RESET: đã ${old ? 'đặt lại' : 'tạo'} tài khoản quản trị "${username}" với mật khẩu từ ADMIN_PASSWORD. Hãy xóa biến ADMIN_RESET ngay.`);
+      return;
+    }
+    if ((await store.all('users')).length) return;
     let password = process.env.ADMIN_PASSWORD || process.env.APP_PASSWORD, generated = false;
     if (!password) { password = crypto.randomBytes(9).toString('base64url'); generated = true; }
     await store.put('users', username, {

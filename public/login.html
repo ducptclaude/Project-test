@@ -7,82 +7,101 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
 <style>
-/* Một thẻ đăng nhập trắng giữa nền xanh dương chuyển sắc; nhận diện theo thương hiệu Tân Minh Nhân */
+/* Hai cột: bên trái dải gradient Navy → Teal giới thiệu ứng dụng, bên phải ô đăng nhập trên nền sáng.
+   Trên điện thoại hai phần xếp chồng. Tên hiển thị lấy từ /api/brand (biến BRAND_*). */
 :root{
-  --navy:#1E3A6E; --navy-deep:#16305C; --teal:#12A3A0; --red:#E3262E;
-  --ink:#1E3A6E; --muted:#5F6F86; --field:#F7F9FC; --line:#DCE3EC; --card:#FFFFFF;
+  --navy:#16305C; --teal:#12A3A0; --ink:#0F1F3A; --muted:#5A6A82; --field:#F5F8FB; --line:#DCE3EC; --bg:#FFFFFF;
+  --grad:linear-gradient(90deg,#16305C 0%,#1A5A80 55%,#12A3A0 100%);
+  --grad-panel:linear-gradient(160deg,#132B55 0%,#18406E 50%,#12807F 100%);
   --font:"Montserrat",system-ui,-apple-system,"Segoe UI",sans-serif;
   color-scheme:light;
 }
 *{box-sizing:border-box}
-html{min-height:100%;background:#1E3A72}
-body{
-  margin:0;font-family:var(--font);color:var(--ink);
-  background:
-    radial-gradient(1200px 700px at 8% 25%, rgba(48,118,140,.55), transparent 60%),
-    radial-gradient(900px 700px at 95% 85%, rgba(86,150,200,.55), transparent 60%),
-    linear-gradient(135deg,#1F4A72 0%,#1E3A72 45%,#245A8C 100%);
-  background-attachment:fixed;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
-  min-height:100vh;
-  padding-block:32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
-}
-.card{background:var(--card);border-radius:22px;width:min(440px,100%);padding:36px 34px 30px;box-shadow:0 30px 80px rgba(8,22,50,.35);display:flex;flex-direction:column;gap:22px}
-.brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px}
-.brand img{max-width:220px;max-height:150px;height:auto}
-.company{font-weight:800;font-size:26px;color:var(--red);letter-spacing:-.01em;line-height:1.1}
-.company sup{font-size:9px;color:var(--navy);vertical-align:super;margin-left:1px}
-.tagline{font-weight:500;font-size:11.5px;letter-spacing:.42em;color:var(--navy);margin-right:-.42em}
-.unit{font-weight:800;font-size:23px;color:var(--navy);margin-top:14px;letter-spacing:.01em}
-.legal{font-size:14.5px;color:var(--muted);line-height:1.4;max-width:30ch;text-wrap:balance}
+html,body{margin:0;min-height:100%}
+body{font-family:var(--font);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+.wrap{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);min-height:100vh}
+.intro{background:var(--grad-panel);color:#FFFFFF;display:flex;flex-direction:column;justify-content:space-between;gap:40px;padding:48px clamp(28px,5vw,72px)}
+.mark{display:flex;align-items:center;gap:14px}
+.tile{flex:none;width:52px;height:52px;border-radius:14px;background:#FFFFFF;display:grid;place-items:center;color:var(--navy)}
+.tile img{max-width:44px;max-height:44px;display:block}
+.mark-text{display:flex;flex-direction:column;line-height:1.3}
+.mark-text b{font-size:15px;font-weight:800;letter-spacing:.01em}
+.mark-text span{font-size:12.5px;color:rgba(255,255,255,.75)}
+.pitch{display:flex;flex-direction:column;gap:18px;max-width:30rem}
+.pitch h1{margin:0;font-size:clamp(28px,3.4vw,42px);font-weight:800;line-height:1.15;letter-spacing:-.02em;text-wrap:balance}
+.pitch p{margin:0;font-size:15.5px;line-height:1.6;color:rgba(255,255,255,.85)}
+.points{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:14px}
+.points li{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.5;color:rgba(255,255,255,.92)}
+.points svg{flex:none;margin-top:1px}
+.foot{font-size:12.5px;color:rgba(255,255,255,.7)}
+.side{display:flex;align-items:center;justify-content:center;padding-block:48px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.card{width:min(400px,100%);display:flex;flex-direction:column;gap:26px}
+.card h2{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em;color:var(--navy)}
+.card .lead{margin:6px 0 0;font-size:14px;color:var(--muted)}
 form{display:flex;flex-direction:column;gap:16px}
-label{display:flex;flex-direction:column;gap:8px;font-weight:600;font-size:13.5px;color:#475A75}
-input{font:inherit;font-size:15px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-height:46px;width:100%}
-input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(18,163,160,.18);background:#fff}
+label{display:flex;flex-direction:column;gap:8px;font-weight:600;font-size:13.5px;color:#3D4E68}
+input{font:inherit;font-size:15px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-height:48px;width:100%}
+input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(18,163,160,.18);background:#FFFFFF}
 .pw{position:relative}
 .pw input{padding-right:64px}
-.pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:6px 8px;cursor:pointer;border-radius:6px}
-.submit{margin-top:6px;border:0;border-radius:10px;min-height:50px;font:inherit;font-weight:700;font-size:16px;color:#fff;cursor:pointer;
-  background:linear-gradient(90deg,var(--navy-deep) 0%,#1A5A80 50%,var(--teal) 100%);box-shadow:0 10px 24px rgba(18,120,150,.28);transition:filter .15s,transform .15s}
+.pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:700;padding:8px;cursor:pointer;border-radius:6px}
+.submit{margin-top:4px;border:0;border-radius:10px;min-height:50px;font:inherit;font-weight:700;font-size:16px;color:#FFFFFF;cursor:pointer;background:var(--grad);box-shadow:0 10px 24px rgba(18,120,150,.28)}
 .submit:hover{filter:brightness(1.08)}
-.submit:active{transform:translateY(1px)}
 .submit:disabled{opacity:.7;cursor:wait}
-.err{min-height:1.2em;margin:0;color:#C42B2B;font-size:13px;font-weight:500;text-align:center}
-.help{margin:0;text-align:center;color:var(--muted);font-size:13px}
-.foot{color:rgba(255,255,255,.88);font-size:13px;font-weight:600;text-align:center;letter-spacing:.01em}
-.env{position:fixed;top:0;left:0;right:0;background:repeating-linear-gradient(-45deg,#A86A10 0 14px,#8a560c 14px 28px);color:#fff;font-size:12px;font-weight:700;text-align:center;padding:5px 16px}
+.err{min-height:1.2em;margin:0;color:#B3261E;font-size:13px;font-weight:600}
+.help{margin:0;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:13px;line-height:1.5}
+.env{position:fixed;top:0;left:0;right:0;z-index:5;background:repeating-linear-gradient(-45deg,#A86A10 0 14px,#8a560c 14px 28px);color:#fff;font-size:12px;font-weight:700;text-align:center;padding:5px 16px}
 :focus-visible{outline:2px solid var(--teal);outline-offset:2px}
-@media (max-width:420px){.card{padding:28px 20px 24px}.company{font-size:22px}.unit{font-size:20px}}
-@media (prefers-reduced-motion:reduce){.submit{transition:none}}
+@media (max-width:860px){
+  .wrap{grid-template-columns:minmax(0,1fr)}
+  .intro{padding:32px 24px 36px;gap:24px}
+  .pitch h1{font-size:26px}
+  .points,.foot{display:none}
+  .side{padding-block:32px 40px;align-items:flex-start}
+}
+@media (prefers-reduced-motion:no-preference){.submit{transition:filter .15s}}
 </style>
 </head>
 <body>
 <div class="env" id="env" hidden></div>
-<main class="card">
-  <div class="brand" id="brand">
-    <div class="company" id="b-company">TAN MINH NHAN<sup>®</sup></div>
-    <div class="tagline" id="b-tagline">CORPORATION</div>
-  </div>
-  <div class="brand" style="gap:4px;margin-top:-12px">
-    <div class="unit" id="b-unit">BAN KIỂM SOÁT</div>
-    <div class="legal" id="b-legal">Công ty Cổ phần Xây dựng Kiến trúc Tân Minh Nhân</div>
-  </div>
-  <form id="f" novalidate>
-    <label for="u">Tên đăng nhập<input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
-    <label for="p">Mật khẩu<span class="pw"><input id="p" name="password" type="password" autocomplete="current-password" required><button type="button" id="show" aria-label="Hiện mật khẩu">Hiện</button></span></label>
-    <button class="submit" id="go" type="submit">Đăng nhập</button>
-    <p class="err" id="err" role="alert"></p>
-  </form>
-  <p class="help">Quên mật khẩu? Liên hệ quản trị viên để được cấp lại.</p>
-</main>
-<div class="foot" id="b-footer">Produced by the Supervisory Board of Tan Minh Nhan Corporation®</div>
+<div class="wrap">
+  <section class="intro">
+    <div class="mark">
+      <span class="tile" id="tile"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V11"/><path d="M10 20V5"/><path d="M16 20v-6"/><path d="M21 20H3"/><path d="M4 8l6-4 6 6 5-4"/></svg></span>
+      <span class="mark-text"><b id="b-name">Sổ Tài Chính Dự Án</b><span id="b-org">Quản lý tài chính dự án</span></span>
+    </div>
+    <div class="pitch">
+      <h1>Doanh thu, chi phí và lợi nhuận của mọi dự án ở một nơi.</h1>
+      <p id="b-tagline">Theo dõi từng khoản thu, chi so với hợp đồng và ngân sách, phát hiện sớm dự án lỗ hoặc vượt ngân sách.</p>
+      <ul class="points">
+        <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5FE0DC" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Lợi nhuận và biên lợi nhuận tính tự động theo tháng, quý, năm</li>
+        <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5FE0DC" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Cảnh báo dự án đang lỗ, vượt hoặc sắp hết ngân sách</li>
+        <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5FE0DC" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Phân quyền Chỉ xem, Nhập liệu và Quản trị cho từng người</li>
+      </ul>
+    </div>
+    <div class="foot" id="b-footer"></div>
+  </section>
+  <section class="side">
+    <main class="card">
+      <div><h2>Đăng nhập</h2><p class="lead">Dùng tài khoản do quản trị viên cấp cho bạn.</p></div>
+      <form id="f" novalidate>
+        <label for="u">Tên đăng nhập<input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+        <label for="p">Mật khẩu<span class="pw"><input id="p" name="password" type="password" autocomplete="current-password" required><button type="button" id="show" aria-label="Hiện mật khẩu">Hiện</button></span></label>
+        <button class="submit" id="go" type="submit">Đăng nhập</button>
+        <p class="err" id="err" role="alert"></p>
+      </form>
+      <p class="help">Quên mật khẩu? Liên hệ quản trị viên để được cấp lại.</p>
+    </main>
+  </section>
+</div>
 <script>
 const $ = s => document.querySelector(s);
 fetch('api/brand').then(r => r.json()).then(b => {
-  if (b.logo) $('#brand').innerHTML = `<img src="brand/logo.png" alt="">`;
-  else { $('#b-company').firstChild.textContent = b.company; $('#b-tagline').textContent = b.tagline; }
-  $('#brand img')?.setAttribute('alt', b.company + ' ' + b.tagline);
-  $('#b-unit').textContent = b.unit; $('#b-legal').textContent = b.legalName; $('#b-footer').textContent = b.footer;
+  if (b.logo) { const img = new Image(); img.src = 'brand/logo.png'; img.alt = b.name; $('#tile').replaceChildren(img); }
+  $('#b-name').textContent = b.name; document.title = 'Đăng nhập · ' + b.name;
+  $('#b-org').textContent = b.org || 'Quản lý tài chính dự án';
+  if (b.tagline) $('#b-tagline').textContent = b.tagline;
+  $('#b-footer').textContent = b.footer || '';
 }).catch(() => {});
 fetch('api/info').then(r => r.ok ? r.json() : null).then(i => {
   if (i && i.env && i.env !== 'production') { $('#env').textContent = `MÔI TRƯỜNG THỬ NGHIỆM (${i.env})`; $('#env').hidden = false; }

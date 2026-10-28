@@ -79,22 +79,61 @@ check('đăng xuất', async () => {
   assert.equal((await a('POST', '/api/logout')).status, 204);
 });
 
+function start(extra = {}) {
+  const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env: { ...env, ...extra }, stdio: ['ignore', 'pipe', 'pipe'] });
+  srv.log = ''; srv.stdout.on('data', d => srv.log += d); srv.stderr.on('data', d => srv.log += d);
+  return new Promise((ok, no) => {
+    let i = 0;
+    const poll = async () => {
+      try { if ((await fetch(BASE + '/healthz')).ok) return ok(srv); } catch {}
+      if (srv.exitCode !== null || ++i > 50) { srv.kill(); return no(new Error('Máy chủ không khởi động được:\n' + srv.log)); }
+      setTimeout(poll, 100);
+    };
+    poll();
+  });
+}
+const stop = srv => new Promise(ok => { if (srv.exitCode !== null) return ok(); srv.once('exit', ok); srv.kill(); });
+
+// Kiểm tra cần khởi động lại máy chủ với biến môi trường khác
+const restartChecks = [
+  ['ADMIN_RESET tạo tài khoản quản trị mới, giữ tài khoản cũ', async () => {
+    const srv = await start({ ADMIN_RESET: 'true', ADMIN_USERNAME: 'quantri', ADMIN_PASSWORD: 'QuanTri2026' });
+    try {
+      const c = client();
+      assert.equal((await c('POST', '/api/login', { username: 'quantri', password: 'QuanTri2026' })).status, 200);
+      assert.equal((await c('GET', '/api/me')).json.role, 'admin');
+      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'Admin12345' })).status, 200);
+    } finally { await stop(srv); }
+  }],
+  ['ADMIN_RESET đặt lại mật khẩu và đăng xuất phiên cũ của tài khoản đó', async () => {
+    let srv = await start();
+    const old = client();
+    try { assert.equal((await old('POST', '/api/login', { username: 'admin', password: 'Admin12345' })).status, 200); } finally { await stop(srv); }
+    srv = await start({ ADMIN_RESET: 'true', ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'MatKhauMoi9' });
+    try {
+      assert.equal((await old('GET', '/api/data')).status, 401);
+      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'Admin12345' })).status, 401);
+      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'MatKhauMoi9' })).status, 200);
+    } finally { await stop(srv); }
+  }],
+  ['ADMIN_RESET từ chối mật khẩu quá ngắn', async () => {
+    await assert.rejects(start({ ADMIN_RESET: 'true', ADMIN_PASSWORD: '123' }));
+  }]
+];
+
 (async () => {
-  const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env, stdio: ['ignore', 'pipe', 'pipe'] });
-  let log = ''; srv.stdout.on('data', d => log += d); srv.stderr.on('data', d => log += d);
   let failed = 0;
+  const run = async (name, fn) => {
+    try { await fn(); console.log('  ✓ ' + name); }
+    catch (e) { failed++; console.log('  ✗ ' + name + '\n    ' + (e.message || e)); }
+  };
   try {
-    for (let i = 0; ; i++) {
-      try { if ((await fetch(BASE + '/healthz')).ok) break; } catch {}
-      if (i > 50) throw new Error('Máy chủ không khởi động được:\n' + log);
-      await new Promise(r => setTimeout(r, 100));
-    }
-    for (const [name, fn] of checks) {
-      try { await fn(); console.log('  ✓ ' + name); }
-      catch (e) { failed++; console.log('  ✗ ' + name + '\n    ' + (e.message || e)); }
-    }
+    const srv = await start();
+    try { for (const [name, fn] of checks) await run(name, fn); } finally { await stop(srv); }
+    for (const [name, fn] of restartChecks) await run(name, fn);
   } catch (e) { failed++; console.error(e.message); }
-  finally { srv.kill(); fs.rmSync(dataDir, { recursive: true, force: true }); }
-  console.log(failed ? `\n${failed}/${checks.length} kiểm tra thất bại` : `\nĐạt cả ${checks.length} kiểm tra`);
+  finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
+  const total = checks.length + restartChecks.length;
+  console.log(failed ? `\n${failed}/${total} kiểm tra thất bại` : `\nĐạt cả ${total} kiểm tra`);
   process.exit(failed ? 1 : 0);
 })();

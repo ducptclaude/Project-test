@@ -1,12 +1,12 @@
 # Sổ Tài Chính Dự Án
 
-Ứng dụng web quản lý doanh thu, chi phí, lợi nhuận theo dự án cho Ban Kiểm soát, Công ty CP Xây dựng Kiến trúc Tân Minh Nhân. Giao diện và thông báo đều bằng tiếng Việt.
+Ứng dụng web quản lý doanh thu, chi phí, lợi nhuận theo dự án. Giao diện và thông báo đều bằng tiếng Việt. Nhận diện trung tính: tên hiển thị lấy từ biến `BRAND_*`, không gắn với công ty cụ thể nào; font Montserrat, màu gradient Navy → Teal.
 
 ## Kiến trúc
 - `server.js`: máy chủ Express. Lưu dữ liệu vào PostgreSQL (bảng `records(col, id, data jsonb)`) khi có `DATABASE_URL`, nếu không thì vào `DATA_DIR/db.json`. Các collection: `projects`, `transactions`, `users`, `meta`.
 - `auth.js`: trang `/login`, phiên cookie ký HMAC, vai trò `viewer` < `editor` < `admin`, API quản lý tài khoản.
 - `public/index.html`: toàn bộ giao diện ứng dụng (HTML + CSS + JS thuần trong một file).
-- `public/login.html`: trang đăng nhập theo nhận diện Tân Minh Nhân. Logo ở `public/brand/logo.png`.
+- `public/login.html`: trang đăng nhập hai cột. Logo tùy chọn ở `public/brand/logo.png`.
 - `sample.js`: dữ liệu ví dụ nạp ở lần chạy đầu.
 - `scripts/smoke.js`: bộ kiểm tra chạy bằng `npm test`.
 

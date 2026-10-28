@@ -104,13 +104,15 @@ const wrap = fn => (req, res, next) => fn(req, res, next).catch(e => { console.e
 // Trang đăng nhập, logo và tài khoản (xem auth.js); mọi đường dẫn sau đây đều cần đăng nhập
 const auth = require('./auth')(store, wrap);
 app.set('trust proxy', 1);
+
+// Tên môi trường: Railway tự đặt RAILWAY_ENVIRONMENT_NAME (production, staging…); APP_ENV ghi đè nếu cần.
+// Không cần đăng nhập, để trang đăng nhập cũng hiện dải môi trường thử nghiệm.
+const ENV_NAME = process.env.APP_ENV || process.env.RAILWAY_ENVIRONMENT_NAME || 'local';
+app.get('/api/info', (req, res) => res.set('Cache-Control', 'no-store').json({ env: ENV_NAME }));
+
 app.use(auth.router);
 app.use(auth.requireLogin);
 const canWrite = auth.requireRole('editor');
-
-// Tên môi trường: Railway tự đặt RAILWAY_ENVIRONMENT_NAME (production, staging…); APP_ENV ghi đè nếu cần
-const ENV_NAME = process.env.APP_ENV || process.env.RAILWAY_ENVIRONMENT_NAME || 'local';
-app.get('/api/info', (req, res) => res.set('Cache-Control', 'no-store').json({ env: ENV_NAME }));
 
 app.get('/api/data', wrap(async (req, res) => {
   const [projects, transactions] = await Promise.all([store.all('projects'), store.all('transactions')]);

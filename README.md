@@ -50,7 +50,10 @@ Sau đó vào service vừa tạo trên railway.com:
 | `ADMIN_NAME` | Họ tên hiển thị của quản trị viên đầu tiên. |
 | `SESSION_SECRET` | Khóa ký phiên đăng nhập (chuỗi ngẫu nhiên ≥ 32 ký tự). Mỗi môi trường một giá trị khác nhau. |
 | `SESSION_HOURS` | Thời gian giữ đăng nhập, mặc định 12 giờ. |
-| `BRAND_COMPANY`, `BRAND_TAGLINE`, `BRAND_UNIT`, `BRAND_LEGAL_NAME`, `BRAND_FOOTER` | Chữ trên trang đăng nhập (mặc định theo Tân Minh Nhân · Ban Kiểm soát). |
+| `ADMIN_RESET` | Đặt `true` để khôi phục hoặc đổi tài khoản quản trị (xem bên dưới). **Xóa ngay sau khi dùng.** |
+| `BRAND_NAME` | Tên ứng dụng trên thanh bên và trang đăng nhập (mặc định `Sổ Tài Chính Dự Án`). |
+| `BRAND_ORG` | Tên đơn vị hoặc công ty hiện dưới tên ứng dụng (mặc định để trống). |
+| `BRAND_TAGLINE`, `BRAND_FOOTER` | Câu giới thiệu và dòng chân trang trên trang đăng nhập (tùy chọn). |
 | `SEED_SAMPLE` | Đặt `false` để không nạp dữ liệu ví dụ ở lần chạy đầu. |
 | `PGSSL` | Đặt `true` nếu kết nối Postgres qua địa chỉ công khai cần SSL. |
 | `DATA_DIR` | Thư mục lưu tệp JSON khi không dùng Postgres (gắn Railway Volume vào đây). |
@@ -76,4 +79,14 @@ Quy trình: sửa trên nhánh `staging` → Railway tự deploy bản thử →
 - Vai trò: **Chỉ xem** (xem số liệu) · **Nhập liệu** (thêm, sửa, xóa dự án và giao dịch) · **Quản trị** (thêm quản lý tài khoản).
 - Quản trị viên tạo tài khoản và cấp lại mật khẩu trong menu tên người dùng → **Quản lý tài khoản**. Người được cấp mật khẩu tạm phải đổi ở lần đăng nhập đầu.
 - Khóa hoặc xóa tài khoản sẽ đăng xuất người đó ngay. Sai mật khẩu 8 lần thì tạm khóa 15 phút.
-- Logo: đặt tệp `public/brand/logo.png` (logo đầy đủ, gồm cả chữ). Khi chưa có, trang dùng chữ và biểu tượng tạm.
+- Logo: đặt tệp `public/brand/logo.png`; logo thay biểu tượng ứng dụng ở thanh bên và trang đăng nhập.
+
+### Khôi phục hoặc đổi tài khoản quản trị
+
+1. Trên Railway, vào **Variables** của môi trường cần khôi phục và đặt:
+   - `ADMIN_USERNAME`: tên đăng nhập muốn dùng (tên cũ để đặt lại mật khẩu, tên mới để tạo thêm quản trị viên)
+   - `ADMIN_PASSWORD`: mật khẩu mới, ít nhất 8 ký tự
+   - `ADMIN_RESET` = `true`
+2. Đợi deploy xong. Deploy Logs có dòng `ADMIN_RESET: đã đặt lại…` hoặc `ADMIN_RESET: đã tạo…`. Mọi phiên đăng nhập cũ của tài khoản đó bị đăng xuất.
+3. Đăng nhập bằng tài khoản vừa đặt, rồi **xóa biến `ADMIN_RESET`**. Nếu để nguyên, mỗi lần deploy mật khẩu sẽ bị đặt lại.
+4. Tài khoản quản trị cũ không bị xóa; muốn bỏ thì vào **Quản lý tài khoản** để khóa hoặc xóa.
