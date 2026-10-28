@@ -50,6 +50,7 @@ Sau đó vào service vừa tạo trên railway.com:
 | `ADMIN_NAME` | Họ tên hiển thị của quản trị viên đầu tiên. |
 | `SESSION_SECRET` | Khóa ký phiên đăng nhập (chuỗi ngẫu nhiên ≥ 32 ký tự). Mỗi môi trường một giá trị khác nhau. |
 | `SESSION_HOURS` | Thời gian giữ đăng nhập, mặc định 12 giờ. |
+| `FACTORY_RESET` | Một chuỗi bất kỳ (vd `2026-10-28`): xóa **sạch** dự án, giao dịch và tài khoản đúng một lần cho mỗi giá trị, rồi khởi động như mới. Không chạy ở production. |
 | `ADMIN_RESET` | `true`: đặt lại hoặc tạo tài khoản `ADMIN_USERNAME`. `all`: xóa mọi tài khoản rồi tạo lại một quản trị viên (dữ liệu dự án giữ nguyên). **Xóa ngay sau khi dùng.** |
 | `BRAND_NAME` | Tên ứng dụng trên thanh bên và trang đăng nhập (mặc định `Sổ Tài Chính Dự Án`). |
 | `BRAND_ORG` | Tên đơn vị hoặc công ty hiện dưới tên ứng dụng (mặc định để trống). |
@@ -90,3 +91,13 @@ Quy trình: sửa trên nhánh `staging` → Railway tự deploy bản thử →
 2. Đợi deploy xong. Deploy Logs có dòng `ADMIN_RESET: đã đặt lại…` hoặc `ADMIN_RESET: đã tạo…`. Mọi phiên đăng nhập cũ của tài khoản đó bị đăng xuất.
 3. Đăng nhập bằng tài khoản vừa đặt, rồi **xóa biến `ADMIN_RESET`**. Nếu để nguyên, mỗi lần deploy mật khẩu sẽ bị đặt lại.
 4. Tài khoản quản trị cũ không bị xóa; muốn bỏ thì vào **Quản lý tài khoản** để khóa hoặc xóa.
+
+### Khởi tạo lần đầu (không cần đặt mật khẩu trong biến)
+
+Khi chưa có tài khoản nào và không đặt `ADMIN_PASSWORD`, máy chủ in vào log dòng
+`Mở trang /setup và nhập Mã khởi tạo: XXXX-XXXX`. Mở trang đăng nhập (tự chuyển sang `/setup`),
+nhập mã đó cùng tên đăng nhập và mật khẩu muốn dùng để tạo quản trị viên đầu tiên. Trang chỉ dùng được một lần;
+mã đổi mỗi lần máy chủ khởi động lại.
+
+Muốn làm lại từ đầu một môi trường thử nghiệm: xóa các biến `ADMIN_*`, đặt `FACTORY_RESET` = một giá trị mới, deploy,
+rồi làm theo bước khởi tạo ở trên.

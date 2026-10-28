@@ -78,7 +78,36 @@ module.exports = function (store, wrap) {
   async function activeAdmins() { return (await store.all('users')).filter(u => u.role === 'admin' && u.active !== false); }
 
   /* trang đăng nhập và logo: không cần đăng nhập */
+  // Chế độ khởi tạo: chưa có tài khoản nào và không có ADMIN_PASSWORD hợp lệ → người mở trang /setup
+  // nhập mã khởi tạo (in trong log máy chủ) để tự tạo quản trị viên đầu tiên.
+  let setupCode = null;
+  const noUsers = async () => !(await store.all('users')).length;
+  router.get('/setup', wrap(async (req, res) => {
+    if (!setupCode || !(await noUsers())) return res.redirect('login');
+    res.set('Cache-Control', 'no-store').sendFile(path.join(PUBLIC_DIR, 'setup.html'));
+  }));
+  router.post('/api/setup', express.json({ limit: '10kb' }), wrap(async (req, res) => {
+    if (req.get('X-Requested-With') !== 'fetch') return res.status(403).json({ error: 'Yêu cầu không hợp lệ' });
+    if (!setupCode || !(await noUsers())) return res.status(409).json({ error: 'Hệ thống đã được khởi tạo. Hãy đăng nhập.' });
+    const key = failKey(req, '#setup');
+    if (tooMany(key)) return res.status(429).json({ error: 'Nhập sai mã quá nhiều lần. Hãy thử lại sau 15 phút.' });
+    const b = req.body || {}, code = String(b.code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const want = Buffer.from(setupCode.replace(/-/g, '')), got = Buffer.from(code);
+    if (want.length !== got.length || !crypto.timingSafeEqual(want, got)) { addFail(key); return res.status(400).json({ error: 'Mã khởi tạo không đúng. Xem lại dòng "Mã khởi tạo" trong Deploy Logs.' }); }
+    const username = String(b.username || '').trim().toLowerCase();
+    if (!USERNAME_RE.test(username)) return res.status(400).json({ error: 'Tên đăng nhập gồm 3–32 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang.' });
+    const bad = passwordProblem(b.password); if (bad) return res.status(400).json({ error: bad });
+    const user = { name: String(b.name || '').trim().slice(0, 80) || username, role: 'admin', active: true, ver: 0,
+      passHash: await hashPassword(b.password), mustChange: false, createdAt: new Date().toISOString(), lastLoginAt: new Date().toISOString() };
+    await store.put('users', username, user);
+    setupCode = null; fails.delete(key);
+    console.log(`Khởi tạo xong: đã tạo quản trị viên "${username}" qua trang /setup.`);
+    setSession(req, res, { id: username, ...user });
+    res.json({ ok: true });
+  }));
+
   router.get('/login', async (req, res) => {
+    if (setupCode && await noUsers().catch(() => false)) return res.redirect('setup');
     if (await currentUser(req).catch(() => null)) return res.redirect('./');
     res.set('Cache-Control', 'no-store').sendFile(path.join(PUBLIC_DIR, 'login.html'));
   });
@@ -215,13 +244,18 @@ module.exports = function (store, wrap) {
       }
     }
     if (!(await store.all('users')).length) {
-      let password = env('ADMIN_PASSWORD') || env('APP_PASSWORD'), generated = false;
-      if (passwordProblem(password)) { password = crypto.randomBytes(9).toString('base64url'); generated = true; }
-      await store.put('users', username, {
-        name: env('ADMIN_NAME') || 'Quản trị viên', role: 'admin', active: true, ver: 0,
-        passHash: await hashPassword(password), mustChange: generated, createdAt: new Date().toISOString()
-      });
-      console.log(`Đã tạo tài khoản quản trị "${username}".` + (generated ? ` Mật khẩu tạm: ${password} (đổi ngay sau khi đăng nhập)` : ' Mật khẩu lấy từ ADMIN_PASSWORD.'));
+      const password = env('ADMIN_PASSWORD') || env('APP_PASSWORD');
+      if (USERNAME_RE.test(username) && !passwordProblem(password)) {
+        await store.put('users', username, {
+          name: env('ADMIN_NAME') || 'Quản trị viên', role: 'admin', active: true, ver: 0,
+          passHash: await hashPassword(password), mustChange: false, createdAt: new Date().toISOString()
+        });
+        console.log(`Đã tạo tài khoản quản trị "${username}", mật khẩu lấy từ ADMIN_PASSWORD.`);
+      } else {
+        const c = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', r = crypto.randomBytes(8);
+        setupCode = [...r].map(n => c[n % c.length]).join('').replace(/^(.{4})/, '$1-');
+        console.warn(`CHƯA CÓ TÀI KHOẢN NÀO. Mở trang /setup và nhập Mã khởi tạo: ${setupCode} (mã đổi mỗi lần máy chủ khởi động lại).`);
+      }
     }
     const users = await store.all('users');
     const admins = users.filter(u => u.role === 'admin' && u.active !== false).map(u => u.id);

@@ -44,7 +44,8 @@ function postgresStore(url) {
       } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
     },
     async del(col, id) { await pool.query('DELETE FROM records WHERE col = $1 AND id = $2', [col, id]); },
-    async delSample() { await pool.query(`DELETE FROM records WHERE col IN ('projects','transactions') AND data->>'sample' = 'true'`); }
+    async delSample() { await pool.query(`DELETE FROM records WHERE col IN ('projects','transactions') AND data->>'sample' = 'true'`); },
+    async wipe() { await pool.query('DELETE FROM records'); }
   };
 }
 
@@ -68,6 +69,7 @@ function fileStore(dir) {
     async put(col, id, data) { (db[col] ||= {})[id] = data; await save(); },
     async putMany(items) { for (const [col, id, data] of items) (db[col] ||= {})[id] = data; await save(); },
     async del(col, id) { delete (db[col] || {})[id]; await save(); },
+    async wipe() { db = { projects: {}, transactions: {}, meta: {} }; await save(); },
     async delSample() {
       for (const col of COLS) for (const [id, d] of Object.entries(db[col])) if (d.sample) delete db[col][id];
       await save();
@@ -148,7 +150,22 @@ app.delete('/api/:col/:id', canWrite, wrap(async (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m', index: 'index.html' }));
 
+// FACTORY_RESET=<một chuỗi bất kỳ>: xóa SẠCH dữ liệu (dự án, giao dịch, tài khoản) đúng một lần cho mỗi giá trị,
+// rồi khởi động như lần đầu. Để nguyên biến cũng không xóa lại; đổi sang giá trị khác mới xóa lần nữa.
+// Không bao giờ chạy ở môi trường production.
+async function factoryReset() {
+  const token = String(process.env.FACTORY_RESET || '').trim();
+  if (!token) return;
+  if (ENV_NAME === 'production') return console.error('FACTORY_RESET bị bỏ qua: không cho phép xóa dữ liệu ở môi trường production.');
+  const done = (await store.all('meta')).find(m => m.id === 'factoryReset');
+  if (done && done.token === token) return console.log(`FACTORY_RESET="${token}" đã chạy lúc ${done.at}; không xóa lại. Có thể xóa biến này.`);
+  await store.wipe();
+  await store.put('meta', 'factoryReset', { token, at: new Date().toISOString() });
+  console.warn(`FACTORY_RESET: đã xóa toàn bộ dữ liệu và tài khoản (mã "${token}").`);
+}
+
 store.init()
+  .then(factoryReset)
   .then(seedOnce)
   .then(auth.bootstrap)
   .then(() => app.listen(PORT, () => {

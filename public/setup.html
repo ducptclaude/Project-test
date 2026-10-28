@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Khởi tạo · Sổ Tài Chính Dự Án</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+<style>
+/* Hai cột: bên trái dải gradient Navy → Teal giới thiệu ứng dụng, bên phải ô đăng nhập trên nền sáng.
+   Trên điện thoại hai phần xếp chồng. Tên hiển thị lấy từ /api/brand (biến BRAND_*). */
+:root{
+  --navy:#16305C; --teal:#12A3A0; --ink:#0F1F3A; --muted:#5A6A82; --field:#F5F8FB; --line:#DCE3EC; --bg:#FFFFFF;
+  --grad:linear-gradient(90deg,#16305C 0%,#1A5A80 55%,#12A3A0 100%);
+  --grad-panel:linear-gradient(160deg,#132B55 0%,#18406E 50%,#12807F 100%);
+  --font:"Montserrat",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:var(--font);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+.wrap{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);min-height:100vh}
+.intro{background:var(--grad-panel);color:#FFFFFF;display:flex;flex-direction:column;justify-content:space-between;gap:40px;padding:48px clamp(28px,5vw,72px)}
+.mark{display:flex;align-items:center;gap:14px}
+.tile{flex:none;width:52px;height:52px;border-radius:14px;background:#FFFFFF;display:grid;place-items:center;color:var(--navy)}
+.tile img{max-width:44px;max-height:44px;display:block}
+.mark-text{display:flex;flex-direction:column;line-height:1.3}
+.mark-text b{font-size:15px;font-weight:800;letter-spacing:.01em}
+.mark-text span{font-size:12.5px;color:rgba(255,255,255,.75)}
+.pitch{display:flex;flex-direction:column;gap:18px;max-width:30rem}
+.pitch h1{margin:0;font-size:clamp(28px,3.4vw,42px);font-weight:800;line-height:1.15;letter-spacing:-.02em;text-wrap:balance}
+.pitch p{margin:0;font-size:15.5px;line-height:1.6;color:rgba(255,255,255,.85)}
+.points{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:14px}
+.points li{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.5;color:rgba(255,255,255,.92)}
+.points svg{flex:none;margin-top:1px}
+.foot{font-size:12.5px;color:rgba(255,255,255,.7)}
+.side{display:flex;align-items:center;justify-content:center;padding-block:48px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.card{width:min(400px,100%);display:flex;flex-direction:column;gap:26px}
+.card h2{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em;color:var(--navy)}
+.card .lead{margin:6px 0 0;font-size:14px;color:var(--muted)}
+form{display:flex;flex-direction:column;gap:16px}
+label{display:flex;flex-direction:column;gap:8px;font-weight:600;font-size:13.5px;color:#3D4E68}
+input{font:inherit;font-size:15px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-height:48px;width:100%}
+input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(18,163,160,.18);background:#FFFFFF}
+.pw{position:relative}
+.pw input{padding-right:64px}
+.pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:700;padding:8px;cursor:pointer;border-radius:6px}
+.submit{margin-top:4px;border:0;border-radius:10px;min-height:50px;font:inherit;font-weight:700;font-size:16px;color:#FFFFFF;cursor:pointer;background:var(--grad);box-shadow:0 10px 24px rgba(18,120,150,.28)}
+.submit:hover{filter:brightness(1.08)}
+.submit:disabled{opacity:.7;cursor:wait}
+.hint{margin:-8px 0 0;font-size:12.5px;color:var(--muted)}
+.err{min-height:1.2em;margin:0;color:#B3261E;font-size:13px;font-weight:600}
+.help{margin:0;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:13px;line-height:1.5}
+.env{position:fixed;top:0;left:0;right:0;z-index:5;background:repeating-linear-gradient(-45deg,#A86A10 0 14px,#8a560c 14px 28px);color:#fff;font-size:12px;font-weight:700;text-align:center;padding:5px 16px}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+@media (max-width:860px){
+  .wrap{grid-template-columns:minmax(0,1fr)}
+  .intro{padding:32px 24px 36px;gap:24px}
+  .pitch h1{font-size:26px}
+  .points,.foot{display:none}
+  .side{padding-block:32px 40px;align-items:flex-start}
+}
+@media (prefers-reduced-motion:no-preference){.submit{transition:filter .15s}}
+</style>
+</head>
+<body>
+<div class="env" id="env" hidden></div>
+<div class="wrap">
+  <section class="intro">
+    <div class="mark">
+      <span class="tile" id="tile"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V11"/><path d="M10 20V5"/><path d="M16 20v-6"/><path d="M21 20H3"/><path d="M4 8l6-4 6 6 5-4"/></svg></span>
+      <span class="mark-text"><b id="b-name">Sổ Tài Chính Dự Án</b><span id="b-org">Quản lý tài chính dự án</span></span>
+    </div>
+    <div class="pitch">
+      <h1>Doanh thu, chi phí và lợi nhuận của mọi dự án ở một nơi.</h1>
+      <p id="b-tagline">Theo dõi từng khoản thu, chi so với hợp đồng và ngân sách, phát hiện sớm dự án lỗ hoặc vượt ngân sách.</p>
+      <ul class="points">
+        <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5FE0DC" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Lợi nhuận và biên lợi nhuận tính tự động theo tháng, quý, năm</li>
+        <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5FE0DC" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Cảnh báo dự án đang lỗ, vượt hoặc sắp hết ngân sách</li>
+        <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5FE0DC" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Phân quyền Chỉ xem, Nhập liệu và Quản trị cho từng người</li>
+      </ul>
+    </div>
+    <div class="foot" id="b-footer"></div>
+  </section>
+  <section class="side">
+    <main class="card">
+      <div><h2>Khởi tạo hệ thống</h2><p class="lead">Hệ thống chưa có tài khoản nào. Tạo tài khoản quản trị viên đầu tiên để bắt đầu.</p></div>
+      <form id="f" novalidate>
+        <label for="c">Mã khởi tạo<input id="c" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX" required style="font-weight:700;letter-spacing:.12em"></label>
+        <p class="hint">Mã nằm trong Deploy Logs trên Railway, ở dòng <b>“Mã khởi tạo: …”</b>.</p>
+        <label for="u">Tên đăng nhập<input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="vd: admin" required></label>
+        <label for="n">Họ tên<input id="n" name="name" autocomplete="name" placeholder="vd: Nguyễn Văn A"></label>
+        <label for="p">Mật khẩu<span class="pw"><input id="p" name="password" type="password" autocomplete="new-password" placeholder="Ít nhất 8 ký tự" required><button type="button" id="show" aria-label="Hiện mật khẩu">Hiện</button></span></label>
+        <label for="p2">Nhập lại mật khẩu<input id="p2" type="password" autocomplete="new-password" required></label>
+        <button class="submit" id="go" type="submit">Tạo quản trị viên và vào hệ thống</button>
+        <p class="err" id="err" role="alert"></p>
+      </form>
+      <p class="help">Trang này chỉ dùng được một lần. Sau khi tạo xong, mọi người đăng nhập ở trang Đăng nhập.</p>
+    </main>
+  </section>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+fetch('api/brand').then(r => r.json()).then(b => {
+  if (b.logo) { const img = new Image(); img.src = 'brand/logo.png'; img.alt = b.name; $('#tile').replaceChildren(img); }
+  $('#b-name').textContent = b.name; document.title = 'Khởi tạo · ' + b.name;
+  $('#b-org').textContent = b.org || 'Quản lý tài chính dự án';
+  if (b.tagline) $('#b-tagline').textContent = b.tagline;
+  $('#b-footer').textContent = b.footer || '';
+}).catch(() => {});
+fetch('api/info').then(r => r.ok ? r.json() : null).then(i => {
+  if (i && i.env && i.env !== 'production') { $('#env').textContent = `MÔI TRƯỜNG THỬ NGHIỆM (${i.env})`; $('#env').hidden = false; }
+}).catch(() => {});
+$('#show').onclick = () => { const p = $('#p'), s = p.type === 'password'; p.type = s ? 'text' : 'password'; $('#show').textContent = s ? 'Ẩn' : 'Hiện'; };
+$('#f').onsubmit = async e => {
+  e.preventDefault();
+  const body = {code: $('#c').value, username: $('#u').value.trim().toLowerCase(), name: $('#n').value.trim(), password: $('#p').value};
+  if (!body.code.trim() || !body.username || !body.password) { $('#err').textContent = 'Nhập mã khởi tạo, tên đăng nhập và mật khẩu.'; return; }
+  if (body.password.length < 8) { $('#err').textContent = 'Mật khẩu cần ít nhất 8 ký tự.'; return; }
+  if (body.password !== $('#p2').value) { $('#err').textContent = 'Hai lần nhập mật khẩu chưa khớp.'; return; }
+  $('#go').disabled = true; $('#go').textContent = 'Đang khởi tạo…'; $('#err').textContent = '';
+  try {
+    const r = await fetch('api/setup', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'fetch'}, body: JSON.stringify(body)});
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 409) { location.replace('login'); return; }
+    if (!r.ok) throw new Error(d.error || 'Chưa khởi tạo được.');
+    location.replace('./');
+  } catch (er) {
+    $('#err').textContent = er.message === 'Failed to fetch' ? 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.' : er.message;
+    $('#go').disabled = false; $('#go').textContent = 'Tạo quản trị viên và vào hệ thống';
+  }
+};
+$('#c').focus();
+</script>
+</body>
+</html>

@@ -144,6 +144,38 @@ const restartChecks = [
       assert.equal((await c('GET', '/api/users')).json.length, 1);
       assert.ok((await c('GET', '/api/data')).json.projects.length > 0, 'dữ liệu dự án phải còn nguyên');
     } finally { await stop(srv); }
+  }],
+  ['FACTORY_RESET xóa sạch dữ liệu, mở trang /setup bằng mã khởi tạo', async () => {
+    const blank = { ADMIN_USERNAME: '', ADMIN_PASSWORD: '', ADMIN_RESET: '' };
+    let srv = await start({ ...blank, FACTORY_RESET: 'lan-1' });
+    try {
+      assert.match(srv.log, /FACTORY_RESET: đã xóa toàn bộ/);
+      const code = (srv.log.match(/Mã khởi tạo: ([A-Z0-9-]+)/) || [])[1];
+      assert.ok(code, 'log phải in mã khởi tạo');
+      const c = client();
+      assert.equal((await c('GET', '/login')).location, 'setup');
+      assert.equal((await c('GET', '/setup')).status, 200);
+      assert.equal((await c('POST', '/api/login', { username: 'chu.du.an', password: 'KhoiTao2026' })).status, 401);
+      assert.equal((await c('POST', '/api/setup', { code: 'SAI0-SAI0', username: 'admin', password: 'MoiTinh2026' })).status, 400);
+      assert.equal((await c('POST', '/api/setup', { code: code.toLowerCase(), username: 'Admin', name: 'Quản trị', password: 'MoiTinh2026' })).status, 200);
+      assert.equal((await c('GET', '/api/me')).json.username, 'admin');
+      const d = (await c('GET', '/api/data')).json;
+      assert.ok(!d.transactions.some(t => t.note === 'smoke'), 'giao dịch cũ phải bị xóa');
+      assert.equal((await client()('POST', '/api/setup', { code, username: 'ke.gian', password: 'KeGian2026' })).status, 409);
+      assert.equal((await c('GET', '/setup')).location, 'login');
+    } finally { await stop(srv); }
+    srv = await start({ ...blank, FACTORY_RESET: 'lan-1' });
+    try {
+      assert.match(srv.log, /đã chạy lúc/);
+      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'MoiTinh2026' })).status, 200);
+    } finally { await stop(srv); }
+  }],
+  ['FACTORY_RESET không chạy ở production', async () => {
+    const srv = await start({ APP_ENV: 'production', FACTORY_RESET: 'lan-2' });
+    try {
+      assert.match(srv.log, /FACTORY_RESET bị bỏ qua/);
+      assert.equal((await client()('POST', '/api/login', { username: 'admin', password: 'MoiTinh2026' })).status, 200);
+    } finally { await stop(srv); }
   }]
 ];
 
