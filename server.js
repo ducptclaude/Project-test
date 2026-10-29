@@ -214,6 +214,9 @@ app.delete('/api/contracts/:id', canWrite, wrap(async (req, res) => {
     const n = (await store.all('contracts')).filter(x => x.projectId === c.projectId && x.kind === 'appendix').length;
     if (n) return res.status(409).json({ error: `Hợp đồng gốc còn ${n} phụ lục. Xóa các phụ lục trước.` });
   }
+  // Không xóa hợp đồng còn khoản thu gắn vào (kiểm tra trước mã xóa, như các ràng buộc khác)
+  const nIn = (await store.all('transactions')).filter(t => t.contractId === id).length;
+  if (nIn) return res.status(409).json({ error: `Hợp đồng còn ${nIn} khoản thu gắn vào. Chuyển các khoản thu sang hợp đồng khác trước.` });
   if (!(await passcodeOk(req, res))) return;
   await store.del('contracts', id);
   res.status(204).end();
@@ -233,6 +236,30 @@ function valid(col, d) {
     && /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') && Number.isInteger(d.amount) && d.amount > 0;
 }
 
+// Giao dịch thu/chi có VAT (xem CLAUDE.md "VAT giao dịch thu/chi"): amount = sau VAT (tên cũ, giữ để đọc được dữ liệu cũ),
+// pre = trước VAT, vat = VAT (null = tạm tính). Dữ liệu cũ chỉ có amount: coi là sau VAT, VAT tạm tính.
+// Khoản thu: contractId ('' = ngoài hợp đồng) bắt buộc khi dự án đã có hợp đồng. Khoản chi: partner (đối tác).
+// Trả về thông báo lỗi, hoặc null nếu hợp lệ (đồng thời chuẩn hóa data).
+async function txProblem(data) {
+  const isInt = v => Number.isInteger(v);
+  if (data.vat === undefined) delete data.vat;
+  if (data.pre == null) delete data.pre;
+  if (data.vat != null && !(isInt(data.vat) && data.vat >= 0)) return 'VAT phải là số nguyên đồng, không âm; để trống nếu chưa có (tạm tính).';
+  if (data.pre != null && !(isInt(data.pre) && data.pre > 0)) return 'Số tiền trước VAT phải là số nguyên đồng lớn hơn 0.';
+  if (data.pre == null && data.vat != null) data.pre = data.amount - data.vat;   // chỉ gửi sau VAT + VAT: tự tính trước VAT
+  if (data.pre != null && (data.pre <= 0 || data.amount !== data.pre + (data.vat || 0))) return 'Trước VAT + VAT phải bằng Sau VAT.';
+  for (const [k, max] of [['invoiceNo', 60], ['partner', 120], ['note', 500], ['category', 120]])
+    if (data[k] != null && (typeof data[k] !== 'string' || data[k].length > max)) return 'Dữ liệu không hợp lệ';
+  if (data.invoiceDate != null && data.invoiceDate !== '' && !(typeof data.invoiceDate === 'string' && DATE_RE.test(data.invoiceDate))) return 'Ngày hóa đơn không hợp lệ.';
+  if (data.type === 'out') { delete data.contractId; return null; }
+  delete data.partner;
+  const cts = (await store.all('contracts')).filter(c => c.projectId === data.projectId);
+  if (data.contractId == null) return cts.length ? 'Chọn hợp đồng hoặc Ngoài hợp đồng.' : null;
+  if (typeof data.contractId !== 'string') return 'Dữ liệu không hợp lệ';
+  if (data.contractId !== '' && !cts.some(c => c.id === data.contractId)) return 'Hợp đồng không thuộc dự án này.';
+  return null;
+}
+
 app.put('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (!check(req, res)) return;
   if (!valid(req.params.col, req.body)) return res.status(400).json({ error: 'Dữ liệu không hợp lệ' });
@@ -244,6 +271,8 @@ app.put('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (req.params.col === 'transactions') {
     const old = await store.get('transactions', req.params.id);
     if (old && old.type !== data.type) return res.status(400).json({ error: 'Không đổi được loại thu/chi của khoản đã ghi.' });
+    const bad = await txProblem(data);
+    if (bad) return res.status(400).json({ error: bad });
     // Người nhập / người sửa do máy chủ ghi theo tài khoản đăng nhập, bỏ qua giá trị gửi lên.
     // Sửa: giữ nguyên người tạo và thời điểm tạo (giao dịch cũ chưa có thì để trống). createdAt là số mili giây như dữ liệu cũ.
     for (const k of ['createdBy', 'createdByName', 'createdAt', 'updatedBy', 'updatedByName', 'updatedAt']) delete data[k];
