@@ -60,6 +60,12 @@
 - Menu "Doanh thu" đổi thành **"Tiền về"** (view vẫn tên `revenue`).
 - Làm sau: gắn khoản tiền về vào từng đợt nghiệm thu.
 
+### Giao diện nhập liệu trang Tiền về / Chi phí
+- Khối nhập "Ghi tiền về" / "Ghi chi phí" **ẩn mặc định**, mở bằng nút thêm mới (đầu trang, có nút Đóng ×, Esc để đóng). Lưu xong giữ khối mở; đóng khi đang gõ thì giữ giá trị tới khi tải lại trang (`S.entryDraft`).
+- Nút thêm mới **tách đôi** (`#addsplit`): phần chính theo trang (Tiền về "+ Ghi tiền về", Chi phí "+ Ghi chi phí", Chi tiết dự án "+ Tiền về", trang khác "+ Thêm mới" mở menu); phần ▾ mở menu Tiền về / Chi phí / Dự án (phím mũi tên, Enter, Esc). Người chỉ xem không thấy cụm này. Điện thoại: nút + thanh dưới mở cùng menu dạng bảng trượt.
+- **Một bộ lọc dự án chung** (`#ledger-proj`, `S.ledgerProject`) cho cả trang Tiền về / Chi phí: thẻ tổng, các panel và cây cùng theo bộ lọc.
+- Trang Tiền về có cây **Tiền về theo hợp đồng CĐT**: (Dự án khi xem nhiều dự án) → nhóm hợp đồng (+ "Ngoài hợp đồng / chưa gắn") → khoản. Số chính sau VAT, kèm trước VAT · VAT; mặc định thu gọn, trạng thái mở nhớ trong phiên (`sessionStorage stc:revOpen`).
+
 ### Chi phí 3 khối và tiền vay (người dùng đã chốt)
 - Khoản chi có `group` + `category` (danh mục cố định, máy chủ kiểm tra hạng mục thuộc đúng khối, sai → 400):
   - `direct` **Chi phí trực tiếp**: Thầu phụ · Vật tư · Nhân công · MMTB · Tổ chức thi công · Khác
