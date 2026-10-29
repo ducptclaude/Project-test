@@ -245,6 +245,8 @@ tbody tr.link:hover{background:var(--sunk)}
 .entry .err:empty{display:none}
 .entry .save{width:100%;min-height:48px;font-size:15px}
 .entry.out .save{background:linear-gradient(90deg,#16305C 0%,#8A4A2A 60%,#E07B39 100%)}
+.type-lock{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:40px}
+.type-lock small{font-size:12px;color:var(--muted)}
 .today{font-size:13px;color:var(--muted)}
 .today b{color:var(--ink)}
 .txp{display:block;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -329,9 +331,10 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
 .form .full{grid-column:1/-1}
 @media (max-width:520px){.form{grid-template-columns:minmax(0,1fr)}}
 .form input,.form select{width:100%}
-.seg{display:flex;gap:0;border:1px solid var(--line);border-radius:9px;overflow:hidden;min-height:40px}
+.seg{position:relative;display:flex;gap:0;border:1px solid var(--line);border-radius:9px;overflow:hidden;min-height:40px}
 .seg label{flex:1;display:grid;place-items:center;cursor:pointer;font-weight:700;color:var(--muted)}
-.seg input{position:absolute;opacity:0;pointer-events:none}
+/* Ô radio ẩn phải nằm gọn trong .seg: trước đây nó nhận width:100% của .form input và định vị theo hộp thoại, gây thanh cuộn ngang */
+.seg input[type=radio]{position:absolute;left:0;top:0;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
 .seg input:checked+label.in{background:var(--rev-soft);color:var(--rev-ink)}
 .seg input:checked+label.out{background:var(--exp-soft);color:var(--exp-ink)}
 .seg input:focus-visible+label{outline:2px solid var(--teal);outline-offset:-2px}
@@ -549,9 +552,9 @@ async function api(method, path, body, background = false) {
   return r.status === 204 || r.status === 201 ? null : r.json();
 }
 async function put(col, id, data) {
-  await retry(() => api('PUT', col + '/' + encodeURIComponent(id), data));
-  const list = col === 'projects' ? S.projects : S.txs, i = list.findIndex(x => x.id === id);
-  if (i >= 0) list[i] = {id, ...data}; else list.push({id, ...data});
+  const saved = await retry(() => api('PUT', col + '/' + encodeURIComponent(id), data));   // giao dịch: máy chủ trả bản ghi đã lưu (kèm người nhập)
+  const list = col === 'projects' ? S.projects : S.txs, i = list.findIndex(x => x.id === id), rec = saved || {id, ...data};
+  if (i >= 0) list[i] = rec; else list.push(rec);
   refresh();
 }
 async function del(col, id, passcode) {
@@ -969,22 +972,35 @@ const ENTRY = {
   out: {title: 'Ghi chi phí', lead: 'Khoản tiền chi ra: nhân công, vật tư, thầu phụ…', save: 'Lưu khoản chi', word: 'chi',
     icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7L7 17"/><path d="M16 17H7V8"/></svg>'}
 };
+// Các trường nhập một khoản thu/chi: dùng chung cho ô nhập ở trang Doanh thu/Chi phí và hộp Ghi / Sửa giao dịch,
+// để thay đổi sau này (vd. VAT) chỉ sửa một chỗ. px: tiền tố id; typeCtl: 'none' (loại cố định theo trang),
+// 'pick' (chọn Thu/Chi khi ghi mới), 'locked' (sửa khoản đã ghi: không đổi được loại)
+const NOTE_HINT = {in: 'Ví dụ: Thanh toán đợt 2 theo biên bản nghiệm thu', out: 'Ví dụ: Thép hình đợt 4, hóa đơn số 0012'};
+const qcatsHtml = (type, cur) => CATS[type].slice(0, 6).map(c => `<button type="button" class="qcat" data-qcat="${esc(c)}" aria-pressed="${c === cur}">${esc(c)}</button>`).join('');
+const catOptions = type => CATS[type].map(c => `<option value="${esc(c)}">`).join('');
+function txFields(px, t, typeCtl = 'none') {
+  const id = k => px + k, type = t.type;
+  const typeHtml = typeCtl === 'pick'
+    ? `<div class="field full"><span>Loại</span><div class="seg"><input type="radio" name="${id('type')}" id="${id('in')}" value="in"${type === 'in' ? ' checked' : ''}><label for="${id('in')}" class="in">Thu</label><input type="radio" name="${id('type')}" id="${id('out')}" value="out"${type === 'out' ? ' checked' : ''}><label for="${id('out')}" class="out">Chi</label></div></div>`
+    : typeCtl === 'locked'
+    ? `<div class="field full"><span>Loại</span><div class="type-lock"><span class="chip ${type}">${type === 'in' ? 'Khoản thu' : 'Khoản chi'}</span><small>Muốn đổi loại: xóa khoản này và nhập lại.</small></div></div>` : '';
+  return `
+      <label class="field full"><span>Dự án</span><select id="${id('project')}">${sortedProjects().map(p => `<option value="${esc(p.id)}"${p.id === t.projectId ? ' selected' : ''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select></label>
+      ${typeHtml}
+      <label class="field full"><span>Số tiền <b class="num" data-hint="${id('amount')}" style="text-transform:none;letter-spacing:0">${t.amount ? spoken(t.amount) : ''}</b></span>
+        <span class="amount-wrap"><input type="text" inputmode="numeric" id="${id('amount')}" data-money value="${t.amount ? Math.round(t.amount).toLocaleString('vi-VN') : ''}" placeholder="0" autocomplete="off"><span class="unit">₫</span></span></label>
+      <label class="field"><span>Ngày</span><input type="date" id="${id('date')}" value="${esc(t.date || today())}"></label>
+      <label class="field"><span>Hạng mục</span><input type="text" id="${id('cat')}" list="${id('cats')}" value="${esc(t.category)}" placeholder="Chọn hoặc gõ mới" autocomplete="off"><datalist id="${id('cats')}">${catOptions(type)}</datalist></label>
+      <div class="qcats full" aria-label="Chọn nhanh hạng mục" data-qcats="${px}">${qcatsHtml(type, t.category)}</div>
+      <label class="field full"><span>Diễn giải</span><input type="text" id="${id('note')}" value="${esc(t.note)}" placeholder="${NOTE_HINT[type]}" autocomplete="off"></label>`;
+}
 function entryForm(type) {
   const e = ENTRY[type], st = S.entry[type], list = sortedProjects();
   const pid = list.some(p => p.id === st.projectId) ? st.projectId : (list.find(p => p.status === 'active') || list[0]).id;
-  const id = k => `e-${type}-${k}`;
   return `<form class="panel entry ${type}" data-entry="${type}" novalidate>
     <div class="e-head"><span class="e-icon">${e.icon}</span><div><h2>${e.title}</h2><p>${e.lead}</p></div></div>
-    <div class="form">
-      <label class="field full"><span>Dự án</span><select id="${id('project')}">${list.map(p => `<option value="${esc(p.id)}"${p.id === pid ? ' selected' : ''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select></label>
-      <label class="field full"><span>Số tiền <b class="num" data-hint="${id('amount')}" style="text-transform:none;letter-spacing:0"></b></span>
-        <span class="amount-wrap"><input type="text" inputmode="numeric" id="${id('amount')}" data-money placeholder="0" autocomplete="off"><span class="unit">₫</span></span></label>
-      <label class="field"><span>Ngày</span><input type="date" id="${id('date')}" value="${esc(st.date || today())}"></label>
-      <label class="field"><span>Hạng mục</span><input type="text" id="${id('cat')}" list="${id('cats')}" placeholder="Chọn hoặc gõ mới" autocomplete="off"><datalist id="${id('cats')}">${CATS[type].map(c => `<option value="${esc(c)}">`).join('')}</datalist></label>
-      <div class="qcats full" aria-label="Chọn nhanh hạng mục">${CATS[type].slice(0, 6).map(c => `<button type="button" class="qcat" data-qcat="${esc(c)}" aria-pressed="false">${esc(c)}</button>`).join('')}</div>
-      <label class="field full"><span>Diễn giải</span><input type="text" id="${id('note')}" placeholder="${type === 'in' ? 'Ví dụ: Thanh toán đợt 2 theo biên bản nghiệm thu' : 'Ví dụ: Thép hình đợt 4, hóa đơn số 0012'}" autocomplete="off"></label>
-    </div>
-    <p class="err" id="${id('err')}"></p>
+    <div class="form">${txFields(`e-${type}-`, {type, projectId: pid, date: st.date})}</div>
+    <p class="err" id="e-${type}-err"></p>
     <button type="submit" class="btn primary save">${e.save}</button>
   </form>`;
 }
@@ -1023,7 +1039,7 @@ function renderLedgerSide() {
 }
 async function saveEntry(f) {
   const type = f.dataset.entry, v = k => $(`#e-${type}-${k}`).value.trim(), err = $(`#e-${type}-err`);
-  const data = {projectId: v('project'), type, date: v('date'), category: v('cat') || 'Khác', amount: parseMoney(v('amount')), note: v('note'), createdAt: Date.now()};
+  const data = {projectId: v('project'), type, date: v('date'), category: v('cat') || 'Khác', amount: parseMoney(v('amount')), note: v('note')};
   if (!data.amount) { err.textContent = 'Nhập số tiền lớn hơn 0.'; $(`#e-${type}-amount`).focus(); return; }
   if (!data.date) { err.textContent = 'Chọn ngày phát sinh.'; return; }
   err.textContent = '';
@@ -1049,6 +1065,9 @@ function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false
   const shown = sorted.slice(offset, offset + limit), st = sum(txs);
   const code = t => esc(S.projects.find(p => p.id === t.projectId)?.code || '');
   const amt = t => `${t.type === 'in' ? '+' : '−'}${Math.round(t.amount).toLocaleString('vi-VN')}`;
+  // Người nhập (máy chủ ghi); giao dịch cũ chưa có thì để trống. Rê chuột: người sửa lần cuối
+  const edited = t => t.updatedByName && t.updatedAt ? `Sửa lần cuối: ${t.updatedByName} · ${new Date(t.updatedAt).toLocaleString('vi-VN')}` : '';
+  const by = t => t.createdByName ? `<div class="psub" style="font-size:11.5px" title="${esc(edited(t))}">Nhập: ${esc(t.createdByName)}</div>` : '';
   const total = `${st.profit < 0 ? '−' : ''}${Math.abs(Math.round(st.profit)).toLocaleString('vi-VN')}`;
   return `<div class="tbl-wrap desk"><table>
     <thead><tr><th>Ngày</th>${showProject ? '<th>Dự án</th>' : ''}${compact ? '' : '<th>Loại</th>'}<th>Hạng mục</th><th>Diễn giải</th><th class="r">Số tiền (₫)</th>${S.canWrite ? '<th></th>' : ''}</tr></thead>
@@ -1056,14 +1075,14 @@ function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false
       <td class="num muted" style="white-space:nowrap">${fmtDate(t.date)}</td>
       ${showProject ? `<td><span class="txp" title="${esc(projectName(t.projectId))}"><span class="num" style="font-weight:700">${code(t)}</span> <span class="psub">${esc(projectName(t.projectId))}</span></span></td>` : ''}
       ${compact ? '' : `<td><span class="chip ${t.type}">${t.type === 'in' ? 'Thu' : 'Chi'}</span></td>`}
-      <td style="font-weight:600">${esc(t.category)}</td><td class="psub" style="max-width:300px;overflow-wrap:anywhere">${esc(t.note)}</td>
+      <td><div style="font-weight:600">${esc(t.category)}</div>${by(t)}</td><td class="psub" style="max-width:300px;overflow-wrap:anywhere">${esc(t.note)}</td>
       <td class="r num ${t.type === 'in' ? 'c-rev' : ''}" style="font-weight:800">${amt(t)}</td>
       ${S.canWrite ? `<td><div class="actions"><button class="btn sm" data-act="edit-tx" data-id="${esc(t.id)}">Sửa</button><button class="btn sm danger" data-act="del-tx" data-id="${esc(t.id)}">Xóa</button></div></td>` : ''}
     </tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="${(showProject ? 5 : 4) - (compact ? 1 : 0)}">Tổng cộng: thu <span class="num c-rev">${vnd(st.rev)}</span> · chi <span class="num c-exp">${vnd(st.exp)}</span></td><td class="r num ${st.profit < 0 ? 'c-bad' : ''}">${total}</td>${S.canWrite ? '<td></td>' : ''}</tr></tfoot>
   </table></div>
   <ul class="txlist">${shown.map(t => {
-    const inner = `<span class="l"><b>${esc(t.category)}</b><span class="psub">${fmtDate(t.date)}${showProject ? ` · ${code(t)}` : ''}${t.note ? ` · ${esc(t.note)}` : ''}</span></span><span class="amt num ${t.type === 'in' ? 'c-rev' : ''}">${amt(t)}</span>`;
+    const inner = `<span class="l"><b>${esc(t.category)}</b><span class="psub">${fmtDate(t.date)}${showProject ? ` · ${code(t)}` : ''}${t.note ? ` · ${esc(t.note)}` : ''}${t.createdByName ? ` · Nhập: ${esc(t.createdByName)}` : ''}</span></span><span class="amt num ${t.type === 'in' ? 'c-rev' : ''}">${amt(t)}</span>`;
     return `<li>${S.canWrite ? `<button class="txrow" data-act="edit-tx" data-id="${esc(t.id)}">${inner}</button>` : `<div class="txrow">${inner}</div>`}</li>`;
   }).join('')}
     <li class="txtotal"><div class="txrow"><span class="l"><b>Tổng cộng</b><span class="psub">Thu <span class="num c-rev">${vnd(st.rev)}</span> · Chi <span class="num c-exp">${vnd(st.exp)}</span></span></span>
@@ -1180,33 +1199,33 @@ function bindMoney() {
 }
 function openTx(tx, projectId, type = 'out') {
   const t = tx || {type, date: today(), projectId: projectId || S.projectId || sortedProjects()[0]?.id, category: '', amount: 0, note: ''};
-  form.innerHTML = `<h2>${tx ? 'Sửa giao dịch' : type === 'in' ? 'Ghi khoản thu' : 'Ghi khoản chi'}</h2>
-    <div class="form">
-      <label class="field full"><span>Dự án</span><select id="x-project">${sortedProjects().map(p => `<option value="${esc(p.id)}">${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select></label>
-      <div class="field"><span>Loại</span><div class="seg"><input type="radio" name="x-type" id="x-in" value="in"><label for="x-in" class="in">Thu</label><input type="radio" name="x-type" id="x-out" value="out"><label for="x-out" class="out">Chi</label></div></div>
-      <label class="field"><span>Ngày</span><input type="date" id="x-date" value="${esc(t.date)}"></label>
-      <label class="field"><span>Hạng mục</span><input type="text" id="x-cat" list="x-cats" value="${esc(t.category)}" placeholder="Chọn hoặc gõ mới"><datalist id="x-cats"></datalist></label>
-      <label class="field"><span>Số tiền (₫) <b class="num" data-hint="x-amount" style="text-transform:none;letter-spacing:0">${t.amount ? spoken(t.amount) : ''}</b></span>${moneyInput('x-amount', t.amount)}</label>
-      <label class="field full"><span>Diễn giải</span><input type="text" id="x-note" value="${esc(t.note)}" placeholder="Ví dụ: Thanh toán đợt 2 cho nhà cung cấp thép"></label>
-    </div>
+  const who = tx && (tx.createdByName || tx.updatedByName)
+    ? `<p class="psub" style="margin:-8px 0 0">${tx.createdByName ? `Nhập: ${esc(tx.createdByName)}` : ''}${tx.updatedByName && tx.updatedAt ? `${tx.createdByName ? ' · ' : ''}Sửa lần cuối: ${esc(tx.updatedByName)} · ${new Date(tx.updatedAt).toLocaleString('vi-VN')}` : ''}</p>` : '';
+  form.innerHTML = `<h2 id="x-title">${tx ? 'Sửa giao dịch' : type === 'in' ? 'Ghi khoản thu' : 'Ghi khoản chi'}</h2>${who}
+    <div class="form entry ${t.type}" id="x-fields">${txFields('x-', t, tx ? 'locked' : 'pick')}</div>
     <div class="err" id="x-err"></div>
     <div class="dlg-foot">${tx ? `<button type="button" class="btn danger" id="x-del">Xóa giao dịch</button>` : '<span></span>'}
       <div class="inline"><button type="button" class="btn" id="x-cancel">Hủy</button><button type="submit" class="btn primary">Lưu giao dịch</button></div></div>`;
-  $('#x-project').value = t.projectId; form.querySelector(`#x-${t.type}`).checked = true;
-  const fillCats = () => { const ty = form.querySelector('input[name=x-type]:checked').value; $('#x-cats').innerHTML = CATS[ty].map(c => `<option value="${esc(c)}">`).join(''); };
-  fillCats(); form.querySelectorAll('input[name=x-type]').forEach(r => r.onchange = fillCats);
+  const curType = () => tx ? tx.type : form.querySelector('input[name=x-type]:checked').value;
+  // Ghi mới: đổi Thu/Chi thì đổi danh sách hạng mục, nút chọn nhanh và màu theo loại
+  if (!tx) form.querySelectorAll('input[name=x-type]').forEach(r => r.onchange = () => {
+    const ty = curType(), cat = $('#x-cat').value;
+    $('#x-fields').className = 'form entry ' + ty; $('#x-cats').innerHTML = catOptions(ty); $('#x-title').textContent = ty === 'in' ? 'Ghi khoản thu' : 'Ghi khoản chi';
+    form.querySelector('[data-qcats]').innerHTML = qcatsHtml(ty, cat); $('#x-note').placeholder = NOTE_HINT[ty];
+  });
   bindMoney();
   $('#x-cancel').onclick = () => dlg.close();
   if (tx) $('#x-del').onclick = async () => { if (await deleteTx(tx)) dlg.close(); };
   form.onsubmit = async e => {
     e.preventDefault();
-    const data = {projectId: $('#x-project').value, type: form.querySelector('input[name=x-type]:checked').value, date: $('#x-date').value,
-      category: $('#x-cat').value.trim() || 'Khác', amount: parseMoney($('#x-amount').value), note: $('#x-note').value.trim(),
-      createdAt: tx?.createdAt || Date.now()};
+    const data = {projectId: $('#x-project').value, type: curType(), date: $('#x-date').value,
+      category: $('#x-cat').value.trim() || 'Khác', amount: parseMoney($('#x-amount').value), note: $('#x-note').value.trim()};
     if (!data.date) return $('#x-err').textContent = 'Chọn ngày phát sinh giao dịch.';
     if (!data.amount) return $('#x-err').textContent = 'Nhập số tiền lớn hơn 0.';
-    dlg.close();
-    try { await put('transactions', tx?.id || uid(), data); toast(tx ? 'Đã cập nhật giao dịch' : 'Đã ghi giao dịch'); } catch (er) { toast(failMsg(er)); }
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+    try { await put('transactions', tx?.id || uid(), data); dlg.close(); toast(tx ? 'Đã cập nhật giao dịch' : 'Đã ghi giao dịch'); }
+    catch (er) { $('#x-err').textContent = failMsg(er); }
+    finally { btn.disabled = false; }
   };
   dlg.showModal(); (tx ? $('#x-amount') : $('#x-cat')).focus();
 }
@@ -1433,7 +1452,6 @@ $('#main').addEventListener('input', e => {
     const inp = e.target, n = parseMoney(inp.value); inp.value = n ? n.toLocaleString('vi-VN') : '';
     const hint = $(`[data-hint="${inp.id}"]`); if (hint) hint.textContent = n ? spoken(n) : '';
   }
-  if (e.target.matches('form[data-entry] input[list]')) e.target.closest('form').querySelectorAll('.qcat').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.qcat === e.target.value)));
   if (e.target.id === 'j-q') { S.jf.q = e.target.value; S.jpage = 0; renderJournalTable(); }
 });
 $('#main').addEventListener('change', e => {
@@ -1443,8 +1461,6 @@ $('#main').addEventListener('change', e => {
 });
 $('#main').addEventListener('click', e => {
   if (e.target.id === 'j-export') exportCsv();
-  const q = e.target.closest('[data-qcat]');
-  if (q) { const f = q.closest('form'), inp = $(`#e-${f.dataset.entry}-cat`); inp.value = q.dataset.qcat; f.querySelectorAll('.qcat').forEach(b => b.setAttribute('aria-pressed', String(b === q))); $(`#e-${f.dataset.entry}-amount`).focus(); }
   const go = e.target.closest('[data-view-go]');
   if (go) { S.view = go.dataset.viewGo; store.set('view', S.view); render(); window.scrollTo({top: 0}); }
 });
@@ -1454,6 +1470,20 @@ $('#main').addEventListener('change', e => {
   const t = f.dataset.entry;
   if (e.target.id === `e-${t}-project`) S.entry[t].projectId = e.target.value;
   if (e.target.id === `e-${t}-date`) S.entry[t].date = e.target.value;
+});
+
+// Nút chọn nhanh hạng mục (ô nhập ở trang Doanh thu/Chi phí và hộp Ghi / Sửa giao dịch): [data-qcats] mang tiền tố id của nhóm trường
+document.addEventListener('click', e => {
+  const q = e.target.closest('[data-qcat]'); if (!q) return;
+  const box = q.closest('[data-qcats]'), px = box.dataset.qcats;
+  document.getElementById(px + 'cat').value = q.dataset.qcat;
+  box.querySelectorAll('.qcat').forEach(b => b.setAttribute('aria-pressed', String(b === q)));
+  document.getElementById(px + 'amount').focus();
+});
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.matches('input[list]') || !el.id.endsWith('cat')) return;
+  const box = document.querySelector(`[data-qcats="${el.id.slice(0, -3)}"]`);
+  if (box) box.querySelectorAll('.qcat').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.qcat === el.value)));
 });
 
 /* ---------- boot ---------- */

@@ -241,6 +241,19 @@ app.put('/api/:col/:id', canWrite, wrap(async (req, res) => {
   // Giao dịch luôn thuộc một dự án đang tồn tại
   if (req.params.col === 'transactions' && !(ID_RE.test(req.body.projectId) && await store.get('projects', req.body.projectId)))
     return res.status(400).json({ error: 'Dự án không tồn tại.' });
+  if (req.params.col === 'transactions') {
+    const old = await store.get('transactions', req.params.id);
+    if (old && old.type !== data.type) return res.status(400).json({ error: 'Không đổi được loại thu/chi của khoản đã ghi.' });
+    // Người nhập / người sửa do máy chủ ghi theo tài khoản đăng nhập, bỏ qua giá trị gửi lên.
+    // Sửa: giữ nguyên người tạo và thời điểm tạo (giao dịch cũ chưa có thì để trống). createdAt là số mili giây như dữ liệu cũ.
+    for (const k of ['createdBy', 'createdByName', 'createdAt', 'updatedBy', 'updatedByName', 'updatedAt']) delete data[k];
+    const created = old ? { createdBy: old.createdBy, createdByName: old.createdByName, createdAt: old.createdAt }
+      : { createdBy: req.user.id, createdByName: req.user.name || req.user.id, createdAt: Date.now() };
+    const rec = { ...data, ...created, updatedBy: req.user.id, updatedByName: req.user.name || req.user.id, updatedAt: new Date().toISOString() };
+    for (const k of Object.keys(rec)) if (rec[k] === undefined) delete rec[k];
+    await store.put('transactions', req.params.id, rec);
+    return res.json({ id: req.params.id, ...rec });
+  }
   await store.put(req.params.col, req.params.id, data);
   res.status(204).end();
 }));
