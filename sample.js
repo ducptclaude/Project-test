@@ -1,3 +1,8 @@
+// Hạng mục chi của dữ liệu ví dụ → khối / hạng mục mới (chi phí 3 khối)
+const COST = { 'Vật tư': ['direct', 'Vật tư'], 'Nhân công': ['direct', 'Nhân công'], 'Thầu phụ': ['direct', 'Thầu phụ'],
+  'Thiết bị / máy móc': ['direct', 'MMTB'], 'Vận chuyển': ['direct', 'Tổ chức thi công'],
+  'Bản quyền / phần mềm': ['indirect', 'Khác'], 'Chi phí quản lý': ['indirect', 'Lương BCH'], 'Thuế & phí': ['finance', 'Phí ngân hàng'] };
+
 // Dữ liệu ví dụ nạp vào lần chạy đầu tiên (tắt bằng SEED_SAMPLE=false)
 function makeSample() {
   let s = 20261019; const rnd = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296;
@@ -26,7 +31,7 @@ function makeSample() {
     while (`${y}-${String(m).padStart(2,'0')}` <= costEnd) { months.push(`${y}-${String(m).padStart(2,'0')}`); if (++m > 12) { m = 1; y++; } }
     for (const mo of months) for (const [category, share] of mix) {
       const day = String(3 + Math.floor(rnd() * 24)).padStart(2, '0');
-      txs.push({id:'s' + (++n), projectId:p.id, type:'out', category, amount:r5(costTotal / months.length * share * (0.7 + rnd() * 0.6)), date:`${mo}-${day}`, note:'', sample:true});
+      txs.push({id:'s' + (++n), projectId:p.id, type:'out', group: COST[category][0], category: COST[category][1], amount:r5(costTotal / months.length * share * (0.7 + rnd() * 0.6)), date:`${mo}-${day}`, note:'', sample:true});
     }
   }
   return {projects, txs};
@@ -72,7 +77,8 @@ function makeRichSample() {
   let n = 0, inv = 400;
   const out = (date, category, partner, preU, rate, note, invPrefix) => {
     const pre = preU * u, vat = rate == null ? null : Math.round(pre * rate);
-    tx('mau-x' + (++n), { type: 'out', date, category, partner, pre, vat, note,
+    const [group, cat] = COST[category] || [category[0], category[1]];
+    tx('mau-x' + (++n), { type: 'out', date, group, category: cat, partner, pre, vat, note,
       invoiceNo: rate == null ? '' : invPrefix + String(++inv).padStart(7, '0'), invoiceDate: rate == null ? '' : date });
   };
   M.forEach((m, i) => {
@@ -83,7 +89,22 @@ function makeRichSample() {
     if (tp[m]) out(d(18), 'Thầu phụ', 'Công ty CP Điện nước Phú Thành (ví dụ)', tp[m], 0.08, `Thi công điện nước đợt ${m - 3}`, 'PT');
     out(d(28), 'Nhân công', 'Tổ đội thi công anh Bảy (ví dụ)', nc[i], null, `Lương tổ nề tháng ${m}`, '');
   });
-  return { projects, contracts, acceptances, txs };
+  // Chi phí gián tiếp và tài chính (thêm sau để giữ nguyên id các khoản chi cũ mau-x1..x33)
+  const BANK = 'Ngân hàng TMCP Phương Đông (ví dụ)';
+  M.forEach(m => {
+    const d = day => `2026-${mm(m)}-${mm(day)}`;
+    out(d(25), ['indirect', 'Lương BCH'], 'Ban chỉ huy công trường (ví dụ)', 450, null, `Lương ban chỉ huy tháng ${m}`, '');
+    out(d(20), ['indirect', 'Điện, nước'], 'Công ty Điện lực khu vực (ví dụ)', 80, 0.1, `Điện, nước công trường tháng ${m}`, 'DL');
+  });
+  out('2026-02-05', ['finance', 'Phí bảo lãnh'], BANK, 240, 0, 'Phí bảo lãnh tạm ứng 20%', 'BL');
+  [4, 5, 6, 7, 8, 9].forEach(m => out(`2026-${mm(m)}-25`, ['finance', 'Lãi vay, phạt'], BANK, 150, 0, `Lãi vay khế ước KU-0326 tháng ${m}`, 'LV'));
+  out('2026-10-25', ['finance', 'Lãi vay, phạt'], BANK, 113, 0, 'Lãi vay khế ước KU-0326 tháng 10 (sau trả gốc)', 'LV');
+  // Vay và trả nợ gốc: không phải chi phí, không vào tiền về / thực chi
+  const loans = [
+    ['mau-l1', 'vay', '2026-03-05', 2000000000, 'Vay vốn lưu động thi công'],
+    ['mau-l2', 'tragoc', '2026-09-05', 500000000, 'Trả gốc đợt 1']
+  ].map(([id, kind, date, amount, note]) => ({ id, projectId: pid, kind, date, amount, lender: BANK, no: 'KU-0326/2026', note, ...by, createdAt: at, sample: true }));
+  return { projects, contracts, acceptances, loans, txs };
 }
 
 module.exports = makeSample;

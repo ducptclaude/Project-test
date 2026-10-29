@@ -282,6 +282,7 @@ tbody tr.link:hover{background:var(--sunk)}
 /* Khối hợp đồng: khung hẹp hơn bảng (máy tính nhỏ, thanh bên mở) thì chuyển sang dạng thẻ xếp lưới */
 .cpanel{container-type:inline-size}
 .ctbl tr.sum-row td{font-weight:800;border-top:2px solid var(--line)}
+.ctbl tr.sub-row td{font-weight:800}
 .ctbl tr.qt-row td{background:var(--rev-soft)}
 .pcard.qt-card{border-color:color-mix(in srgb,var(--rev) 45%,var(--line));background:var(--rev-soft)}
 @container (max-width:785px){.cpanel .desk{display:none}.cpanel .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}}
@@ -328,6 +329,22 @@ tfoot tr.sub-tot td{border-top:1px solid var(--line)}
 .cat .meter{height:10px;min-width:0}
 .cat .v{font-size:13px;font-weight:700;text-align:right;white-space:nowrap}
 .cat .v small{color:var(--muted);font-weight:600;margin-left:6px}
+.ctree{display:flex;flex-direction:column}
+.ct-row{display:grid;grid-template-columns:30px minmax(0,1fr) minmax(80px,220px) 110px 120px;grid-template-areas:"tog name bar val pct";gap:10px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line)}
+.ct-row>:nth-child(1){grid-area:tog}.ct-row>:nth-child(2){grid-area:name}.ct-row>:nth-child(3){grid-area:bar}.ct-row>:nth-child(4){grid-area:val}.ct-row>:nth-child(5){grid-area:pct}
+.ct-row.ct-c{padding-left:26px;font-size:13.5px}
+.ct-row.ct-empty{opacity:.5}
+.ct-name{min-width:0;overflow-wrap:anywhere}
+.ct-v{text-align:right;font-weight:800}
+.ct-p{text-align:right;color:var(--muted);font-size:12.5px}
+.ct-bar{height:8px;background:var(--sunk);border-radius:4px;overflow:hidden}.ct-bar>i{display:block;height:100%}
+.ct-tog{border:0;background:none;cursor:pointer;width:30px;height:30px;border-radius:7px;color:var(--muted);font-size:14px}
+.ct-tog:hover{background:var(--sunk);color:var(--ink)}
+.ct-total{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
+.ct-leaf{padding:6px 0 14px 26px;border-bottom:1px solid var(--line)}
+@media (max-width:760px){.ct-row{grid-template-columns:30px minmax(0,1fr) auto;grid-template-areas:"tog name val" "tog bar pct"}.ct-leaf{padding-left:0}}
+.cat.link-cat{cursor:pointer;border-radius:8px}
+.cat.link-cat:hover{background:var(--sunk)}
 .cat.total{padding-top:10px;border-top:2px solid var(--line)}
 .cat.total>span:first-child,.cat.total .v{font-weight:800}
 
@@ -370,6 +387,8 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
 .seg input[type=radio]{position:absolute;left:0;top:0;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
 .seg input:checked+label.in{background:var(--rev-soft);color:var(--rev-ink)}
 .seg input:checked+label.out{background:var(--exp-soft);color:var(--exp-ink)}
+.seg input:checked+label.g{background:var(--accent-soft);color:var(--accent)}
+.seg3 label{font-size:13px}
 .seg input:focus-visible+label{outline:2px solid var(--teal);outline-offset:-2px}
 .dlg-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
 .dlg-foot .inline{margin-left:auto}
@@ -541,8 +560,16 @@ function armButton(btn, label, action) {
 const STATUS = {active: 'Đang thực hiện', paused: 'Tạm dừng', done: 'Hoàn thành'};
 const CATS = {
   in: ['Tạm ứng hợp đồng', 'Thanh toán theo nghiệm thu', 'Quyết toán', 'Phát sinh ngoài hợp đồng', 'Dịch vụ / bảo trì', 'Thu khác'],
-  out: ['Nhân công', 'Vật tư', 'Thiết bị / máy móc', 'Thầu phụ', 'Vận chuyển', 'Bản quyền / phần mềm', 'Chi phí quản lý', 'Thuế & phí', 'Chi khác']
 };
+// Chi phí 3 khối (danh mục cố định; "Khác" phân biệt nhờ group). Tiền vay / trả nợ gốc không phải chi phí (xem khối Vay ở Chi tiết dự án).
+const COST = {
+  direct: {label: 'Chi phí trực tiếp', short: 'Trực tiếp', color: 'var(--exp)', cats: ['Thầu phụ', 'Vật tư', 'Nhân công', 'MMTB', 'Tổ chức thi công', 'Khác']},
+  indirect: {label: 'Chi phí gián tiếp', short: 'Gián tiếp', color: 'var(--warn-fill)', cats: ['Lương BCH', 'Điện, nước', 'Ngoại giao', 'Khác']},
+  finance: {label: 'Chi phí tài chính', short: 'Tài chính', color: 'var(--accent)', cats: ['Phí bảo lãnh', 'Phí ngân hàng', 'Lãi vay, phạt']}
+};
+const GROUPS = ['direct', 'indirect', 'finance'];
+const grpOf = t => COST[t.group] ? t.group : 'direct';
+const catList = (type, group) => type === 'in' ? CATS.in : COST[group || 'direct'].cats;
 const MONTHS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
 /* ---------- state ---------- */
@@ -551,7 +578,8 @@ const S = {
   view: store.get('view', 'overview'), projectId: store.get('project', null),
   year: store.get('year', String(new Date().getFullYear())), period: store.get('period', 'all'),
   jf: {project: '', type: '', q: ''}, jpage: 0, psort: store.get('psort', 'code'),
-  entry: {in: {projectId: null, date: null}, out: {projectId: null, date: null}},
+  entry: {in: {projectId: null, date: null}, out: {projectId: null, date: null, group: 'direct'}},
+  loans: [], costProject: '', costOpen: (() => { try { return JSON.parse(sessionStorage.getItem('stc:costOpen')) || null; } catch { return null; } })() || {g: {direct: true, indirect: true, finance: true}, c: {}},
   chartMode: store.get('chartMode', 'cum'), mix: store.get('mix', 'out'), custom: false
 };
 
@@ -596,6 +624,7 @@ async function del(col, id, passcode) {
   refresh();
 }
 // Ở màn Nhập liệu chỉ vẽ lại danh sách vừa nhập để không xóa những gì đang gõ dở trong ô nhập
+const saveCostOpen = () => { try { sessionStorage.setItem('stc:costOpen', JSON.stringify(S.costOpen)); } catch {} };
 const refresh = () => isLedger() && $('#ledger-side') ? renderLedgerSide() : render();
 const strip = o => { const {id, ...rest} = o; return rest; };
 
@@ -623,14 +652,14 @@ const txVal = t => S.vatMode === 'post' ? txPost(t) : txPre(t);   // báo cáo t
 // Doanh thu ghi nhận lấy từ hợp đồng / quyết toán (revEvents), KHÔNG lấy từ khoản thu. rev/exp/profit theo nút.
 // cashIn (Tiền về), cashOut (Thực chi), left (Còn lại) luôn sau VAT; expPre so với ngân sách; revPost = cashIn (tên cũ).
 function sum(txs, evs = []) {
-  let rev = 0, exp = 0, expPre = 0, cashIn = 0, cashOut = 0; const cat = {in: {}, out: {}};
+  let rev = 0, exp = 0, expPre = 0, cashIn = 0, cashOut = 0; const cat = {in: {}, out: {}}, grp = {direct: 0, indirect: 0, finance: 0};
   for (const e of evs) rev += evVal(e);
   for (const t of txs) {
     const k = t.category || 'Khác';
     if (t.type === 'in') { cashIn += txPost(t); cat.in[k] = (cat.in[k] || 0) + txPost(t); }
-    else { exp += txVal(t); expPre += txPre(t); cashOut += txPost(t); cat.out[k] = (cat.out[k] || 0) + txVal(t); }
+    else { exp += txVal(t); expPre += txPre(t); cashOut += txPost(t); cat.out[k] = (cat.out[k] || 0) + txVal(t); grp[grpOf(t)] += txVal(t); }
   }
-  return {rev, exp, profit: rev - exp, margin: rev ? (rev - exp) / rev : NaN, cat, revPost: cashIn, expPre, cashIn, cashOut, left: cashIn - cashOut};
+  return {rev, exp, profit: rev - exp, margin: rev ? (rev - exp) / rev : NaN, cat, grp, revPost: cashIn, expPre, cashIn, cashOut, left: cashIn - cashOut};
 }
 function monthly(txs, evs = []) {
   let [a, b] = range();
@@ -690,6 +719,12 @@ function revEvents(id) {
   EV.set(id, ev);
   return ev;
 }
+/* ---------- vay và trả nợ gốc (không phải chi phí, không vào tiền về / thực chi) ---------- */
+const projLoans = id => S.loans.filter(l => l.projectId === id).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.kind === 'vay' ? -1 : 1));
+function loanTotals(list) {
+  let vay = 0, tra = 0; for (const l of list) { if (l.kind === 'vay') vay += +l.amount || 0; else tra += +l.amount || 0; }
+  return {vay, tra, du: vay - tra};   // Dư nợ vay = vay − trả gốc
+}
 const allEvents = () => S.projects.flatMap(p => revEvents(p.id));
 const evVal = e => S.vatMode === 'post' ? e.post : e.pre;
 const cvPre = p => contractTotals(p.id).pre;     // lợi nhuận kế hoạch, dự báo: theo trước VAT
@@ -743,7 +778,7 @@ function render() {
 }
 // Dữ liệu ví dụ: một nhãn nhỏ cạnh tiêu đề thay cho dải thông báo
 function renderNotice() {
-  const el = $('#ph-badge'), has = S.mode === 'db' && (S.projects.some(p => p.sample) || S.txs.some(t => t.sample) || S.contracts.some(c => c.sample) || S.acc.some(a => a.sample));
+  const el = $('#ph-badge'), has = S.mode === 'db' && (S.projects.some(p => p.sample) || S.txs.some(t => t.sample) || S.contracts.some(c => c.sample) || S.acc.some(a => a.sample) || S.loans.some(l => l.sample));
   el.innerHTML = has ? `<span class="sample-badge">Dữ liệu ví dụ${S.canWrite ? '<button id="btn-clear-sample" title="Xóa toàn bộ dữ liệu ví dụ">Xóa</button>' : ''}</span>` : '';
   const b = $('#btn-clear-sample'); if (b) b.onclick = clearSample;
 }
@@ -831,8 +866,18 @@ function spark(vals, color, fill) {
 /* ---------- các khối dùng chung ---------- */
 // Dòng Tổng cộng cuối danh sách phân bổ dạng thanh, cùng cột với các dòng trên
 const totalCat = tot => `<div class="cat total"><span>Tổng cộng</span><span class="gap"></span><span class="v num" title="${vnd(tot)}">${short(tot)}<small>100%</small></span></div>`;
+// Cơ cấu: tiền về theo hạng mục (sau VAT); chi phí theo 3 khối (theo nút VAT) — bấm khối để mở trang Chi phí ở khối đó
 function mixPanel(st) {
-  const kind = S.mix, rows = Object.entries(st.cat[kind]).sort((a, b) => b[1] - a[1]), tot = rows.reduce((s, r) => s + r[1], 0);
+  const kind = S.mix;
+  if (kind === 'out') {
+    const tot = GROUPS.reduce((a, g) => a + st.grp[g], 0), mx = Math.max(1, ...GROUPS.map(g => st.grp[g]));
+    return `<section class="panel"><div class="panel-head"><h2>Cơ cấu chi phí theo khối <small class="vw">${vatWord()}</small></h2>
+      <div class="seg-mini" role="group" aria-label="Chọn cơ cấu"><button data-mix="in" aria-pressed="false">Tiền về</button><button data-mix="out" aria-pressed="true">Chi</button></div></div>
+    <div class="big-total num c-exp">${short(tot)}</div>
+    <div class="cats">${GROUPS.map(g => `<div class="cat link-cat${st.grp[g] ? '' : ' muted'}" data-costgroup="${g}" role="button" tabindex="0" title="Mở ${COST[g].label} ở trang Chi phí"><span>${COST[g].label}</span><div class="meter"><i style="width:${(st.grp[g] / mx * 100).toFixed(1)}%;background:${COST[g].color}"></i></div><span class="v num" title="${vnd(st.grp[g])}">${short(st.grp[g])}<small>${pct(tot ? st.grp[g] / tot : 0)}</small></span></div>`).join('')}${totalCat(tot)}</div>
+  </section>`;
+  }
+  const rows = Object.entries(st.cat[kind]).sort((a, b) => b[1] - a[1]), tot = rows.reduce((s, r) => s + r[1], 0);
   const top = rows.slice(0, 5); if (rows.length > 5) top.push(['Khác (' + (rows.length - 5) + ' hạng mục)', rows.slice(5).reduce((s, r) => s + r[1], 0)]);
   const mx = Math.max(1, ...top.map(r => r[1]));
   return `<section class="panel"><div class="panel-head"><h2>Cơ cấu ${kind === 'in' ? 'tiền về' : 'chi phí'} <small class="vw">${kind === 'in' ? 'sau VAT' : vatWord()}</small></h2>
@@ -912,7 +957,7 @@ function viewOverview() {
   rows.sort((PSORTS[S.psort] || PSORTS.code)[1]);
   const kw = S.year === 'all' ? '' : ' kỳ này', vwS = '<small class="vw">sau VAT</small>';
   const meterCell = (v, cls, bad) => `<div class="inline"><div class="meter ${cls}" style="flex:1"><i style="width:${Math.min(100, v * 100).toFixed(1)}%"></i></div><span class="num ${bad ? 'c-bad' : ''}" style="font-size:12.5px;font-weight:700;min-width:46px;text-align:right">${pct(v)}</span></div>`;
-  const usedAll = bg ? all.expPre / bg : 0;
+  const usedAll = bg ? all.expPre / bg : 0, lt = loanTotals(S.loans);
   return `<div class="stack">
     <section class="kpis k5" aria-label="Chỉ số chính">
       ${kpi(`Lợi nhuận <small class="vw">${vatWord()}</small>`, short(st.profit), `Doanh thu ghi nhận − chi phí · biên ${pct(st.margin)} · kế hoạch danh mục ${short(planRev - bg)}`, {hero: true, title: vnd(st.profit),
@@ -921,7 +966,7 @@ function viewOverview() {
         foot: cmp('rev', true) + spark(last12(o => o.rev), 'var(--rev)', 'color-mix(in srgb,var(--rev) 16%,transparent)')})}
       ${kpi(`Chi phí <small class="vw">${vatWord()}</small>`, short(st.exp), `${txs.filter(t => t.type === 'out').length} khoản chi trong kỳ`, {dot: 'bg-exp', title: vnd(st.exp),
         foot: cmp('exp', false) + spark(last12(o => o.exp), 'var(--exp)', 'color-mix(in srgb,var(--exp) 16%,transparent)')})}
-      ${kpi(`Tiền về / Còn lại ${vwS}`, short(st.cashIn), `Thực chi <b class="num" title="${vnd(st.cashOut)}">${short(st.cashOut)}</b> · Còn lại <b class="num ${st.left < 0 ? 'c-bad' : ''}" title="${vnd(st.left)}">${short(st.left)}</b>`, {dot: 'bg-rev', half: true, title: vnd(st.cashIn),
+      ${kpi(`Tiền về / Còn lại ${vwS}`, short(st.cashIn), `Thực chi <b class="num" title="${vnd(st.cashOut)}">${short(st.cashOut)}</b> · Còn lại <b class="num ${st.left < 0 ? 'c-bad' : ''}" title="${vnd(st.left)}">${short(st.left)}</b><br>Lũy kế: Dư nợ vay <b class="num" title="${vnd(lt.du)}">${short(lt.du)}</b> · Số dư tiền <b class="num ${all.left + lt.du < 0 ? 'c-bad' : ''}" title="Còn lại lũy kế + dư nợ vay: ${vnd(all.left + lt.du)}">${short(all.left + lt.du)}</b>`, {dot: 'bg-rev', half: true, title: vnd(st.cashIn),
         foot: cmp('cashIn', true) + spark(last12(o => o.cashIn - o.cashOut), 'var(--pro)', 'color-mix(in srgb,var(--pro) 14%,transparent)')})}
       ${kpi(`Còn phải thu ${vwS}`, short(recv), `Tiền về <b class="num c-rev">${cvT ? pct(all.cashIn / cvT) : '—'}</b> giá trị hợp đồng / quyết toán (sau VAT) · tổng giá trị ${vatWord()} <b class="num" title="${vnd(cv)}">${short(cv)}</b>`, {title: vnd(recv), wide: true, half: true,
         foot: `<div class="meter rev" style="flex:1"><i style="width:${cvT ? Math.min(100, all.cashIn / cvT * 100).toFixed(1) : 0}%"></i></div>`})}
@@ -976,7 +1021,7 @@ function viewProject() {
   const forecast = rt.pre - Math.max(bg, h.all.expPre);       // lợi nhuận dự báo / kế hoạch theo trước VAT (đã QT thì theo QT)
   const left = bg - h.all.expPre;                              // ngân sách so với chi phí trước VAT
   const nts = projAcc(p.id).filter(a => a.kind === 'nghiemthu'), ntPre = nts.reduce((a, x) => a + (+x.value || 0), 0), ntPost = nts.reduce((a, x) => a + accPost(x), 0);
-  const accepted = ct.pre > 0 ? ntPre / ct.pre : 0, revShow = S.vatMode === 'post' ? rt.post : rt.pre;
+  const accepted = ct.pre > 0 ? ntPre / ct.pre : 0, revShow = S.vatMode === 'post' ? rt.post : rt.pre, lt = loanTotals(projLoans(p.id));
   return `<div class="pv">
     <nav class="plist" aria-label="Danh sách dự án">${list.map(x => {
       const s = sum(projTxs(x.id).filter(inRange), revEvents(x.id).filter(inRange));
@@ -995,6 +1040,7 @@ function viewProject() {
       </section>
       ${contractPanel(p)}
       ${accPanel(p)}
+      ${loanPanel(p)}
       <section class="plan" aria-label="Kế hoạch và thực tế">
         <div class="kpi"><span class="lab">Doanh thu ghi nhận <small class="vw">${vatWord()}</small></span>
           <span class="val num" title="${vnd(revShow)}">${short(revShow)}</span>
@@ -1006,7 +1052,7 @@ function viewProject() {
           <span class="sub"><b class="num">${pct(collected)}</b> · ${h.over ? `<span class="chip bad">Vượt ${short(cashIn - rt.post)}</span>` : `còn ${short(Math.max(0, rt.post - cashIn))} chưa thu`}${nts.length ? ` · nghiệm thu chưa thu tiền <b class="num" title="${vnd(Math.max(0, ntPost - cashIn))}">${short(Math.max(0, ntPost - cashIn))}</b>` : ''}</span></div>
         <div class="kpi"><span class="lab">Còn lại <small class="vw">sau VAT</small></span>
           <span class="val num ${cashLeft < 0 ? 'c-bad' : ''}" title="${vnd(cashLeft)}">${short(cashLeft)}</span>
-          <span class="sub">Tiền về <b class="num c-rev" title="${vnd(cashIn)}">${short(cashIn)}</b> − Thực chi <b class="num c-exp" title="${vnd(cashOut)}">${short(cashOut)}</b> (lũy kế)</span></div>
+          <span class="sub">Tiền về <b class="num c-rev" title="${vnd(cashIn)}">${short(cashIn)}</b> − Thực chi <b class="num c-exp" title="${vnd(cashOut)}">${short(cashOut)}</b> (lũy kế)<br>Dư nợ vay <b class="num" title="${vnd(lt.du)}">${short(lt.du)}</b> · Số dư tiền <b class="num ${cashLeft + lt.du < 0 ? 'c-bad' : ''}" title="Còn lại + dư nợ vay: ${vnd(cashLeft + lt.du)}">${short(cashLeft + lt.du)}</b></span></div>
         <div class="kpi"><span class="lab">Đã chi / ngân sách chi phí (trước VAT)</span>
           <span class="pair"><span class="val num c-exp" title="${vnd(h.all.expPre)}">${short(h.all.expPre)}</span><span class="num muted" style="font-weight:600">/ ${short(bg)}</span></span>
           <div class="meter ${h.used > 1 ? 'bad' : h.used > .9 ? 'warn' : 'exp'}"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></div>
@@ -1127,6 +1173,87 @@ function accPanel(p) {
       ${q ? card(q) : ''}</div>
   </section>`;
 }
+// Khối Vay & trả nợ gốc ở Chi tiết dự án: không phải chi phí; Dư nợ = vay − trả gốc; lãi vay nhập như khoản chi (Tài chính → Lãi vay, phạt)
+function loanPanel(p) {
+  const list = projLoans(p.id), t = loanTotals(list);
+  const kindChip = l => l.kind === 'vay' ? '<span class="chip in">Vay</span>' : '<span class="chip out">Trả gốc</span>';
+  const amt = l => (l.kind === 'vay' ? '+' : '−') + dong(l.amount);
+  const lastEdit = l => l.updatedAt ? `Sửa lần cuối: ${l.updatedByName || '—'} · ${new Date(l.updatedAt).toLocaleString('vi-VN')}` : '';
+  // Vay: nếu xóa thì dư nợ âm (còn trả gốc) → không xóa được (máy chủ cũng chặn)
+  const block = l => l.kind === 'vay' && t.du - l.amount < 0 ? 'Xóa các khoản trả gốc tương ứng trước' : '';
+  const acts = l => S.canWrite ? `<div class="actions"><button class="btn sm" data-act="edit-loan" data-id="${esc(l.id)}">Sửa</button><button class="btn sm danger" ${block(l) ? `disabled title="${block(l)}"` : `data-act="del-loan" data-id="${esc(l.id)}"`}>Xóa</button></div>` : '';
+  const add = S.canWrite ? `<button class="btn sm" data-act="new-loan" data-kind="vay" data-id="${esc(p.id)}">+ Vay</button>${t.du > 0 ? `<button class="btn sm" data-act="new-loan" data-kind="tragoc" data-id="${esc(p.id)}">+ Trả gốc</button>` : ''}` : '';
+  const head = `<div class="panel-head"><h2>Vay &amp; trả nợ gốc</h2><div class="inline" style="flex-wrap:wrap">${add}${list.length ? `<button class="btn sm" data-act="loan-csv" data-id="${esc(p.id)}">Xuất CSV</button>` : ''}</div></div>`;
+  const note = '<p class="psub" style="margin:0">Tiền vay và trả nợ gốc không phải chi phí, không tính vào Tiền về / Thực chi / Còn lại. Lãi vay nhập như khoản chi ở khối Tài chính → Lãi vay, phạt.</p>';
+  if (!list.length) return `<section class="panel cpanel">${head}<p class="muted" style="margin:0">Chưa có khoản vay nào.</p>${note}</section>`;
+  const tots = [['Tổng vay', '+' + dong(t.vay)], ['Tổng trả gốc', '−' + dong(t.tra)], ['Dư nợ vay', dong(t.du)]];
+  return `<section class="panel cpanel">${head}
+    <div class="tbl-wrap desk"><table class="ctbl">
+      <thead><tr><th>Ngày · loại</th><th>Bên cho vay · khế ước</th><th class="r">Số tiền (₫)</th><th>Ghi chú</th>${S.canWrite ? '<th></th>' : ''}</tr></thead>
+      <tbody>${list.map(l => `<tr><td><div class="num" style="white-space:nowrap">${fmtDate(l.date)}</div>${kindChip(l)}</td>
+        <td><div>${esc(l.lender) || '—'}</div><div class="psub num">${esc(l.no) || 'Chưa có số khế ước'}</div></td>
+        <td class="r num ${l.kind === 'vay' ? 'c-rev' : ''}" style="font-weight:800">${amt(l)}</td>
+        <td class="cnote">${l.note ? `<div style="font-size:13px">${esc(l.note)}</div>` : ''}<div class="psub" title="${esc(lastEdit(l))}">Nhập: ${esc(l.createdByName) || '—'}</div></td>${S.canWrite ? `<td>${acts(l)}</td>` : ''}</tr>`).join('')}
+        ${tots.map(([k, v], i) => `<tr class="${i ? 'sub-row' : 'sum-row'}"><td colspan="2">${k}</td><td class="r num">${v}</td><td colspan="${S.canWrite ? 2 : 1}"></td></tr>`).join('')}</tbody>
+    </table></div>
+    <div class="cards">${list.map(l => `<div class="pcard" style="cursor:default"><span class="top">${kindChip(l)}<span class="num psub">${fmtDate(l.date)}</span></span>
+      <span class="line"><span>${esc(l.lender) || '—'}${l.no ? ' · ' + esc(l.no) : ''}</span><b class="num">${amt(l)} ₫</b></span>
+      ${l.note ? `<span class="psub">${esc(l.note)}</span>` : ''}<span class="psub" title="${esc(lastEdit(l))}">Người nhập: ${esc(l.createdByName) || '—'}</span>${acts(l)}</div>`).join('')}
+      <div class="pcard total"><span class="pname" style="color:var(--ink)">Tổng cộng</span>${tots.map(([k, v]) => `<span class="line"><span>${k}</span><b class="num">${v} ₫</b></span>`).join('')}</div></div>
+    ${note}
+  </section>`;
+}
+function openLoan(l, projectId, kind) {
+  const k = l ? l.kind : kind, pid = l ? l.projectId : projectId, p = S.projects.find(x => x.id === pid), isVay = k === 'vay';
+  const t = loanTotals(projLoans(pid).filter(x => x.id !== l?.id));
+  form.innerHTML = `<h2>${l ? 'Sửa' : 'Thêm'} ${isVay ? 'khoản vay' : 'khoản trả nợ gốc'}</h2>
+    <p class="muted" style="margin:-6px 0 0;font-size:13px">${p ? `${esc(p.code)} · ${esc(p.name)}` : ''}${isVay ? '' : ` · dư nợ hiện tại <b class="num">${vnd(t.du)}</b>`}</p>
+    <div class="form">
+      <label class="field"><span>Ngày ${isVay ? 'giải ngân' : 'trả gốc'}</span><input type="date" id="l-date" value="${esc(l?.date || today())}"></label>
+      <label class="field"><span>Số tiền (₫) <b class="num" data-hint="l-amount" style="text-transform:none;letter-spacing:0">${l ? spoken(l.amount) : ''}</b></span><input type="text" inputmode="numeric" id="l-amount" value="${l ? dong(l.amount) : ''}" placeholder="0" autocomplete="off"></label>
+      <label class="field"><span>Bên cho vay</span><input type="text" id="l-lender" maxlength="120" value="${esc(l?.lender ?? (projLoans(pid)[0]?.lender || ''))}" placeholder="Ngân hàng / bên cho vay"></label>
+      <label class="field"><span>Số khế ước</span><input type="text" id="l-no" maxlength="60" value="${esc(l?.no ?? (projLoans(pid)[0]?.no || ''))}"></label>
+      <label class="field full"><span>Ghi chú</span><input type="text" id="l-note" maxlength="500" value="${esc(l?.note)}"></label>
+    </div>
+    <p class="psub" style="margin:0">Không phải chi phí. Lãi vay nhập như khoản chi ở khối Tài chính → Lãi vay, phạt.</p>
+    <div class="err" id="l-err"></div>
+    <div class="dlg-foot"><span></span><div class="inline"><button type="button" class="btn" id="l-cancel">Hủy</button><button type="submit" class="btn primary">${l ? 'Lưu thay đổi' : 'Thêm'}</button></div></div>`;
+  bindMoney();
+  $('#l-cancel').onclick = () => dlg.close();
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const body = {date: $('#l-date').value, amount: parseMoney($('#l-amount').value), lender: $('#l-lender').value.trim(), no: $('#l-no').value.trim(), note: $('#l-note').value.trim()};
+    if (!body.date) return $('#l-err').textContent = 'Chọn ngày.';
+    if (!(body.amount > 0)) return $('#l-err').textContent = 'Nhập số tiền lớn hơn 0.';
+    if (!l) Object.assign(body, {projectId: pid, kind: k});
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+    try {
+      const rec = await retry(() => api('PUT', 'loans/' + encodeURIComponent(l?.id || uid()), body));
+      const i = S.loans.findIndex(x => x.id === rec.id); if (i >= 0) S.loans[i] = rec; else S.loans.push(rec);
+      dlg.close(); toast(l ? 'Đã lưu' : isVay ? 'Đã thêm khoản vay' : 'Đã thêm khoản trả gốc'); refresh();
+    } catch (er) { $('#l-err').textContent = failMsg(er); }
+    finally { btn.disabled = false; }
+  };
+  dlg.showModal(); $('#l-amount').focus();
+}
+function deleteLoan(l) {
+  if (!l) return;
+  const name = l.kind === 'vay' ? 'khoản vay' : 'khoản trả gốc', p = S.projects.find(x => x.id === l.projectId);
+  return askPasscode({title: `Xóa ${name}`, confirmLabel: `Xóa ${name}`,
+    detail: `${l.kind === 'vay' ? 'Vay' : 'Trả gốc'} ${vnd(l.amount)} · ${fmtDate(l.date)}${l.lender ? ' · ' + l.lender : ''} · ${p?.code || ''}`,
+    run: async code => { await api('DELETE', 'loans/' + encodeURIComponent(l.id), {passcode: code}); S.loans = S.loans.filter(x => x.id !== l.id); toast(`Đã xóa ${name}`); refresh(); }});
+}
+function exportLoansCsv(pid) {
+  const p = S.projects.find(x => x.id === pid) || {}, list = projLoans(pid), t = loanTotals(list), q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = '\ufeff' + ['Ngày,Mã dự án,Loại,Bên cho vay,Số khế ước,Số tiền (VND),Ghi chú,Người nhập',
+    ...list.map(l => [l.date, p.code, l.kind === 'vay' ? 'Vay' : 'Trả gốc', l.lender, l.no, (l.kind === 'vay' ? 1 : -1) * l.amount, l.note, l.createdByName].map(q).join(',')),
+    ['Tổng cộng', p.code, '', '', '', t.du, `Dư nợ vay = tổng vay ${t.vay} − tổng trả gốc ${t.tra}`, ''].map(q).join(',')].join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+  a.download = `vay-tra-goc-${String(p.code || 'du-an').toLowerCase()}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast('Đã xuất CSV khoản vay');
+}
 // Thêm / sửa nghiệm thu hoặc quyết toán. Người nhập do máy chủ ghi.
 function openAcc(a, projectId, kind) {
   const k = a ? a.kind : kind, pid = a ? a.projectId : projectId, p = S.projects.find(x => x.id === pid), isQ = k === 'quyettoan';
@@ -1192,11 +1319,11 @@ const ENTRY = {
 // px: tiền tố id; typeCtl: 'none' (loại cố định theo trang), 'pick' (chọn Thu/Chi khi ghi mới), 'locked' (sửa khoản đã ghi).
 // Khoản thu: chọn hợp đồng của dự án (hoặc Ngoài hợp đồng). Khoản chi: đối tác. Tiền: Trước VAT · VAT · Sau VAT, gõ 2 ô, ô còn lại tự tính.
 const NOTE_HINT = {in: 'Ví dụ: Thanh toán đợt 2 theo biên bản nghiệm thu', out: 'Ví dụ: Thép hình đợt 4'};
-const qcatsHtml = (type, cur) => CATS[type].slice(0, 6).map(c => `<button type="button" class="qcat" data-qcat="${esc(c)}" aria-pressed="${c === cur}">${esc(c)}</button>`).join('');
+const qcatsHtml = (type, cur, group) => catList(type, group).slice(0, 6).map(c => `<button type="button" class="qcat" data-qcat="${esc(c)}" aria-pressed="${c === cur}">${esc(c)}</button>`).join('');
 // Hạng mục chọn từ danh sách cố định; hạng mục cũ ngoài danh sách vẫn giữ, hiện "(cũ) …"
-function catOptions(type, cur) {
-  const old = cur && !CATS[type].includes(cur) ? `<option value="${esc(cur)}" selected>(cũ) ${esc(cur)}</option>` : '';
-  return `<option value=""${cur ? '' : ' selected'}>— Chọn hạng mục —</option>${old}` + CATS[type].map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`).join('');
+function catOptions(type, cur, group) {
+  const list = catList(type, group), old = cur && !list.includes(cur) ? `<option value="${esc(cur)}" selected>(cũ) ${esc(cur)}</option>` : '';
+  return `<option value=""${cur ? '' : ' selected'}>— Chọn hạng mục —</option>${old}` + list.map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`).join('');
 }
 const contractLabel = c => `${c.kind === 'base' ? 'HĐ gốc' : 'Phụ lục ' + c.seq}${c.no ? ' · ' + c.no : ''}`;
 // Khoản thu chưa gắn hợp đồng: không có contractId (dữ liệu cũ) trên dự án đã có hợp đồng → cần bổ sung
@@ -1218,7 +1345,7 @@ function contractOptions(pid, cur) {
 const partnerList = () => [...new Set(S.txs.filter(t => t.type === 'out' && t.partner).map(t => t.partner.trim()))].sort((a, b) => a.localeCompare(b, 'vi'));
 const fmtMoney = v => v == null || v === '' ? '' : Math.round(v).toLocaleString('vi-VN');
 function txFields(px, t, typeCtl = 'none') {
-  const id = k => px + k, type = t.type, hasCt = projContracts(t.projectId).length > 0;
+  const id = k => px + k, type = t.type, hasCt = projContracts(t.projectId).length > 0, g = type === 'out' ? (COST[t.group] ? t.group : 'direct') : null;
   const vat = t.vat ?? null, post = t.amount || null, pre = t.amount ? (t.pre ?? t.amount) : null;
   const typeHtml = typeCtl === 'pick'
     ? `<div class="field full"><span>Loại</span><div class="seg"><input type="radio" name="${id('type')}" id="${id('in')}" value="in"${type === 'in' ? ' checked' : ''}><label for="${id('in')}" class="in">Tiền về</label><input type="radio" name="${id('type')}" id="${id('out')}" value="out"${type === 'out' ? ' checked' : ''}><label for="${id('out')}" class="out">Chi</label></div></div>`
@@ -1230,8 +1357,10 @@ function txFields(px, t, typeCtl = 'none') {
   return `
       <label class="field full"><span>Dự án</span><select id="${id('project')}">${sortedProjects().map(p => `<option value="${esc(p.id)}"${p.id === t.projectId ? ' selected' : ''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select></label>
       ${typeHtml}${who}
-      <label class="field full"><span>Hạng mục</span><select id="${id('cat')}">${catOptions(type, t.category)}</select></label>
-      <div class="qcats full" aria-label="Chọn nhanh hạng mục" data-qcats="${px}">${qcatsHtml(type, t.category)}</div>
+      ${g ? `<div class="field full"><span>Khối chi phí</span><div class="seg seg3">${GROUPS.map(k => `<input type="radio" name="${id('group')}" id="${id('g-' + k)}" value="${k}"${k === g ? ' checked' : ''}><label for="${id('g-' + k)}" class="g">${COST[k].short}</label>`).join('')}</div></div>` : ''}
+      <label class="field full"><span>Hạng mục${t.oldCategory ? ` <small class="auto-tag">trước đây: ${esc(t.oldCategory)}</small>` : ''}</span><select id="${id('cat')}">${catOptions(type, t.category, g)}</select></label>
+      <div class="qcats full" aria-label="Chọn nhanh hạng mục" data-qcats="${px}">${qcatsHtml(type, t.category, g)}</div>
+      ${g ? '<p class="psub full" style="margin:-6px 0 0">Tiền vay / trả nợ gốc không nhập ở đây — dùng mục Vay &amp; trả nợ gốc ở Chi tiết dự án. Lãi vay nhập ở khối Tài chính → Lãi vay, phạt.</p>' : ''}
       <div class="vatbox full" data-vatbox="${px}" data-order="amount,vat">
         <label class="field full"><span>Sau VAT <small class="auto-tag" id="${id('tag-amount')}"></small> <b class="num" data-hint="${id('amount')}" style="text-transform:none;letter-spacing:0">${post ? spoken(post) : ''}</b></span>
           <span class="amount-wrap"><input type="text" inputmode="numeric" id="${id('amount')}" data-money value="${fmtMoney(post)}" placeholder="Số trên chứng từ" autocomplete="off"><span class="unit">₫</span></span></label>
@@ -1274,7 +1403,10 @@ function readTx(px, type) {
   if (type === 'in') {
     if (projContracts(pid).length) { if (v('contract') === '__') return {error: 'Chọn hợp đồng hoặc Ngoài hợp đồng.', focus: 'contract'}; data.contractId = v('contract'); }
     else data.contractId = '';
-  } else data.partner = v('partner');
+  } else {
+    data.partner = v('partner');
+    data.group = document.querySelector(`input[name="${px}group"]:checked`)?.value || 'direct';
+  }
   return {data};
 }
 function entryForm(type) {
@@ -1282,7 +1414,7 @@ function entryForm(type) {
   const pid = list.some(p => p.id === st.projectId) ? st.projectId : (list.find(p => p.status === 'active') || list[0]).id;
   return `<form class="panel entry ${type}" data-entry="${type}" novalidate>
     <div class="e-head"><span class="e-icon">${e.icon}</span><div><h2>${e.title}</h2><p>${e.lead}</p></div></div>
-    <div class="form">${txFields(`e-${type}-`, {type, projectId: pid, date: st.date, contractId: st.projectId === pid ? st.contractId : undefined})}</div>
+    <div class="form">${txFields(`e-${type}-`, {type, projectId: pid, date: st.date, contractId: st.projectId === pid ? st.contractId : undefined, group: st.group})}</div>
     <p class="err" id="e-${type}-err"></p>
     <button type="submit" class="btn primary save">${e.save}</button>
   </form>`;
@@ -1293,6 +1425,35 @@ function viewLedger(type) {
   return `<div class="stack"><div class="ledger${S.canWrite ? '' : ' full'}">${S.canWrite ? entryForm(type) : ''}<div class="stack" id="ledger-side" data-type="${type}"></div></div><div id="ledger-table"></div></div>`;
 }
 // Phần bên phải vẽ lại riêng, để lưu xong hay dữ liệu đổi cũng không xóa những gì đang gõ trong ô nhập
+// Trang Chi phí dạng cây: Khối → Hạng mục → Khoản chi (theo kỳ, lọc dự án, theo nút VAT). Mặc định mở cấp Khối, thu gọn cấp Hạng mục;
+// trạng thái mở nhớ trong phiên. Khối / hạng mục không có khoản nào vẫn hiện (mờ, số 0) để thấy đủ cấu trúc.
+function costTree(all) {
+  const rows = S.costProject ? all.filter(t => t.projectId === S.costProject) : all, total = rows.reduce((a, t) => a + txVal(t), 0);
+  const tog = (key, open) => `<button class="ct-tog" data-ctoggle="${key}" aria-expanded="${open}" aria-label="${open ? 'Thu gọn' : 'Mở'}">${open ? '▾' : '▸'}</button>`;
+  let html = '';
+  for (const g of GROUPS) {
+    const list = rows.filter(t => grpOf(t) === g), sumG = list.reduce((a, t) => a + txVal(t), 0), openG = !!S.costOpen.g[g];
+    html += `<div class="ct-row ct-g${list.length ? '' : ' ct-empty'}" data-ctg="${g}">${tog('g:' + g, openG)}
+      <span class="ct-name"><i class="dot" style="background:${COST[g].color}"></i><b>${COST[g].label}</b> <small class="muted">${list.length} khoản</small></span>
+      <span class="ct-bar"><i style="width:${total ? (sumG / total * 100).toFixed(1) : 0}%;background:${COST[g].color}"></i></span>
+      <span class="num ct-v" title="${vnd(sumG)}">${short(sumG)}</span><span class="num ct-p">${pct(total ? sumG / total : 0)}</span></div>`;
+    if (!openG) continue;
+    const cats = [...COST[g].cats, ...new Set(list.map(t => t.category).filter(c => !COST[g].cats.includes(c)))];
+    for (const c of cats) {
+      const lc = list.filter(t => t.category === c), sumC = lc.reduce((a, t) => a + txVal(t), 0), key = g + '|' + c, openC = !!S.costOpen.c[key];
+      html += `<div class="ct-row ct-c${lc.length ? '' : ' ct-empty'}">${lc.length ? tog('c:' + key, openC) : '<span></span>'}
+        <span class="ct-name">${esc(c)} <small class="muted">${lc.length} khoản</small></span>
+        <span class="ct-bar"><i style="width:${sumG ? (sumC / sumG * 100).toFixed(1) : 0}%;background:${COST[g].color};opacity:.7"></i></span>
+        <span class="num ct-v" title="${vnd(sumC)}">${short(sumC)}</span><span class="num ct-p">${pct(sumG ? sumC / sumG : 0)} khối · ${pct(total ? sumC / total : 0)}</span></div>`;
+      if (openC && lc.length) html += `<div class="ct-leaf">${txTable(lc, true, 50, 0, true)}${lc.length > 50 ? `<p class="psub" style="margin:6px 0 0">Hiện 50 / ${lc.length} khoản; xem đủ trong Sổ giao dịch.</p>` : ''}</div>`;
+    }
+  }
+  html += `<div class="ct-row ct-total"><span></span><span class="ct-name">Tổng cộng <small class="muted">${rows.length} khoản</small></span><span></span><span class="num ct-v" title="${vnd(total)}">${short(total)}</span><span class="num ct-p">100%</span></div>`;
+  return `<section class="panel"><div class="panel-head"><h2>Chi phí theo khối <small class="vw">${vatWord()}</small></h2>
+      <div class="inline" style="flex-wrap:wrap;min-width:0;max-width:100%"><select id="cost-proj" aria-label="Lọc theo dự án" style="flex:1 1 180px;min-width:0;max-width:100%"><option value="">Tất cả dự án</option>${sortedProjects().map(p => `<option value="${esc(p.id)}"${p.id === S.costProject ? ' selected' : ''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select>
+      <button class="btn sm" data-costall="open">Mở tất cả</button><button class="btn sm" data-costall="close">Thu gọn tất cả</button></div></div>
+    <div class="ctree">${html}</div></section>`;
+}
 function renderLedgerSide() {
   const el = $('#ledger-side'); if (!el) return;
   EV = null;
@@ -1317,8 +1478,11 @@ function renderLedgerSide() {
     </section>
     ${rows.length ? `<div class="grid2">
       <section class="panel"><h2>Theo dự án</h2>${bars(byP, k => { const p = S.projects.find(x => x.id === k); return p ? `<span class="ell" title="${esc(p.name)}"><span class="num" style="font-weight:700">${esc(p.code)}</span> <span class="psub">${esc(p.name)}</span></span>` : 'Dự án đã xóa'; }, 'dự án')}</section>
-      <section class="panel"><h2>Theo hạng mục</h2>${bars(byC, esc, 'hạng mục')}</section>
+      ${isIn ? `<section class="panel"><h2>Theo hạng mục</h2>${bars(byC, esc, 'hạng mục')}</section>`
+        : `<section class="panel"><h2>Theo khối</h2>${bars(Object.fromEntries(GROUPS.map(g => [g, rows.filter(t => grpOf(t) === g).reduce((a, t) => a + val(t), 0)])), g => COST[g].label, 'khối')}</section>`}
     </div>` : ''}`;
+  // Chi phí: dạng cây Khối → Hạng mục → Khoản chi
+  if (!isIn) { $('#ledger-table').innerHTML = costTree(rows); return; }
   $('#ledger-table').innerHTML = `
     <section class="panel"><div class="panel-head"><h2>Các khoản ${word} trong kỳ</h2>${rows.length > 15 ? `<button class="link-btn" data-act="journal-type" data-id="${type}">Xem cả ${rows.length} khoản trong sổ →</button>` : ''}</div>
       ${rows.length ? txTable(rows, true, 15, 0, true) : `<p class="muted" style="margin:0">Chưa có khoản ${word} nào trong ${periodLabel().toLowerCase()}.</p>`}</section>`;
@@ -1333,9 +1497,9 @@ async function saveEntry(f) {
   const btn = f.querySelector('.save'); btn.disabled = true;
   try {
     await put('transactions', uid(), data);
-    S.entry[type] = {projectId: data.projectId, date: data.date, contractId: data.contractId};
-    // Vẽ lại các trường (giữ dự án, ngày, hợp đồng) để nhập khoản tiếp theo
-    f.querySelector('.form').innerHTML = txFields(px, {type, projectId: data.projectId, date: data.date, contractId: data.contractId}); vatCalc(px);
+    S.entry[type] = {projectId: data.projectId, date: data.date, contractId: data.contractId, group: data.group};
+    // Vẽ lại các trường (giữ dự án, ngày, hợp đồng, khối chi phí) để nhập khoản tiếp theo
+    f.querySelector('.form').innerHTML = txFields(px, {type, projectId: data.projectId, date: data.date, contractId: data.contractId, group: data.group}); vatCalc(px);
     const p = S.projects.find(x => x.id === data.projectId);
     toast(`Đã ghi khoản ${ENTRY[type].word} ${vnd(data.amount)} (sau VAT) · ${p ? p.code : ''}${inRange(data) ? '' : ' (ngoài kỳ đang xem)'}`);
     $(`#${px}amount`).focus();
@@ -1357,7 +1521,9 @@ function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false
   const partyCell = t => txUnlinked(t) ? '<span class="chip warn" title="Tiền về chưa gắn hợp đồng: bấm Sửa để chọn hợp đồng hoặc Ngoài hợp đồng">Chưa gắn hợp đồng</span>' : esc(party(t)) || '<span class="muted">—</span>';
   // Người nhập (máy chủ ghi); giao dịch cũ chưa có thì để trống. Rê chuột: người sửa lần cuối
   const edited = t => t.updatedByName && t.updatedAt ? `Sửa lần cuối: ${t.updatedByName} · ${new Date(t.updatedAt).toLocaleString('vi-VN')}` : '';
-  const meta = t => [kind ? '' : `<span class="chip ${t.type}" style="padding:1px 7px">${t.type === 'in' ? 'Tiền về' : 'Chi'}</span>`, t.invoiceNo ? `HĐơn ${esc(t.invoiceNo)}` : '',
+  // Khoản chi: hiện khối (Trực tiếp / Gián tiếp / Tài chính) và hạng mục trước chuyển đổi (nếu có)
+  const meta = t => [kind ? '' : `<span class="chip ${t.type}" style="padding:1px 7px">${t.type === 'in' ? 'Tiền về' : 'Chi'}</span>`,
+    t.type === 'out' ? `<b style="color:${COST[grpOf(t)].color}">${COST[grpOf(t)].short}</b>` : '', t.oldCategory ? `trước đây: ${esc(t.oldCategory)}` : '', t.invoiceNo ? `HĐơn ${esc(t.invoiceNo)}` : '',
     t.createdByName ? `<span title="${esc(edited(t))}">Nhập: ${esc(t.createdByName)}</span>` : ''].filter(Boolean).join(' · ');
   // Tổng: một dòng nếu cả bảng cùng loại; bảng lẫn thu chi thì Tổng thu, Tổng chi, Chênh lệch
   const tot = list => list.reduce((a, t) => ({pre: a.pre + txPre(t), vat: a.vat + (txVat(t) || 0), post: a.post + txPost(t), prov: a.prov + (txVat(t) == null ? 1 : 0), cnt: a.cnt + 1}), {pre: 0, vat: 0, post: 0, prov: 0, cnt: 0});
@@ -1397,7 +1563,7 @@ function viewJournal() {
   return `<section class="panel">
     <div class="controls">
       <select id="j-project" aria-label="Lọc theo dự án" style="flex:1 1 200px"><option value="">Tất cả dự án</option>${sortedProjects().map(p => `<option value="${esc(p.id)}">${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select>
-      <select id="j-type" aria-label="Lọc theo loại" style="flex:1 1 140px"><option value="">Tiền về và chi</option><option value="in">Chỉ tiền về</option><option value="out">Chỉ khoản chi</option><option value="unlinked">Tiền về chưa gắn hợp đồng</option></select>
+      <select id="j-type" aria-label="Lọc theo loại" style="flex:1 1 140px"><option value="">Tiền về và chi</option><option value="in">Chỉ tiền về</option><option value="out">Chỉ khoản chi</option><option value="unlinked">Tiền về chưa gắn hợp đồng</option><optgroup label="Khối chi phí">${GROUPS.map(g => `<option value="g:${g}">${COST[g].label}</option>`).join('')}</optgroup></select>
       <input type="search" id="j-q" placeholder="Tìm hạng mục, diễn giải…" style="flex:2 1 200px">
       <button class="btn" id="j-export">Xuất CSV</button>
     </div>
@@ -1406,8 +1572,8 @@ function viewJournal() {
 }
 function journalRows() {
   const q = S.jf.q.trim().toLowerCase();
-  return S.txs.filter(t => inRange(t) && (!S.jf.project || t.projectId === S.jf.project) && (!S.jf.type || (S.jf.type === 'unlinked' ? txUnlinked(t) : t.type === S.jf.type))
-    && (!q || `${t.category} ${t.note} ${projectName(t.projectId)} ${t.partner || ''} ${t.invoiceNo || ''} ${txContractLabel(t)}`.toLowerCase().includes(q)));
+  return S.txs.filter(t => inRange(t) && (!S.jf.project || t.projectId === S.jf.project) && (!S.jf.type || (S.jf.type === 'unlinked' ? txUnlinked(t) : S.jf.type.startsWith('g:') ? t.type === 'out' && grpOf(t) === S.jf.type.slice(2) : t.type === S.jf.type))
+    && (!q || `${t.category} ${t.oldCategory || ''} ${t.type === 'out' ? COST[grpOf(t)].label : ''} ${t.note} ${projectName(t.projectId)} ${t.partner || ''} ${t.invoiceNo || ''} ${txContractLabel(t)}`.toLowerCase().includes(q)));
 }
 function renderJournalTable() {
   const el = $('#j-table'); if (!el) return;
@@ -1712,11 +1878,11 @@ async function exportCsv() {
   // Số tiền: khoản thu dương, khoản chi âm; VAT trống = tạm tính. Dòng Tổng cộng = chênh lệch thu − chi ở cả 3 cột tiền.
   const sg = t => t.type === 'in' ? 1 : -1;
   const tot = rows.reduce((a, t) => ({pre: a.pre + sg(t) * txPre(t), vat: a.vat + sg(t) * (txVat(t) || 0), post: a.post + sg(t) * txPost(t), prov: a.prov + (txVat(t) == null ? 1 : 0)}), {pre: 0, vat: 0, post: 0, prov: 0});
-  const csv = '﻿' + ['Ngày,Mã dự án,Tên dự án,Loại,Hợp đồng,Đối tác,Hạng mục,Số hóa đơn,Ngày hóa đơn,Diễn giải,Trước VAT (VND),VAT (VND),Sau VAT (VND),Người nhập',
+  const csv = '﻿' + ['Ngày,Mã dự án,Tên dự án,Loại,Hợp đồng,Đối tác,Khối,Hạng mục,Hạng mục cũ,Số hóa đơn,Ngày hóa đơn,Diễn giải,Trước VAT (VND),VAT (VND),Sau VAT (VND),Người nhập',
     ...rows.map(t => { const p = S.projects.find(x => x.id === t.projectId) || {};
-      return [t.date, p.code, p.name, t.type === 'in' ? 'Tiền về' : 'Chi', txContractLabel(t), t.partner, t.category, t.invoiceNo, t.invoiceDate, t.note,
+      return [t.date, p.code, p.name, t.type === 'in' ? 'Tiền về' : 'Chi', txContractLabel(t), t.partner, t.type === 'out' ? COST[grpOf(t)].label : '', t.category, t.oldCategory, t.invoiceNo, t.invoiceDate, t.note,
         sg(t) * txPre(t), txVat(t) == null ? '' : sg(t) * txVat(t), sg(t) * txPost(t), t.createdByName].map(q).join(','); }),
-    ['Tổng cộng', '', '', '', '', '', '', '', '', `Chênh lệch tiền về − chi (${rows.length} khoản${tot.prov ? `, ${tot.prov} khoản VAT tạm tính` : ''})`, tot.pre, tot.vat, tot.post, ''].map(q).join(',')].join('\r\n');
+    ['Tổng cộng', '', '', '', '', '', '', '', '', '', '', `Chênh lệch tiền về − chi (${rows.length} khoản${tot.prov ? `, ${tot.prov} khoản VAT tạm tính` : ''})`, tot.pre, tot.vat, tot.post, ''].map(q).join(',')].join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
   a.download = `so-giao-dich-${periodLabel().replace(/[^\p{L}\d]+/gu, '-').toLowerCase()}.csv`;
@@ -1766,12 +1932,22 @@ $('#main').addEventListener('click', e => {
     if (a === 'edit-contract') openContract(S.contracts.find(c => c.id === id));
     if (a === 'del-contract') openDeleteContract(S.contracts.find(c => c.id === id));
     if (a === 'new-acc') openAcc(null, id, act.dataset.kind);
+    if (a === 'new-loan') openLoan(null, id, act.dataset.kind);
+    if (a === 'edit-loan') openLoan(S.loans.find(x => x.id === id));
+    if (a === 'del-loan') deleteLoan(S.loans.find(x => x.id === id));
+    if (a === 'loan-csv') exportLoansCsv(id);
     if (a === 'edit-acc') openAcc(S.acc.find(x => x.id === id));
     if (a === 'del-acc') deleteAcc(S.acc.find(x => x.id === id));
     if (a === 'journal-of') { S.jf = {project: id, type: '', q: ''}; S.jpage = 0; S.view = 'journal'; store.set('view', S.view); render(); window.scrollTo({top: 0}); }
     if (a === 'del-tx') deleteTx(S.txs.find(t => t.id === id));
     return;
   }
+  const cg = e.target.closest('[data-costgroup]');
+  if (cg) { const g = cg.dataset.costgroup; S.costOpen.g = {direct: false, indirect: false, finance: false, [g]: true}; saveCostOpen(); S.view = 'expense'; store.set('view', S.view); render(); setTimeout(() => document.querySelector(`[data-ctg="${g}"]`)?.scrollIntoView({block: 'start'}), 50); return; }
+  const ct = e.target.closest('[data-ctoggle]');
+  if (ct) { const [lvl, key] = ct.dataset.ctoggle.split(':'); const o = S.costOpen[lvl]; o[key] = !o[key]; saveCostOpen(); renderLedgerSide(); return; }
+  const ca = e.target.closest('[data-costall]');
+  if (ca) { const open = ca.dataset.costall === 'open'; GROUPS.forEach(g => S.costOpen.g[g] = open); if (open) { GROUPS.forEach(g => COST[g].cats.forEach(c => S.costOpen.c[g + '|' + c] = true)); S.txs.filter(t => t.type === 'out').forEach(t => S.costOpen.c[grpOf(t) + '|' + t.category] = true); } else S.costOpen.c = {}; saveCostOpen(); renderLedgerSide(); return; }
   const ck = e.target.closest('[data-ckind]');
   if (ck) { S.chartKind = ck.dataset.ckind; store.set('chartKind', S.chartKind); render(); return; }
   const cm = e.target.closest('[data-cmode]'), mx = e.target.closest('[data-mix]');
@@ -1792,6 +1968,7 @@ $('#main').addEventListener('input', e => {
 $('#main').addEventListener('change', e => {
   if (e.target.id === 'j-project') { S.jf.project = e.target.value; S.jpage = 0; renderJournalTable(); }
   if (e.target.id === 'j-type') { S.jf.type = e.target.value; S.jpage = 0; renderJournalTable(); }
+  if (e.target.id === 'cost-proj') { S.costProject = e.target.value; renderLedgerSide(); return; }
   if (e.target.id === 'p-sort') { S.psort = e.target.value; store.set('psort', S.psort); render(); }
 });
 $('#main').addEventListener('click', e => {
@@ -1817,7 +1994,16 @@ document.addEventListener('click', e => {
   document.getElementById(px + 'amount').focus();
 });
 document.addEventListener('change', e => {
-  const el = e.target, m = /^(.*-)(cat|project)$/.exec(el.id || ''); if (!m || el.tagName !== 'SELECT') return;
+  const el = e.target;
+  // Đổi khối chi phí: danh sách hạng mục và nút chọn nhanh đổi theo khối (giữ hạng mục nếu khối mới cũng có)
+  if (el.type === 'radio' && /group$/.test(el.name)) {
+    const px = el.name.slice(0, -5), sel = document.getElementById(px + 'cat'), cur = catList('out', el.value).includes(sel.value) ? sel.value : '';
+    sel.innerHTML = catOptions('out', cur, el.value);
+    const box = document.querySelector(`[data-qcats="${px}"]`); if (box) box.innerHTML = qcatsHtml('out', cur, el.value);
+    if (px.startsWith('e-out-')) S.entry.out.group = el.value;
+    return;
+  }
+  const m = /^(.*-)(cat|project)$/.exec(el.id || ''); if (!m || el.tagName !== 'SELECT') return;
   const px = m[1];
   if (m[2] === 'cat') { const box = document.querySelector(`[data-qcats="${px}"]`); if (box) box.querySelectorAll('.qcat').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.qcat === el.value))); }
   // Đổi dự án: danh sách hợp đồng của khoản thu đổi theo; dự án chưa có hợp đồng thì ẩn ô này
@@ -1834,9 +2020,9 @@ render();
 async function load(first) {
   try {
     const d = await api('GET', 'data', null, !first);
-    const cts = d.contracts || [], acc = d.acceptances || [];
-    const same = JSON.stringify(d.projects) === JSON.stringify(S.projects) && JSON.stringify(d.transactions) === JSON.stringify(S.txs) && JSON.stringify(cts) === JSON.stringify(S.contracts) && JSON.stringify(acc) === JSON.stringify(S.acc);
-    S.projects = d.projects; S.txs = d.transactions.filter(t => t.date); S.contracts = cts; S.acc = acc; S.mode = 'db'; EV = null;
+    const cts = d.contracts || [], acc = d.acceptances || [], loans = d.loans || [];
+    const same = JSON.stringify(d.projects) === JSON.stringify(S.projects) && JSON.stringify(d.transactions) === JSON.stringify(S.txs) && JSON.stringify(cts) === JSON.stringify(S.contracts) && JSON.stringify(acc) === JSON.stringify(S.acc) && JSON.stringify(loans) === JSON.stringify(S.loans);
+    S.projects = d.projects; S.txs = d.transactions.filter(t => t.date); S.contracts = cts; S.acc = acc; S.loans = loans; S.mode = 'db'; EV = null;
     if (first || !same) { if (dlg.open) return; refresh(); }
   } catch (e) {
     if (first) $('#main').innerHTML = `<div class="panel empty">Không kết nối được máy chủ. Tải lại trang để thử lại.</div>`;

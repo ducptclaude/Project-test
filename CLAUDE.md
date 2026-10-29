@@ -3,12 +3,12 @@
 Ứng dụng web quản lý doanh thu, chi phí, lợi nhuận theo dự án. Giao diện và thông báo đều bằng tiếng Việt. Nhận diện trung tính: tên hiển thị lấy từ biến `BRAND_*`, không gắn với công ty cụ thể nào; font Montserrat, màu gradient Navy → Teal.
 
 ## Kiến trúc
-- `server.js`: máy chủ Express. Lưu dữ liệu vào PostgreSQL (bảng `records(col, id, data jsonb)`) khi có `DATABASE_URL`, nếu không thì vào `DATA_DIR/db.json`. Các collection: `projects`, `transactions`, `contracts` (hợp đồng với CĐT), `acceptances` (nghiệm thu, quyết toán) — hai collection sau có đường dẫn API riêng, `users`, `meta`.
+- `server.js`: máy chủ Express. Lưu dữ liệu vào PostgreSQL (bảng `records(col, id, data jsonb)`) khi có `DATABASE_URL`, nếu không thì vào `DATA_DIR/db.json`. Các collection: `projects`, `transactions`, `contracts` (hợp đồng với CĐT), `acceptances` (nghiệm thu, quyết toán), `loans` (vay, trả nợ gốc) — ba collection này có đường dẫn API riêng, `users`, `meta`.
 - `auth.js`: trang `/login`, phiên cookie ký HMAC, vai trò `viewer` < `editor` < `admin`, API quản lý tài khoản.
 - `public/index.html`: toàn bộ giao diện ứng dụng (HTML + CSS + JS thuần trong một file).
 - `public/login.html`: trang đăng nhập hai cột. Logo tùy chọn ở `public/brand/logo.png`.
 - `sample.js`: dữ liệu ví dụ nạp ở lần chạy đầu; `makeSample.rich()` dựng dự án mẫu đầy đủ **DA-M01** (HĐ gốc + phụ lục có VAT / tạm tính / âm, khoản thu gắn hợp đồng và ngoài hợp đồng, khoản chi có đối tác, hóa đơn). Mọi id tiền tố `mau-`, cờ `sample` (xóa được bằng "Xóa dữ liệu ví dụ"), người nhập "Dữ liệu mẫu".
-- `deploy/reset.json`: `token` / `scope` / `productionAccountsToken` (khởi tạo lại tài khoản), và `sampleToken`: token mới thì khi khởi động ở môi trường **không phải production** máy chủ **thêm** dự án mẫu DA-M01 đúng một lần (meta `sampleSeed`), không xóa / ghi đè dữ liệu khác. Cơ sở dữ liệu mới (không phải production) cũng tự có DA-M01.
+- `deploy/reset.json`: `token` / `scope` / `productionAccountsToken` (khởi tạo lại tài khoản), và `sampleToken`: token mới thì khi khởi động ở môi trường **không phải production** máy chủ **thêm / cập nhật** dự án mẫu DA-M01 đúng một lần (meta `sampleSeed`): chỉ ghi bản ghi `mau-` chưa có hoặc còn cờ `sample`; bản ghi `mau-` người dùng đã sửa (mất cờ `sample`) được **giữ nguyên**; bản mẫu trỏ tới dự án / hợp đồng không còn thì bỏ; không xóa, không đụng dữ liệu khác. Cơ sở dữ liệu mới (không phải production) cũng tự có DA-M01.
 - `scripts/smoke.js`: bộ kiểm tra chạy bằng `npm test`.
 
 ## Lệnh
@@ -57,6 +57,17 @@
 - Ràng buộc xóa (kiểm trước mã xóa): hợp đồng còn nghiệm thu gắn vào, HĐ gốc khi đã quyết toán, dự án còn nghiệm thu / quyết toán → 409. Xóa nghiệm thu / quyết toán cần quyền Nhập liệu trở lên và mã xóa.
 - Menu "Doanh thu" đổi thành **"Tiền về"** (view vẫn tên `revenue`).
 - Làm sau: phân 3 thời điểm TĐ1/TĐ2/TĐ3; gắn khoản tiền về vào từng đợt nghiệm thu.
+
+### Chi phí 3 khối và tiền vay (người dùng đã chốt)
+- Khoản chi có `group` + `category` (danh mục cố định, máy chủ kiểm tra hạng mục thuộc đúng khối, sai → 400):
+  - `direct` **Chi phí trực tiếp**: Thầu phụ · Vật tư · Nhân công · MMTB · Tổ chức thi công · Khác
+  - `indirect` **Chi phí gián tiếp**: Lương BCH · Điện, nước · Ngoại giao · Khác
+  - `finance` **Chi phí tài chính**: Phí bảo lãnh · Phí ngân hàng · Lãi vay, phạt
+  - Khoản thu không có `group`.
+- Chuyển khoản chi cũ một lần (meta `costGroupsMigrated`, mọi môi trường): Thầu phụ / Vật tư / Nhân công → giữ tên (Trực tiếp); Thiết bị / máy móc → MMTB; Vận chuyển → Tổ chức thi công; Chi phí quản lý, Bản quyền / phần mềm, Thuế & phí → Gián tiếp · Khác; Chi khác, trống, lạ → Trực tiếp · Khác. Tên cũ lưu ở `oldCategory` (chỉ bước chuyển đổi ghi), không đổi người sửa / thời điểm sửa / cờ `sample`.
+- Trang Chi phí dạng cây Khối → Hạng mục → Khoản chi (tổng, tỷ trọng %, Mở tất cả / Thu gọn tất cả, dòng Tổng cộng); tổng khối theo nút VAT.
+- **Tiền vay / trả nợ gốc** (`loans`: `kind` vay|tragoc, ngày, số tiền nguyên đồng không VAT, bên cho vay, số khế ước): **không phải chi phí**, không vào doanh thu, lợi nhuận, Tiền về, Thực chi, Còn lại. **Dư nợ vay = vay − trả gốc** (không được âm: trả gốc vượt → 400; xóa khoản vay làm dư nợ âm → 409). **Số dư tiền = Còn lại + Dư nợ vay**. Không xóa dự án còn khoản vay. Xóa cần mã xóa.
+- **Lãi vay là chi phí**: nhập như khoản chi ở Tài chính → "Lãi vay, phạt".
 
 ## Môi trường và nhánh
 - `main` → Railway **production** (số liệu thật). `staging` → Railway **staging** (dữ liệu thử).

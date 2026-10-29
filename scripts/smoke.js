@@ -63,7 +63,7 @@ check('phân quyền: Chỉ xem không ghi được, Nhập liệu ghi được'
 check('giao dịch: máy chủ ghi người nhập / người sửa, không đổi được loại thu/chi', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
   const e = client(); await e('POST', '/api/login', { username: 'nhap', password: 'Nhap12345' });
-  const tx = { projectId: 'da01', type: 'out', date: '2026-10-05', amount: 3000000, category: 'Vật tư', note: 'ghi người nhập',
+  const tx = { projectId: 'da01', type: 'out', date: '2026-10-05', amount: 3000000, group: 'direct', category: 'Vật tư', note: 'ghi người nhập',
     createdBy: 'ke-gian', createdByName: 'Giả mạo', createdAt: 1, updatedBy: 'ke-gian', updatedByName: 'Giả mạo', updatedAt: 'x' };
   let r = await e('PUT', '/api/transactions/nn1', tx);
   assert.equal(r.status, 200);
@@ -110,9 +110,9 @@ check('thu/chi có VAT, khoản thu gắn hợp đồng, khoản chi có đối 
   assert.equal(r.status, 400); assert.equal(r.json.error, 'Hợp đồng không thuộc dự án này.');
   assert.ok(!(await a('GET', '/api/data')).json.transactions.some(t => t.id === 'v4' || t.id === 'v2'));
   // khoản chi: lưu đối tác, bỏ contractId
-  r = await a('PUT', '/api/transactions/v5', { projectId: 'da01', type: 'out', date: '2026-10-11', category: 'Vật tư', amount: 22000000, vat: 2000000, partner: 'Công ty Thép Miền Nam', contractId: hd01, note: '' });
+  r = await a('PUT', '/api/transactions/v5', { projectId: 'da01', type: 'out', date: '2026-10-11', group: 'direct', category: 'Vật tư', amount: 22000000, vat: 2000000, partner: 'Công ty Thép Miền Nam', contractId: hd01, note: '' });
   assert.equal(r.status, 200); assert.equal(r.json.partner, 'Công ty Thép Miền Nam'); assert.equal(r.json.contractId, undefined); assert.equal(r.json.pre, 20000000);
-  assert.equal((await a('PUT', '/api/transactions/v6', { projectId: 'da01', type: 'out', date: '2026-10-11', category: 'Vật tư', amount: 1000, partner: 'x'.repeat(121) })).status, 400);
+  assert.equal((await a('PUT', '/api/transactions/v6', { projectId: 'da01', type: 'out', date: '2026-10-11', group: 'direct', category: 'Vật tư', amount: 1000, partner: 'x'.repeat(121) })).status, 400);
   // giao dịch cũ (chỉ có amount) vẫn đọc / sửa được, không bịa VAT
   const old = d0.transactions.find(t => t.type === 'out' && t.sample && t.pre === undefined);
   const { id: oid, ...od } = old;
@@ -129,9 +129,10 @@ check('mã xóa áp dụng cho mọi thao tác xóa: giao dịch, dự án, dữ
   assert.equal((await a('PUT', '/api/projects/mx-p', { name: 'Dự án để xóa' })).status, 204);
   assert.equal((await a('POST', '/api/users', { username: 'tam', name: 'Tạm', role: 'editor', password: 'Tam123456' })).status, 201);
   assert.equal((await a('PUT', '/api/acceptances/mx-a', { projectId: 'da01', kind: 'nghiemthu', date: '2026-10-01', value: 1000000, vat: null })).status, 200);
+  assert.equal((await a('PUT', '/api/loans/mx-l', { projectId: 'da01', kind: 'vay', date: '2026-10-01', amount: 1000000 })).status, 200);
   const before = (await a('GET', '/api/data')).json;
   // chưa đặt mã: mọi đường xóa trả 409, không xóa gì
-  for (const [c, url] of [[e, '/api/transactions/smoke1'], [e, '/api/projects/mx-p'], [e, '/api/sample'], [a, '/api/users/tam'], [a, '/api/acceptances/mx-a']]) {
+  for (const [c, url] of [[e, '/api/transactions/smoke1'], [e, '/api/projects/mx-p'], [e, '/api/sample'], [a, '/api/users/tam'], [a, '/api/acceptances/mx-a'], [a, '/api/loans/mx-l']]) {
     const r = await c('DELETE', url, MA);
     assert.equal(r.status, 409, url); assert.equal(r.json.error, 'Quản trị viên chưa đặt mã xóa.', url);
   }
@@ -147,7 +148,7 @@ check('mã xóa áp dụng cho mọi thao tác xóa: giao dịch, dự án, dữ
   const g = await a('GET', '/api/delete-passcode');
   assert.equal(g.json.set, true); assert.ok(!JSON.stringify(g.json).includes('scrypt'), 'không lộ mã băm');
   // sai mã hoặc thiếu mã: 403, dữ liệu còn nguyên
-  for (const [c, url] of [[e, '/api/transactions/smoke1'], [e, '/api/projects/mx-p'], [e, '/api/sample'], [a, '/api/users/tam'], [a, '/api/acceptances/mx-a']]) {
+  for (const [c, url] of [[e, '/api/transactions/smoke1'], [e, '/api/projects/mx-p'], [e, '/api/sample'], [a, '/api/users/tam'], [a, '/api/acceptances/mx-a'], [a, '/api/loans/mx-l']]) {
     const r = await c('DELETE', url, { passcode: 'sai-ma' });
     assert.equal(r.status, 403, url); assert.equal(r.json.error, 'Mã xóa không đúng.');
   }
@@ -161,6 +162,7 @@ check('mã xóa áp dụng cho mọi thao tác xóa: giao dịch, dự án, dữ
   assert.equal((await a('DELETE', '/api/users/tam', MA)).status, 204);
   assert.ok((await a('GET', '/api/data')).json.acceptances.some(x => x.id === 'mx-a'), 'biên bản còn sau khi sai mã');
   assert.equal((await a('DELETE', '/api/acceptances/mx-a', MA)).status, 204);
+  assert.equal((await a('DELETE', '/api/loans/mx-l', MA)).status, 204);
   d = (await a('GET', '/api/data')).json;
   assert.ok(!d.acceptances.some(x => x.id === 'mx-a'));
   assert.ok(!d.transactions.some(t => t.id === 'smoke1') && !d.projects.some(p => p.id === 'mx-p'));
@@ -194,7 +196,7 @@ check('tiền phải là số nguyên đồng: số lẻ bị từ chối', asyn
 });
 check('giao dịch phải thuộc dự án đang tồn tại', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
-  const r = await a('PUT', '/api/transactions/mo-coi', { projectId: 'khong-co', type: 'out', date: '2026-10-01', amount: 1000, category: 'Khác', note: '' });
+  const r = await a('PUT', '/api/transactions/mo-coi', { projectId: 'khong-co', type: 'out', date: '2026-10-01', amount: 1000, group: 'direct', category: 'Khác', note: '' });
   assert.equal(r.status, 400); assert.equal(r.json.error, 'Dự án không tồn tại.');
   assert.ok(!(await a('GET', '/api/data')).json.transactions.some(t => t.id === 'mo-coi'));
 });
@@ -234,7 +236,12 @@ function checkRich(d) {
   assert.ok(outs.length > 20 && outs.every(t => t.partner), 'khoản chi có đối tác');
   assert.ok(txs.every(t => t.sample && t.id.startsWith('mau-') && Number.isInteger(t.amount) && Number.isInteger(t.pre) && t.amount === t.pre + (t.vat || 0)), 'trước VAT + VAT = sau VAT');
   const chi = outs.reduce((a, t) => a + t.pre, 0);
-  assert.ok(chi > 7.3e9 && chi < 7.8e9, 'tổng chi trước VAT 7,3–7,8 tỷ');
+  assert.ok(chi > 7.8e9 && chi < 8.3e9, 'tổng chi trước VAT 7,8–8,3 tỷ');
+  assert.ok(outs.every(t => ['direct', 'indirect', 'finance'].includes(t.group) && !t.oldCategory), 'khoản chi mẫu theo danh mục 3 khối');
+  for (const g of ['direct', 'indirect', 'finance']) assert.ok(outs.some(t => t.group === g), 'có khoản chi khối ' + g);
+  assert.ok(outs.some(t => t.group === 'finance' && t.category === 'Lãi vay, phạt'), 'có lãi vay');
+  const loans = d.loans.filter(l => l.projectId === 'mau-p1').sort((x, y) => x.id.localeCompare(y.id));
+  assert.deepEqual(loans.map(l => [l.id, l.kind, l.date, l.amount, l.sample]), [['mau-l1', 'vay', '2026-03-05', 2000000000, true], ['mau-l2', 'tragoc', '2026-09-05', 500000000, true]]);
   const acc = d.acceptances.filter(x => x.projectId === 'mau-p1').sort((x, y) => x.seq - y.seq);
   assert.deepEqual(acc.map(x => [x.id, x.kind, x.seq, x.contractId, x.date, x.value, x.vat]),
     [['mau-a1', 'nghiemthu', 1, 'mau-c0', '2026-05-25', 3000000000, 300000000], ['mau-a2', 'nghiemthu', 2, 'mau-c1', '2026-08-18', 850000000, 85000000]]);
@@ -352,6 +359,57 @@ check('nghiệm thu, quyết toán: máy chủ cấp đợt, chặn sai, ràng b
   // tiền về vượt hợp đồng: chỉ cảnh báo ở giao diện, máy chủ vẫn nhận
   assert.equal((await a('PUT', '/api/transactions/vuot1', { projectId: 'hd-p', type: 'in', date: '2026-10-25', category: 'Quyết toán', amount: 9000000000, vat: null, contractId: 'hd1' })).status, 200);
 });
+check('chi phí 3 khối: hạng mục phải thuộc đúng khối', async () => {
+  const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+  const chi = { projectId: 'da01', type: 'out', date: '2026-10-12', amount: 5000000, note: '' };
+  let r = await a('PUT', '/api/transactions/k1', { ...chi, group: 'indirect', category: 'Lương BCH' });
+  assert.equal(r.status, 200); assert.deepEqual([r.json.group, r.json.category], ['indirect', 'Lương BCH']);
+  assert.equal((await a('PUT', '/api/transactions/k2', { ...chi, group: 'finance', category: 'Lãi vay, phạt' })).status, 200);
+  assert.equal((await a('PUT', '/api/transactions/k3', { ...chi, group: 'indirect', category: 'Khác' })).status, 200, '"Khác" có ở khối gián tiếp');
+  r = await a('PUT', '/api/transactions/k4', { ...chi, group: 'finance', category: 'Vật tư' });
+  assert.equal(r.status, 400); assert.equal(r.json.error, 'Hạng mục không thuộc khối chi phí đã chọn.');
+  assert.equal((await a('PUT', '/api/transactions/k5', { ...chi, category: 'Vật tư' })).status, 400, 'thiếu khối');
+  assert.equal((await a('PUT', '/api/transactions/k6', { ...chi, group: 'khac', category: 'Vật tư' })).status, 400, 'khối lạ');
+  assert.equal((await a('PUT', '/api/transactions/k7', { ...chi, group: 'finance', category: 'Khác' })).status, 400, 'khối tài chính không có "Khác"');
+  r = await a('PUT', '/api/transactions/k8', { projectId: 'hd-p', type: 'in', date: '2026-10-12', amount: 1000, contractId: '', category: 'Thu khác', group: 'direct', oldCategory: 'giả' });
+  assert.equal(r.status, 200); assert.equal(r.json.group, undefined, 'khoản thu không có khối'); assert.equal(r.json.oldCategory, undefined);
+  r = await a('PUT', '/api/transactions/k1', { ...chi, group: 'indirect', category: 'Ngoại giao', oldCategory: 'giả mạo' });
+  assert.equal(r.json.oldCategory, undefined, 'oldCategory không nhận từ người dùng');
+});
+check('vay và trả nợ gốc: dư nợ không âm, không phải chi phí, xóa có ràng buộc', async () => {
+  const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+  const v = client(); await v('POST', '/api/login', { username: 'xem2', password: 'Xem123456' });
+  assert.equal((await a('PUT', '/api/projects/vay-p', { name: 'Dự án có vay' })).status, 204);
+  const tx0 = (await a('GET', '/api/data')).json.transactions.length;
+  const L = (id, b, c = a) => c('PUT', '/api/loans/' + id, { projectId: 'vay-p', date: '2026-05-01', lender: 'Ngân hàng A (ví dụ)', no: 'KU-01', ...b });
+  let r = await L('l1', { kind: 'vay', amount: 1000000000, createdByName: 'Giả mạo' });
+  assert.equal(r.status, 200); assert.equal(r.json.createdByName, 'Quản trị viên');
+  assert.equal((await L('l2', { kind: 'tragoc', amount: 400000000, date: '2026-08-01' })).status, 200);
+  const debt = d => d.loans.filter(l => l.projectId === 'vay-p').reduce((s, l) => s + (l.kind === 'vay' ? 1 : -1) * l.amount, 0);
+  let d = (await a('GET', '/api/data')).json;
+  assert.equal(debt(d), 600000000, 'dư nợ 0,6 tỷ');
+  assert.equal(d.transactions.length, tx0, 'vay / trả gốc không tạo khoản chi hay tiền về');
+  r = await L('l3', { kind: 'tragoc', amount: 700000000 });
+  assert.equal(r.status, 400); assert.equal(r.json.error, 'Trả nợ gốc vượt dư nợ vay.');
+  assert.equal((await L('l1', { kind: 'vay', amount: 300000000 })).status, 400, 'sửa vay xuống dưới tổng đã trả');
+  assert.equal((await L('l1', { kind: 'tragoc', amount: 1000 })).status, 400, 'không đổi loại khi sửa');
+  assert.equal((await L('x1', { kind: 'vay', amount: 12.5 })).status, 400, 'số tiền lẻ');
+  assert.equal((await L('x2', { kind: 'vay', amount: 1000, date: '' })).status, 400, 'thiếu ngày');
+  assert.equal((await L('x3', { kind: 'khac', amount: 1000 })).status, 400, 'loại sai');
+  assert.equal((await a('PUT', '/api/loans/x4', { projectId: 'khong-co', kind: 'vay', date: '2026-05-01', amount: 1000 })).status, 400, 'dự án không tồn tại');
+  assert.equal((await L('x5', { kind: 'vay', amount: 1000 }, v)).status, 403, 'Chỉ xem không ghi được');
+  // xóa: vay còn trả gốc → dư nợ âm → 409 dù đúng mã; dự án còn khoản vay → 409
+  r = await a('DELETE', '/api/loans/l1', MA);
+  assert.equal(r.status, 409); assert.match(r.json.error, /dư nợ âm/);
+  assert.equal((await a('DELETE', '/api/projects/vay-p', MA)).status, 409);
+  assert.equal((await v('DELETE', '/api/loans/l2', MA)).status, 403, 'Chỉ xem không xóa được');
+  assert.equal((await a('DELETE', '/api/loans/l2', { passcode: 'sai' })).status, 403);
+  assert.equal((await a('DELETE', '/api/loans/l2', MA)).status, 204);
+  assert.equal((await a('DELETE', '/api/loans/l1', MA)).status, 204);
+  d = (await a('GET', '/api/data')).json;
+  assert.ok(!d.loans.some(l => l.projectId === 'vay-p'));
+  assert.equal((await a('DELETE', '/api/projects/vay-p', MA)).status, 204);
+});
 check('sửa giao dịch / dự án ví dụ thì không còn là dữ liệu ví dụ', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
   const d = (await a('GET', '/api/data')).json;
@@ -366,7 +424,7 @@ check('sửa giao dịch / dự án ví dụ thì không còn là dữ liệu v�
 });
 check('xóa dữ liệu ví dụ giữ lại dự án ví dụ đang có giao dịch thật', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
-  assert.equal((await a('PUT', '/api/transactions/that1', { projectId: 'da01', type: 'out', date: '2026-10-03', amount: 2500000, category: 'Vật tư', note: 'giao dịch thật' })).status, 200);
+  assert.equal((await a('PUT', '/api/transactions/that1', { projectId: 'da01', type: 'out', date: '2026-10-03', amount: 2500000, group: 'direct', category: 'Vật tư', note: 'giao dịch thật' })).status, 200);
   assert.equal((await a('PUT', '/api/projects/rieng', { name: 'Dự án riêng', code: 'R-01', contractValue: 0, budget: 0 })).status, 204);
   assert.equal((await a('DELETE', '/api/sample', MA)).status, 204);
   const d = (await a('GET', '/api/data')).json;
@@ -384,7 +442,7 @@ check('xóa dữ liệu ví dụ giữ lại dự án ví dụ đang có giao d�
   for (const p of ['da01', 'da03', 'da04']) assert.equal(d.contracts.filter(c => c.projectId === p).length, 1, 'giữ hợp đồng của dự án còn lại: ' + p);
   assert.ok(!d.contracts.some(c => c.projectId === 'da02'), 'hợp đồng của dự án ví dụ đã xóa cũng bị xóa');
   assert.equal(d.contracts.filter(c => c.projectId === 'hd-p').length, 2, 'hợp đồng thật còn nguyên');
-  assert.ok(![...d.projects, ...d.contracts, ...d.acceptances, ...d.transactions].some(x => x.id.startsWith('mau-')), 'xóa hết dự án mẫu DA-M01 cùng hợp đồng, nghiệm thu và giao dịch');
+  assert.ok(![...d.projects, ...d.contracts, ...d.acceptances, ...d.loans, ...d.transactions].some(x => x.id.startsWith('mau-')), 'xóa hết dự án mẫu DA-M01 cùng hợp đồng, nghiệm thu, khoản vay và giao dịch');
   assert.ok(['nt1', 'nt2', 'q1'].every(id => d.acceptances.some(x => x.id === id)), 'biên bản thật còn nguyên');
 });
 check('đăng xuất', async () => {
@@ -409,8 +467,40 @@ const stop = srv => new Promise(ok => { if (srv.exitCode !== null) return ok(); 
 
 // Kiểm tra cần khởi động lại máy chủ với biến môi trường khác
 const restartChecks = [
+  ['chuyển khoản chi cũ sang 3 khối: đúng bảng, giữ tên cũ, cờ ví dụ, người sửa; chỉ một lần', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stc-cost-')), at = '2025-01-02T03:04:05.000Z';
+    const t = (id, category, extra = {}) => ({ projectId: 'p1', type: 'out', date: '2026-01-10', amount: 1000, category, updatedAt: at, updatedByName: 'Người cũ', ...extra });
+    fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({ projects: { p1: { name: 'Dự án cũ' } }, meta: { seeded: { at: 'x' } }, transactions: {
+      o1: t('o1', 'Vận chuyển', { sample: true }), o2: t('o2', 'Chi phí quản lý'), o3: t('o3', 'Chi khác'), o4: t('o4', 'abc lạ'), o5: t('o5', 'Vật tư'),
+      o6: t('o6', 'Thiết bị / máy móc'), o7: t('o7', 'Thuế & phí'), o8: t('o8', ''), i1: { projectId: 'p1', type: 'in', date: '2026-01-10', amount: 5000, category: 'Thu khác' } } }));
+    const env2 = { DATA_DIR: dir, DATABASE_URL: '' };
+    let srv = await start(env2), first;
+    try {
+      assert.match(srv.log, /Chi phí 3 khối: đã chuyển 8 khoản chi cũ/);
+      const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+      first = (await c('GET', '/api/data')).json.transactions;
+      const g = id => { const x = first.find(y => y.id === id); return [x.group, x.category, x.oldCategory]; };
+      assert.deepEqual(g('o1'), ['direct', 'Tổ chức thi công', 'Vận chuyển']);
+      assert.deepEqual(g('o2'), ['indirect', 'Khác', 'Chi phí quản lý']);
+      assert.deepEqual(g('o3'), ['direct', 'Khác', 'Chi khác']);
+      assert.deepEqual(g('o4'), ['direct', 'Khác', 'abc lạ']);
+      assert.deepEqual(g('o5'), ['direct', 'Vật tư', undefined], 'tên không đổi thì không cần oldCategory');
+      assert.deepEqual(g('o6'), ['direct', 'MMTB', 'Thiết bị / máy móc']);
+      assert.deepEqual(g('o7'), ['indirect', 'Khác', 'Thuế & phí']);
+      assert.deepEqual(g('o8'), ['direct', 'Khác', '']);
+      const o1 = first.find(y => y.id === 'o1');
+      assert.equal(o1.sample, true, 'giữ cờ ví dụ'); assert.equal(o1.updatedAt, at); assert.equal(o1.updatedByName, 'Người cũ');
+      assert.equal(first.find(y => y.id === 'i1').group, undefined, 'khoản thu không bị đụng');
+    } finally { await stop(srv); }
+    srv = await start(env2);
+    try {
+      assert.doesNotMatch(srv.log, /Chi phí 3 khối: đã chuyển/, 'không chạy lần hai');
+      const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+      assert.deepEqual((await c('GET', '/api/data')).json.transactions, first);
+    } finally { await stop(srv); fs.rmSync(dir, { recursive: true, force: true }); }
+  }],
   ['sampleToken: thêm dự án mẫu ở môi trường thử, một lần, không đụng dữ liệu khác; production bỏ qua', async () => {
-    const file = path.join(dataDir, 'sample-token.json'), strip = d => JSON.stringify(['projects', 'contracts', 'acceptances', 'transactions'].map(k => d[k].filter(x => !x.id.startsWith('mau-')).sort((a, b) => a.id.localeCompare(b.id))));
+    const file = path.join(dataDir, 'sample-token.json'), strip = d => JSON.stringify(['projects', 'contracts', 'acceptances', 'loans', 'transactions'].map(k => d[k].filter(x => !x.id.startsWith('mau-')).sort((a, b) => a.id.localeCompare(b.id))));
     let srv = await start(), before;
     try {
       const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
@@ -420,25 +510,40 @@ const restartChecks = [
     fs.writeFileSync(file, JSON.stringify({ sampleToken: 'mau-test-1' }));
     srv = await start({ RESET_FILE: file });
     try {
-      assert.match(srv.log, /sampleToken "mau-test-1": đã thêm dự án mẫu DA-M01/);
+      assert.match(srv.log, /sampleToken "mau-test-1": đã thêm \/ cập nhật dự án mẫu DA-M01/);
       const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
       const d = (await c('GET', '/api/data')).json;
       checkRich(d);
       assert.equal(strip(d), strip(before), 'dữ liệu khác không thay đổi');
+      // người dùng sửa một khoản chi mẫu (thành dữ liệu thật) và xóa một khoản chi mẫu khác
+      const { id: _x5, ...x5 } = d.transactions.find(t => t.id === 'mau-x5');
+      assert.equal((await c('PUT', '/api/transactions/mau-x5', { ...x5, note: 'người dùng đã sửa' })).status, 200);
+      assert.equal((await c('DELETE', '/api/transactions/mau-x7', { passcode: 'Ma2026' })).status, 204);
+    } finally { await stop(srv); }
+    fs.writeFileSync(file, JSON.stringify({ sampleToken: 'mau-test-1b' }));
+    srv = await start({ RESET_FILE: file });   // token mới: cập nhật bản mẫu, giữ bản người dùng đã sửa
+    try {
+      assert.match(srv.log, /giữ nguyên 1 bản ghi người dùng đã sửa/);
+      const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+      const d = (await c('GET', '/api/data')).json, x5 = d.transactions.find(t => t.id === 'mau-x5'), x7 = d.transactions.find(t => t.id === 'mau-x7');
+      assert.equal(x5.note, 'người dùng đã sửa'); assert.equal(x5.sample, undefined, 'bản đã sửa giữ nguyên');
+      assert.ok(x7 && x7.sample, 'bản mẫu bị xóa được nạp lại');
       assert.equal((await c('DELETE', '/api/sample', { passcode: 'Ma2026' })).status, 204);
-      assert.ok(!(await c('GET', '/api/data')).json.projects.some(p => p.id === 'mau-p1'));
+      const d2 = (await c('GET', '/api/data')).json;
+      assert.ok(![...d2.projects, ...d2.contracts, ...d2.acceptances, ...d2.loans, ...d2.transactions].some(x => x.id.startsWith('mau-') && x.sample), 'xóa hết bản mẫu');
+      assert.ok(d2.transactions.some(t => t.id === 'mau-x5') && d2.projects.some(p => p.id === 'mau-p1'), 'giữ khoản đã sửa và dự án của nó');
     } finally { await stop(srv); }
     srv = await start({ RESET_FILE: file });   // cùng token: không nạp lại
     try {
       const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
-      assert.ok(!(await c('GET', '/api/data')).json.projects.some(p => p.id === 'mau-p1'), 'token đã chạy thì không nạp lại');
+      assert.ok(!(await c('GET', '/api/data')).json.transactions.some(t => t.id.startsWith('mau-') && t.sample), 'token đã chạy thì không nạp lại');
     } finally { await stop(srv); }
     fs.writeFileSync(file, JSON.stringify({ sampleToken: 'mau-test-2' }));
     srv = await start({ RESET_FILE: file, APP_ENV: 'production' });
     try {
       assert.match(srv.log, /không nạp dự án mẫu ở môi trường production/);
       const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
-      assert.ok(!(await c('GET', '/api/data')).json.projects.some(p => p.id === 'mau-p1'));
+      assert.ok(!(await c('GET', '/api/data')).json.transactions.some(t => t.id.startsWith('mau-') && t.sample));
     } finally { await stop(srv); }
   }],
   ['khởi động lại không chuyển dữ liệu hợp đồng lần nữa', async () => {

@@ -11,6 +11,19 @@ const PORT = process.env.PORT || 3000;
 // vì máy chủ tự gán người nhập, số thứ tự phụ lục và yêu cầu mã xóa.
 const COLS = new Set(['projects', 'transactions']);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Chi phí 3 khối (xem CLAUDE.md): mỗi khoản chi có group + category thuộc đúng khối. "Khác" phân biệt nhờ group.
+const COST_GROUPS = {
+  direct: ['Thầu phụ', 'Vật tư', 'Nhân công', 'MMTB', 'Tổ chức thi công', 'Khác'],
+  indirect: ['Lương BCH', 'Điện, nước', 'Ngoại giao', 'Khác'],
+  finance: ['Phí bảo lãnh', 'Phí ngân hàng', 'Lãi vay, phạt']
+};
+// Chuyển hạng mục chi cũ sang khối mới (một lần, meta costGroupsMigrated); hạng mục lạ / trống → Trực tiếp · Khác
+const OLD_COST_MAP = {
+  'Thầu phụ': ['direct', 'Thầu phụ'], 'Vật tư': ['direct', 'Vật tư'], 'Nhân công': ['direct', 'Nhân công'],
+  'Thiết bị / máy móc': ['direct', 'MMTB'], 'Vận chuyển': ['direct', 'Tổ chức thi công'],
+  'Chi phí quản lý': ['indirect', 'Khác'], 'Bản quyền / phần mềm': ['indirect', 'Khác'], 'Thuế & phí': ['indirect', 'Khác']
+};
+const mapOldCost = cat => OLD_COST_MAP[cat] || ['direct', 'Khác'];
 const ID_RE = /^[A-Za-z0-9_.~:@+-]{1,100}$/;
 
 /* ---------- storage ---------- */
@@ -115,7 +128,7 @@ async function migrateContracts() {
 // Dự án mẫu đầy đủ (sample.js → makeRichSample): chỉ các id tiền tố "mau-", mang cờ sample
 function richItems() {
   const r = makeSample.rich(), items = [];
-  for (const [col, list] of [['projects', r.projects], ['contracts', r.contracts], ['acceptances', r.acceptances], ['transactions', r.txs]])
+  for (const [col, list] of [['projects', r.projects], ['contracts', r.contracts], ['acceptances', r.acceptances], ['loans', r.loans], ['transactions', r.txs]])
     for (const { id, ...d } of list) items.push([col, id, d]);
   return items;
 }
@@ -129,9 +142,45 @@ async function sampleSeed() {
   if ((meta.tokens || []).includes(token)) return;
   const items = richItems();
   if (!items.every(([, id]) => id.startsWith('mau-'))) throw new Error('Dự án mẫu chỉ được dùng id tiền tố mau-');
-  items.push(['meta', 'sampleSeed', { tokens: [...(meta.tokens || []), token], at: new Date().toISOString() }]);
+  // Bản ghi "mau-" người dùng đã sửa (không còn cờ sample) là dữ liệu thật: giữ nguyên, không ghi đè.
+  // Chỉ ghi bản ghi chưa có hoặc còn cờ sample.
+  const write = [], has = {}; let kept = 0;
+  for (const it of items) {
+    const [col, id] = it, cur = await store.get(col, id);
+    if (cur && !cur.sample) { kept++; (has[col] ||= new Set()).add(id); continue; }
+    write.push(it);
+  }
+  // Liên kết phải hợp lệ: dự án / hợp đồng được trỏ tới phải có (sẽ ghi, đã giữ, hoặc đang có trong kho); không thì bỏ bản ghi đó
+  for (const [col, id] of write) (has[col] ||= new Set()).add(id);
+  const exists = async (col, id) => has[col]?.has(id) || !!(await store.get(col, id));
+  const ok = [];
+  let dropped = 0;
+  for (const it of write) {
+    const d = it[2];
+    if (d.projectId && !(await exists('projects', d.projectId))) { dropped++; continue; }
+    if (d.contractId && !(await exists('contracts', d.contractId))) { dropped++; continue; }
+    ok.push(it);
+  }
+  ok.push(['meta', 'sampleSeed', { tokens: [...(meta.tokens || []), token], at: new Date().toISOString() }]);
+  await store.putMany(ok);
+  console.log(`sampleToken "${token}": đã thêm / cập nhật dự án mẫu DA-M01 (${ok.length - 1} bản ghi, id tiền tố mau-); giữ nguyên ${kept} bản ghi người dùng đã sửa${dropped ? `; bỏ ${dropped} bản ghi trỏ tới dữ liệu không còn` : ''}.`);
+}
+
+// Chuyển khoản chi cũ (chưa có group) sang 3 khối, một lần cho mọi môi trường (kể cả production).
+// Chỉ đổi group / category, lưu tên cũ vào oldCategory khi tên đổi; không đổi người sửa, thời điểm sửa hay cờ sample.
+async function migrateCostGroups() {
+  if (await store.get('meta', 'costGroupsMigrated')) return;
+  const items = [];
+  for (const { id, ...t } of await store.all('transactions')) {
+    if (t.type !== 'out' || COST_GROUPS[t.group]) continue;
+    const [group, category] = mapOldCost(t.category);
+    const rec = { ...t, group, category };
+    if ((t.category || '') !== category) rec.oldCategory = t.category || '';
+    items.push(['transactions', id, rec]);
+  }
+  items.push(['meta', 'costGroupsMigrated', { at: new Date().toISOString(), count: items.length }]);
   await store.putMany(items);
-  console.log(`sampleToken "${token}": đã thêm dự án mẫu DA-M01 (${items.length - 1} bản ghi, id tiền tố mau-).`);
+  console.log(`Chi phí 3 khối: đã chuyển ${items.length - 1} khoản chi cũ sang khối / hạng mục mới (tên cũ lưu ở oldCategory).`);
 }
 
 /* ---------- app ---------- */
@@ -162,20 +211,20 @@ async function passcodeOk(req, res) {
 }
 
 app.get('/api/data', wrap(async (req, res) => {
-  const [projects, transactions, contracts, acceptances] = await Promise.all(['projects', 'transactions', 'contracts', 'acceptances'].map(c => store.all(c)));
-  res.set('Cache-Control', 'no-store').json({ projects, transactions, contracts, acceptances });
+  const [projects, transactions, contracts, acceptances, loans] = await Promise.all(['projects', 'transactions', 'contracts', 'acceptances', 'loans'].map(c => store.all(c)));
+  res.set('Cache-Control', 'no-store').json({ projects, transactions, contracts, acceptances, loans });
 }));
 
 // Xóa dữ liệu ví dụ: xóa giao dịch ví dụ; dự án ví dụ chỉ xóa khi không còn giao dịch hay hợp đồng thật nào.
 // Dự án ví dụ đã có giao dịch / hợp đồng thật người dùng nhập vào (hoặc đã sửa) thì giữ lại cùng hợp đồng của nó, bỏ cờ ví dụ.
 app.delete('/api/sample', canWrite, wrap(async (req, res) => {
   if (!(await passcodeOk(req, res))) return;
-  const [projects, txs, contracts, accs] = await Promise.all(['projects', 'transactions', 'contracts', 'acceptances'].map(c => store.all(c)));
+  const [projects, txs, contracts, accs, loans] = await Promise.all(['projects', 'transactions', 'contracts', 'acceptances', 'loans'].map(c => store.all(c)));
   for (const t of txs) if (t.sample) await store.del('transactions', t.id);
-  const used = new Set([...txs, ...contracts, ...accs].filter(x => !x.sample).map(x => x.projectId));
+  const used = new Set([...txs, ...contracts, ...accs, ...loans].filter(x => !x.sample).map(x => x.projectId));
   for (const p of projects) if (!p.sample) used.add(p.id);
   // Hợp đồng, nghiệm thu / quyết toán ví dụ đi theo dự án của nó: dự án còn giữ thì giữ (bỏ cờ ví dụ), không thì xóa
-  for (const [col, list] of [['acceptances', accs], ['contracts', contracts]])
+  for (const [col, list] of [['loans', loans], ['acceptances', accs], ['contracts', contracts]])
     for (const { id, sample, ...d } of list) {
       if (!sample) continue;
       if (used.has(d.projectId)) await store.put(col, id, d);
@@ -309,6 +358,50 @@ app.delete('/api/acceptances/:id', canWrite, wrap(async (req, res) => {
   res.status(204).end();
 }));
 
+/* ---------- vay và trả nợ gốc ---------- */
+// {projectId, kind: vay|tragoc, date, amount (nguyên đồng > 0, không VAT), lender, no, note, người tạo / sửa}.
+// Không phải chi phí, không vào Tiền về / Thực chi. Dư nợ của dự án = vay − trả gốc, không được âm. Lãi vay nhập là khoản chi (Tài chính).
+const LOAN_KINDS = new Set(['vay', 'tragoc']);
+const debtOf = list => list.reduce((a, l) => a + (l.kind === 'vay' ? 1 : -1) * (+l.amount || 0), 0);
+app.put('/api/loans/:id', canWrite, wrap(async (req, res) => {
+  const id = req.params.id;
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'Đường dẫn không hợp lệ' });
+  const b = req.body || {}, old = await store.get('loans', id);
+  if (old && ((b.kind !== undefined && b.kind !== old.kind) || (b.projectId !== undefined && b.projectId !== old.projectId)))
+    return res.status(400).json({ error: 'Không đổi được loại hoặc dự án của khoản vay đã ghi. Xóa và nhập lại.' });
+  const projectId = old ? old.projectId : b.projectId, kind = old ? old.kind : b.kind;
+  if (!LOAN_KINDS.has(kind)) return res.status(400).json({ error: 'Loại không hợp lệ (vay hoặc trả gốc).' });
+  if (!old && !(typeof projectId === 'string' && ID_RE.test(projectId) && await store.get('projects', projectId)))
+    return res.status(400).json({ error: 'Dự án không tồn tại.' });
+  const lender = b.lender ?? '', no = b.no ?? '', note = b.note ?? '';
+  if (typeof b.date !== 'string' || !DATE_RE.test(b.date)) return res.status(400).json({ error: 'Chọn ngày.' });
+  if (!Number.isInteger(b.amount) || b.amount <= 0) return res.status(400).json({ error: 'Số tiền phải là số nguyên đồng lớn hơn 0.' });
+  if (typeof lender !== 'string' || lender.length > 120) return res.status(400).json({ error: 'Bên cho vay tối đa 120 ký tự.' });
+  if (typeof no !== 'string' || no.length > 60) return res.status(400).json({ error: 'Số khế ước tối đa 60 ký tự.' });
+  if (typeof note !== 'string' || note.length > 500) return res.status(400).json({ error: 'Ghi chú tối đa 500 ký tự.' });
+  const data = { date: b.date, amount: b.amount, lender: lender.trim(), no: no.trim(), note: note.trim() };
+  const others = (await store.all('loans')).filter(l => l.projectId === projectId && l.id !== id);
+  if (debtOf([...others, { kind, amount: data.amount }]) < 0)
+    return res.status(400).json({ error: kind === 'tragoc' ? 'Trả nợ gốc vượt dư nợ vay.' : 'Số tiền vay nhỏ hơn tổng đã trả gốc: dư nợ sẽ âm.' });
+  const now = new Date().toISOString(), who = { updatedBy: req.user.id, updatedByName: req.user.name || req.user.id, updatedAt: now };
+  let rec;
+  if (old) { const { id: _, sample, ...o } = old; rec = { ...o, ...data, ...who }; }
+  else rec = { projectId, kind, ...data, createdBy: req.user.id, createdByName: req.user.name || req.user.id, createdAt: now, ...who };
+  await store.put('loans', id, rec);
+  res.json({ id, ...rec });
+}));
+app.delete('/api/loans/:id', canWrite, wrap(async (req, res) => {
+  const id = req.params.id;
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'Đường dẫn không hợp lệ' });
+  const l = await store.get('loans', id);
+  if (!l) return res.status(204).end();
+  if (l.kind === 'vay' && debtOf((await store.all('loans')).filter(x => x.projectId === l.projectId && x.id !== id)) < 0)
+    return res.status(409).json({ error: 'Xóa khoản vay này thì dư nợ âm. Xóa các khoản trả gốc tương ứng trước.' });
+  if (!(await passcodeOk(req, res))) return;
+  await store.del('loans', id);
+  res.status(204).end();
+}));
+
 function check(req, res) {
   const { col, id } = req.params;
   if (!COLS.has(col) || !ID_RE.test(id)) { res.status(400).json({ error: 'Đường dẫn không hợp lệ' }); return false; }
@@ -338,8 +431,13 @@ async function txProblem(data) {
   for (const [k, max] of [['invoiceNo', 60], ['partner', 120], ['note', 500], ['category', 120]])
     if (data[k] != null && (typeof data[k] !== 'string' || data[k].length > max)) return 'Dữ liệu không hợp lệ';
   if (data.invoiceDate != null && data.invoiceDate !== '' && !(typeof data.invoiceDate === 'string' && DATE_RE.test(data.invoiceDate))) return 'Ngày hóa đơn không hợp lệ.';
-  if (data.type === 'out') { delete data.contractId; return null; }
-  delete data.partner;
+  delete data.oldCategory;   // tên hạng mục cũ chỉ do bước chuyển đổi ghi, không nhận từ người dùng
+  if (data.type === 'out') {
+    delete data.contractId;
+    if (!COST_GROUPS[data.group] || !COST_GROUPS[data.group].includes(data.category)) return 'Hạng mục không thuộc khối chi phí đã chọn.';
+    return null;
+  }
+  delete data.partner; delete data.group;
   const cts = (await store.all('contracts')).filter(c => c.projectId === data.projectId);
   if (data.contractId == null) return cts.length ? 'Chọn hợp đồng hoặc Ngoài hợp đồng.' : null;
   if (typeof data.contractId !== 'string') return 'Dữ liệu không hợp lệ';
@@ -360,6 +458,7 @@ app.put('/api/:col/:id', canWrite, wrap(async (req, res) => {
     if (old && old.type !== data.type) return res.status(400).json({ error: 'Không đổi được loại thu/chi của khoản đã ghi.' });
     const bad = await txProblem(data);
     if (bad) return res.status(400).json({ error: bad });
+    if (old?.oldCategory && data.type === 'out') data.oldCategory = old.oldCategory;   // giữ dấu vết hạng mục trước chuyển đổi
     // Người nhập / người sửa do máy chủ ghi theo tài khoản đăng nhập, bỏ qua giá trị gửi lên.
     // Sửa: giữ nguyên người tạo và thời điểm tạo (giao dịch cũ chưa có thì để trống). createdAt là số mili giây như dữ liệu cũ.
     for (const k of ['createdBy', 'createdByName', 'createdAt', 'updatedBy', 'updatedByName', 'updatedAt']) delete data[k];
@@ -378,7 +477,9 @@ app.delete('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (!check(req, res)) return;
   // Không xóa dự án còn giao dịch tham chiếu, tránh mất dữ liệu
   if (req.params.col === 'projects') {
-    const [txs, cts, accs] = await Promise.all(['transactions', 'contracts', 'acceptances'].map(c => store.all(c)));
+    const [txs, cts, accs, loans] = await Promise.all(['transactions', 'contracts', 'acceptances', 'loans'].map(c => store.all(c)));
+    const nl = loans.filter(l => l.projectId === req.params.id).length;
+    if (nl) return res.status(409).json({ error: `Dự án còn ${nl} khoản vay / trả gốc. Xóa các khoản này trước, hoặc đổi trạng thái thành Hoàn thành.` });
     const n = txs.filter(t => t.projectId === req.params.id).length, m = cts.filter(c => c.projectId === req.params.id).length;
     const k = accs.filter(a => a.projectId === req.params.id).length;
     if (k) return res.status(409).json({ error: `Dự án còn ${k} biên bản nghiệm thu / quyết toán. Xóa các biên bản này trước, hoặc đổi trạng thái thành Hoàn thành.` });
@@ -450,6 +551,7 @@ store.init()
   .then(factoryReset)
   .then(seedOnce)
   .then(migrateContracts)
+  .then(migrateCostGroups)
   .then(sampleSeed)
   .then(auth.bootstrap)
   .then(() => app.listen(PORT, () => {
