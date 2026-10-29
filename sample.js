@@ -46,6 +46,11 @@ function makeRichSample() {
     ['mau-c1', 'appendix', 1, '08/2026/PL01', '2026-05-15', 850000000, 85000000, 'Bổ sung hệ thống PCCC'],
     ['mau-c2', 'appendix', 2, '08/2026/PL02', '2026-09-10', -300000000, null, 'Giảm khối lượng sân vườn']
   ].map(([id, kind, seq, no, signDate, value, vat, note]) => ({ id, projectId: pid, kind, seq, no, signDate, value, vat, note, ...by, createdAt: at, sample: true }));
+  // Nghiệm thu khớp các khoản tiền về theo nghiệm thu; dự án mẫu chưa quyết toán
+  const acceptances = [
+    ['mau-a1', 1, 'mau-c0', 'BBNT-01/2026', '2026-05-25', 3000000000, 300000000, 'Nghiệm thu đợt 1 phần móng, khung'],
+    ['mau-a2', 2, 'mau-c1', 'BBNT-02/2026', '2026-08-18', 850000000, 85000000, 'Nghiệm thu hạng mục PCCC (PL01)']
+  ].map(([id, seq, contractId, no, date, value, vat, note]) => ({ id, projectId: pid, kind: 'nghiemthu', seq, contractId, no, date, value, vat, note, ...by, createdAt: at, sample: true }));
   const txs = [];
   const tx = (id, o) => txs.push({ id, projectId: pid, note: '', invoiceNo: '', invoiceDate: '', ...o, amount: o.pre + (o.vat || 0), ...by, createdAt: Date.parse(o.date + 'T09:00:00Z'), sample: true });
   // Khoản thu
@@ -78,7 +83,7 @@ function makeRichSample() {
     if (tp[m]) out(d(18), 'Thầu phụ', 'Công ty CP Điện nước Phú Thành (ví dụ)', tp[m], 0.08, `Thi công điện nước đợt ${m - 3}`, 'PT');
     out(d(28), 'Nhân công', 'Tổ đội thi công anh Bảy (ví dụ)', nc[i], null, `Lương tổ nề tháng ${m}`, '');
   });
-  return { projects, contracts, txs };
+  return { projects, contracts, acceptances, txs };
 }
 
 module.exports = makeSample;

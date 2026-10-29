@@ -115,7 +115,7 @@ async function migrateContracts() {
 // Dự án mẫu đầy đủ (sample.js → makeRichSample): chỉ các id tiền tố "mau-", mang cờ sample
 function richItems() {
   const r = makeSample.rich(), items = [];
-  for (const [col, list] of [['projects', r.projects], ['contracts', r.contracts], ['transactions', r.txs]])
+  for (const [col, list] of [['projects', r.projects], ['contracts', r.contracts], ['acceptances', r.acceptances], ['transactions', r.txs]])
     for (const { id, ...d } of list) items.push([col, id, d]);
   return items;
 }
@@ -162,23 +162,25 @@ async function passcodeOk(req, res) {
 }
 
 app.get('/api/data', wrap(async (req, res) => {
-  const [projects, transactions, contracts] = await Promise.all([store.all('projects'), store.all('transactions'), store.all('contracts')]);
-  res.set('Cache-Control', 'no-store').json({ projects, transactions, contracts });
+  const [projects, transactions, contracts, acceptances] = await Promise.all(['projects', 'transactions', 'contracts', 'acceptances'].map(c => store.all(c)));
+  res.set('Cache-Control', 'no-store').json({ projects, transactions, contracts, acceptances });
 }));
 
 // Xóa dữ liệu ví dụ: xóa giao dịch ví dụ; dự án ví dụ chỉ xóa khi không còn giao dịch hay hợp đồng thật nào.
 // Dự án ví dụ đã có giao dịch / hợp đồng thật người dùng nhập vào (hoặc đã sửa) thì giữ lại cùng hợp đồng của nó, bỏ cờ ví dụ.
 app.delete('/api/sample', canWrite, wrap(async (req, res) => {
   if (!(await passcodeOk(req, res))) return;
-  const [projects, txs, contracts] = await Promise.all([store.all('projects'), store.all('transactions'), store.all('contracts')]);
+  const [projects, txs, contracts, accs] = await Promise.all(['projects', 'transactions', 'contracts', 'acceptances'].map(c => store.all(c)));
   for (const t of txs) if (t.sample) await store.del('transactions', t.id);
-  const used = new Set([...txs, ...contracts].filter(x => !x.sample).map(x => x.projectId));
+  const used = new Set([...txs, ...contracts, ...accs].filter(x => !x.sample).map(x => x.projectId));
   for (const p of projects) if (!p.sample) used.add(p.id);
-  for (const { id, sample, ...d } of contracts) {
-    if (!sample) continue;
-    if (used.has(d.projectId)) await store.put('contracts', id, d);
-    else await store.del('contracts', id);
-  }
+  // Hợp đồng, nghiệm thu / quyết toán ví dụ đi theo dự án của nó: dự án còn giữ thì giữ (bỏ cờ ví dụ), không thì xóa
+  for (const [col, list] of [['acceptances', accs], ['contracts', contracts]])
+    for (const { id, sample, ...d } of list) {
+      if (!sample) continue;
+      if (used.has(d.projectId)) await store.put(col, id, d);
+      else await store.del(col, id);
+    }
   for (const { id, sample, ...d } of projects) {
     if (!sample) continue;
     if (used.has(id)) await store.put('projects', id, d);
@@ -238,11 +240,72 @@ app.delete('/api/contracts/:id', canWrite, wrap(async (req, res) => {
     const n = (await store.all('contracts')).filter(x => x.projectId === c.projectId && x.kind === 'appendix').length;
     if (n) return res.status(409).json({ error: `Hợp đồng gốc còn ${n} phụ lục. Xóa các phụ lục trước.` });
   }
+  const accs = await store.all('acceptances');
+  const nAcc = accs.filter(a => a.contractId === id).length;
+  if (nAcc) return res.status(409).json({ error: `Hợp đồng còn ${nAcc} đợt nghiệm thu gắn vào. Sửa hoặc xóa các đợt nghiệm thu trước.` });
+  if (c.kind === 'base' && accs.some(a => a.projectId === c.projectId && a.kind === 'quyettoan'))
+    return res.status(409).json({ error: 'Dự án đã quyết toán. Xóa quyết toán trước khi xóa hợp đồng gốc.' });
   // Không xóa hợp đồng còn khoản thu gắn vào (kiểm tra trước mã xóa, như các ràng buộc khác)
   const nIn = (await store.all('transactions')).filter(t => t.contractId === id).length;
   if (nIn) return res.status(409).json({ error: `Hợp đồng còn ${nIn} khoản thu gắn vào. Chuyển các khoản thu sang hợp đồng khác trước.` });
   if (!(await passcodeOk(req, res))) return;
   await store.del('contracts', id);
+  res.status(204).end();
+}));
+
+/* ---------- nghiệm thu, quyết toán ---------- */
+// {projectId, kind: nghiemthu|quyettoan, seq (đợt nghiệm thu 1..n; quyết toán 0), contractId (chỉ nghiệm thu: '' hoặc hợp đồng
+// của đúng dự án), no, date, value (trước VAT, > 0), vat (null = tạm tính), note, người tạo / sửa}. Tối đa một quyết toán mỗi dự án.
+const ACC_KINDS = new Set(['nghiemthu', 'quyettoan']);
+function cleanAcceptance(b, kind) {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return { error: 'Dữ liệu không hợp lệ' };
+  const no = b.no ?? '', note = b.note ?? '', vat = b.vat ?? null;
+  if (typeof no !== 'string' || no.length > 60) return { error: 'Số biên bản / hồ sơ tối đa 60 ký tự.' };
+  if (typeof b.date !== 'string' || !DATE_RE.test(b.date)) return { error: kind === 'quyettoan' ? 'Chọn ngày quyết toán.' : 'Chọn ngày nghiệm thu.' };
+  if (typeof note !== 'string' || note.length > 500) return { error: 'Ghi chú tối đa 500 ký tự.' };
+  if (!Number.isInteger(b.value) || b.value <= 0) return { error: 'Giá trị trước VAT phải là số nguyên đồng lớn hơn 0.' };
+  if (vat !== null && !(Number.isInteger(vat) && vat >= 0)) return { error: 'VAT phải là số nguyên đồng, không âm; để trống nếu chưa có (tạm tính).' };
+  return { data: { no: no.trim(), date: b.date, value: b.value, vat, note: note.trim() } };
+}
+app.put('/api/acceptances/:id', canWrite, wrap(async (req, res) => {
+  const id = req.params.id;
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'Đường dẫn không hợp lệ' });
+  const b = req.body || {}, old = await store.get('acceptances', id);
+  if (old && ((b.kind !== undefined && b.kind !== old.kind) || (b.projectId !== undefined && b.projectId !== old.projectId)))
+    return res.status(400).json({ error: 'Không đổi được loại hoặc dự án của biên bản đã ghi. Xóa và nhập lại.' });
+  const projectId = old ? old.projectId : b.projectId, kind = old ? old.kind : b.kind;
+  if (!ACC_KINDS.has(kind)) return res.status(400).json({ error: 'Loại không hợp lệ (nghiệm thu hoặc quyết toán).' });
+  if (!old && !(typeof projectId === 'string' && ID_RE.test(projectId) && await store.get('projects', projectId)))
+    return res.status(400).json({ error: 'Dự án không tồn tại.' });
+  const c = cleanAcceptance(b, kind);
+  if (c.error) return res.status(400).json({ error: c.error });
+  const cts = (await store.all('contracts')).filter(x => x.projectId === projectId);
+  if (kind === 'nghiemthu') {
+    const cid = b.contractId ?? '';
+    if (typeof cid !== 'string' || (cid !== '' && !cts.some(x => x.id === cid))) return res.status(400).json({ error: 'Hợp đồng không thuộc dự án này.' });
+    c.data.contractId = cid;
+  } else if (!cts.some(x => x.kind === 'base')) return res.status(400).json({ error: 'Dự án chưa có hợp đồng gốc, chưa quyết toán được.' });
+  const now = new Date().toISOString();
+  const who = { updatedBy: req.user.id, updatedByName: req.user.name || req.user.id, updatedAt: now };
+  let rec;
+  if (old) {
+    const { id: _, sample, ...o } = old;
+    rec = { ...o, ...c.data, ...who };
+  } else {
+    const list = (await store.all('acceptances')).filter(x => x.projectId === projectId);
+    if (kind === 'quyettoan' && list.some(x => x.kind === 'quyettoan')) return res.status(400).json({ error: 'Dự án đã có quyết toán.' });
+    const seq = kind === 'quyettoan' ? 0 : Math.max(0, ...list.filter(x => x.kind === 'nghiemthu').map(x => +x.seq || 0)) + 1;
+    rec = { projectId, kind, seq, ...c.data, createdBy: req.user.id, createdByName: req.user.name || req.user.id, createdAt: now, ...who };
+  }
+  await store.put('acceptances', id, rec);
+  res.json({ id, ...rec });
+}));
+app.delete('/api/acceptances/:id', canWrite, wrap(async (req, res) => {
+  const id = req.params.id;
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'Đường dẫn không hợp lệ' });
+  if (!(await store.get('acceptances', id))) return res.status(204).end();
+  if (!(await passcodeOk(req, res))) return;
+  await store.del('acceptances', id);
   res.status(204).end();
 }));
 
@@ -315,8 +378,10 @@ app.delete('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (!check(req, res)) return;
   // Không xóa dự án còn giao dịch tham chiếu, tránh mất dữ liệu
   if (req.params.col === 'projects') {
-    const [txs, cts] = await Promise.all([store.all('transactions'), store.all('contracts')]);
+    const [txs, cts, accs] = await Promise.all(['transactions', 'contracts', 'acceptances'].map(c => store.all(c)));
     const n = txs.filter(t => t.projectId === req.params.id).length, m = cts.filter(c => c.projectId === req.params.id).length;
+    const k = accs.filter(a => a.projectId === req.params.id).length;
+    if (k) return res.status(409).json({ error: `Dự án còn ${k} biên bản nghiệm thu / quyết toán. Xóa các biên bản này trước, hoặc đổi trạng thái thành Hoàn thành.` });
     if (n && !m) return res.status(409).json({ error: `Dự án còn ${n} giao dịch. Xóa hoặc chuyển các giao dịch sang dự án khác trước, hoặc đổi trạng thái thành Hoàn thành.` });
     if (m) return res.status(409).json({ error: `Dự án còn ${[n && `${n} giao dịch`, `${m} dòng hợp đồng`].filter(Boolean).join(' và ')}. Xóa các giao dịch và hợp đồng của dự án trước, hoặc đổi trạng thái thành Hoàn thành.` });
   }

@@ -128,6 +128,15 @@ input:focus,select:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 
 
 /* chỉ số */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+/* Tổng quan: 3 thẻ hàng trên (lợi nhuận, doanh thu, chi phí), 2 thẻ hàng dưới (tiền về / còn lại, còn phải thu) */
+.kpis.k5{grid-template-columns:repeat(6,minmax(0,1fr))}
+.kpis.k5>.kpi{grid-column:span 2}
+.kpis.k5>.kpi.half{grid-column:span 3}
+@media (max-width:1100px){.kpis.k5{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis.k5>.kpi,.kpis.k5>.kpi.half{grid-column:auto}.kpis.k5>.kpi.hero,.kpis.k5>.kpi.wide-m{grid-column:1/-1}}
+.ppanel{container-type:inline-size}
+.ptbl th{white-space:normal}
+.ptbl th,.ptbl td{padding-inline:8px}
+@container (max-width:860px){.ppanel .desk{display:none}.ppanel .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:8px;min-width:0;box-shadow:var(--shadow)}
 .vw{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:none;color:var(--muted);background:var(--sunk);padding:2px 7px;border-radius:99px;vertical-align:middle;white-space:nowrap}
 .kpi.hero .vw{background:rgba(255,255,255,.18);color:#FFFFFF}
@@ -272,6 +281,9 @@ tbody tr.link:hover{background:var(--sunk)}
 .ctbl td.num{font-size:13px}
 /* Khối hợp đồng: khung hẹp hơn bảng (máy tính nhỏ, thanh bên mở) thì chuyển sang dạng thẻ xếp lưới */
 .cpanel{container-type:inline-size}
+.ctbl tr.sum-row td{font-weight:800;border-top:2px solid var(--line)}
+.ctbl tr.qt-row td{background:var(--rev-soft)}
+.pcard.qt-card{border-color:color-mix(in srgb,var(--rev) 45%,var(--line));background:var(--rev-soft)}
 @container (max-width:785px){.cpanel .desk{display:none}.cpanel .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}}
 .pcard .actions{justify-content:flex-start}
 .txlist{list-style:none;margin:0;padding:0;display:none;flex-direction:column}
@@ -444,7 +456,7 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
     <nav class="side-nav" aria-label="Điều hướng chính">
       <button class="nav" data-view="overview" title="Tổng quan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="lbl">Tổng quan</span></button>
       <button class="nav" data-view="project" title="Dự án"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg><span class="lbl">Dự án</span></button>
-      <button class="nav" data-view="revenue" title="Doanh thu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg><span class="lbl">Doanh thu</span></button>
+      <button class="nav" data-view="revenue" title="Tiền về"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg><span class="lbl">Tiền về</span></button>
       <button class="nav" data-view="expense" title="Chi phí"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7L7 17"/><path d="M16 17H7V8"/></svg><span class="lbl">Chi phí</span></button>
       <button class="nav" data-view="journal" title="Sổ giao dịch"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M9 9v11"/></svg><span class="lbl">Sổ giao dịch</span></button>
     </nav>
@@ -469,7 +481,7 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
         <div class="seg-mini" role="group" aria-label="Giá trị hợp đồng hiện theo" title="Giá trị hợp đồng hiện theo trước hay sau VAT"><button data-vat="pre">Trước VAT</button><button data-vat="post">Sau VAT</button></div>
         <div class="period" id="custom-period" hidden><label for="f-year">Năm</label><select id="f-year"></select><label for="f-period">Kỳ</label><select id="f-period"></select></div>
         <button class="btn" id="btn-new-project">+ Dự án</button>
-        <button class="btn tin" id="btn-new-in">+ Thu</button>
+        <button class="btn tin" id="btn-new-in">+ Tiền về</button>
         <button class="btn tout" id="btn-new-out">+ Chi</button>
       </div>
     </header>
@@ -480,12 +492,12 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
 <nav class="tabbar" aria-label="Điều hướng nhanh">
   <button class="tb" data-view="overview"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Tổng quan</button>
   <button class="tb" data-view="project"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg>Dự án</button>
-  <button class="tb-new" id="tb-new" aria-label="Ghi doanh thu hoặc chi phí" aria-haspopup="menu" aria-expanded="false"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="tb-new" id="tb-new" aria-label="Ghi tiền về hoặc chi phí" aria-haspopup="menu" aria-expanded="false"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
   <button class="tb" data-view="journal"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M9 9v11"/></svg>Sổ giao dịch</button>
 </nav>
 
 <div class="fab-menu" id="fab-menu" hidden>
-  <button data-fab="revenue"><span class="e-dot in"></span>Ghi doanh thu</button>
+  <button data-fab="revenue"><span class="e-dot in"></span>Ghi tiền về</button>
   <button data-fab="expense"><span class="e-dot out"></span>Ghi chi phí</button>
 </div>
 <dialog id="dlg"><form class="dlg" id="dlg-form" novalidate></form></dialog>
@@ -535,7 +547,7 @@ const MONTHS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
 /* ---------- state ---------- */
 const S = {
-  mode: 'loading', projects: [], txs: [], contracts: [], canWrite: false, me: null, vatMode: store.get('vatMode', 'pre'),
+  mode: 'loading', projects: [], txs: [], contracts: [], acc: [], chartKind: store.get('chartKind', 'pl'), canWrite: false, me: null, vatMode: store.get('vatMode', 'pre'),
   view: store.get('view', 'overview'), projectId: store.get('project', null),
   year: store.get('year', String(new Date().getFullYear())), period: store.get('period', 'all'),
   jf: {project: '', type: '', q: ''}, jpage: 0, psort: store.get('psort', 'code'),
@@ -608,32 +620,35 @@ const txPost = t => +t.amount || 0;
 const txPre = t => t.pre != null ? +t.pre : txPost(t);
 const txVat = t => t.vat ?? null;
 const txVal = t => S.vatMode === 'post' ? txPost(t) : txPre(t);   // báo cáo theo nút Trước VAT | Sau VAT (mặc định trước VAT)
-// rev/exp/profit theo nút; revPost (so với hợp đồng: Đã thu / Còn phải thu) và expPre (so với ngân sách) không đổi theo nút
-function sum(txs) {
-  let rev = 0, exp = 0, revPost = 0, expPre = 0; const cat = {in: {}, out: {}};
+// Doanh thu ghi nhận lấy từ hợp đồng / quyết toán (revEvents), KHÔNG lấy từ khoản thu. rev/exp/profit theo nút.
+// cashIn (Tiền về), cashOut (Thực chi), left (Còn lại) luôn sau VAT; expPre so với ngân sách; revPost = cashIn (tên cũ).
+function sum(txs, evs = []) {
+  let rev = 0, exp = 0, expPre = 0, cashIn = 0, cashOut = 0; const cat = {in: {}, out: {}};
+  for (const e of evs) rev += evVal(e);
   for (const t of txs) {
-    const a = txVal(t);
-    if (t.type === 'in') { rev += a; revPost += txPost(t); } else { exp += a; expPre += txPre(t); }
-    cat[t.type][t.category || 'Khác'] = (cat[t.type][t.category || 'Khác'] || 0) + a;
+    const k = t.category || 'Khác';
+    if (t.type === 'in') { cashIn += txPost(t); cat.in[k] = (cat.in[k] || 0) + txPost(t); }
+    else { exp += txVal(t); expPre += txPre(t); cashOut += txPost(t); cat.out[k] = (cat.out[k] || 0) + txVal(t); }
   }
-  return {rev, exp, profit: rev - exp, margin: rev ? (rev - exp) / rev : NaN, cat, revPost, expPre};
+  return {rev, exp, profit: rev - exp, margin: rev ? (rev - exp) / rev : NaN, cat, revPost: cashIn, expPre, cashIn, cashOut, left: cashIn - cashOut};
 }
-function monthly(txs) {
+function monthly(txs, evs = []) {
   let [a, b] = range();
   if (!a) {
-    if (!txs.length) return [];
-    const ds = txs.map(t => t.date).sort(); a = ds[0]; b = ds[ds.length - 1];
+    const ds = [...txs, ...evs].map(t => t.date).sort(); if (!ds.length) return [];
+    a = ds[0]; b = ds[ds.length - 1];
   }
   const out = [], idx = {};
   let [y, m] = a.slice(0, 7).split('-').map(Number); let end = b.slice(0, 7);
-  const lastTx = txs.reduce((mx, t) => t.date > mx ? t.date : mx, '').slice(0, 7), now = today().slice(0, 7);
-  if (end > now) end = lastTx > now ? lastTx : now;
+  const last = [...txs, ...evs].reduce((mx, t) => t.date > mx ? t.date : mx, '').slice(0, 7), now = today().slice(0, 7);
+  if (end > now) end = last > now ? last : now;
   while (true) {
     const k = `${y}-${String(m).padStart(2, '0')}`; if (k > end) break;
-    idx[k] = out.length; out.push({m: k, rev: 0, exp: 0, profit: 0});
+    idx[k] = out.length; out.push({m: k, rev: 0, exp: 0, profit: 0, cashIn: 0, cashOut: 0});
     if (++m > 12) { m = 1; y++; }
   }
-  for (const t of txs) { const o = out[idx[t.date.slice(0, 7)]]; if (!o) continue; if (t.type === 'in') o.rev += txVal(t); else o.exp += txVal(t); }
+  for (const e of evs) { const o = out[idx[e.date.slice(0, 7)]]; if (o) o.rev += evVal(e); }
+  for (const t of txs) { const o = out[idx[t.date.slice(0, 7)]]; if (!o) continue; if (t.type === 'in') o.cashIn += txPost(t); else { o.exp += txVal(t); o.cashOut += txPost(t); } }
   out.forEach(o => o.profit = o.rev - o.exp);
   return out;
 }
@@ -649,6 +664,34 @@ function contractTotals(id) {
   for (const c of list) { pre += +c.value || 0; if (c.vat == null) provisional++; else vat += +c.vat || 0; }
   return {pre, vat, post: pre + vat, provisional, count: list.length};
 }
+/* ---------- nghiệm thu, quyết toán, doanh thu ghi nhận ---------- */
+const projAcc = id => S.acc.filter(a => a.projectId === id).sort((a, b) => a.kind === b.kind ? (a.seq || 0) - (b.seq || 0) : a.kind === 'quyettoan' ? 1 : -1);
+const settlement = id => S.acc.find(a => a.projectId === id && a.kind === 'quyettoan') || null;
+const accPost = a => (+a.value || 0) + (+a.vat || 0);
+// Doanh thu ghi nhận của dự án: đã quyết toán thì = giá trị quyết toán; chưa thì = HĐ gốc + phụ lục (hoặc contractValue cũ)
+function revTotals(id) {
+  const q = settlement(id);
+  if (q) return {pre: +q.value || 0, vat: +q.vat || 0, post: accPost(q), provisional: q.vat == null ? 1 : 0, settled: true, q};
+  return {...contractTotals(id), settled: false, q: null};
+}
+// Thời điểm ghi nhận doanh thu (giả định đến khi chốt TĐ1/TĐ2/TĐ3): mỗi dòng hợp đồng vào ngày ký (thiếu thì ngày bắt đầu dự án,
+// rồi ngày tạo bản ghi); quyết toán ghi phần chênh (QT − HĐ − PL) vào ngày quyết toán → lũy kế đúng bằng giá trị QT.
+// Tính một lần cho mỗi lần vẽ (EV được xóa trong render / renderLedgerSide / load).
+let EV = null;
+function revEvents(id) {
+  EV ||= new Map();
+  if (EV.has(id)) return EV.get(id);
+  const p = S.projects.find(x => x.id === id), list = projContracts(id), ev = [];
+  const fb = c => p?.start || (c?.createdAt ? String(c.createdAt).slice(0, 10) : '') || today();
+  if (list.length) for (const c of list) ev.push({projectId: id, date: c.signDate || fb(c), pre: +c.value || 0, post: (+c.value || 0) + (+c.vat || 0), src: c.kind === 'base' ? 'HĐ gốc' : 'Phụ lục ' + c.seq});
+  else if (+p?.contractValue > 0) ev.push({projectId: id, date: fb(null), pre: +p.contractValue, post: +p.contractValue, src: 'Giá trị hợp đồng'});
+  const q = settlement(id);
+  if (q) { const t = contractTotals(id); ev.push({projectId: id, date: q.date, pre: (+q.value || 0) - t.pre, post: accPost(q) - t.post, src: 'Quyết toán'}); }
+  EV.set(id, ev);
+  return ev;
+}
+const allEvents = () => S.projects.flatMap(p => revEvents(p.id));
+const evVal = e => S.vatMode === 'post' ? e.post : e.pre;
 const cvPre = p => contractTotals(p.id).pre;     // lợi nhuận kế hoạch, dự báo: theo trước VAT
 const cvPost = p => contractTotals(p.id).post;   // đã thu / còn phải thu: theo sau VAT (tiền thu theo quyết toán là sau VAT)
 // Nút Trước VAT | Sau VAT chỉ đổi các chỗ hiện giá trị hợp đồng thuần (tổng giá trị HĐ); mọi phép so Đã thu / Còn phải thu luôn dùng sau VAT
@@ -656,11 +699,13 @@ const vatWord = () => S.vatMode === 'post' ? 'sau VAT' : 'trước VAT';
 // Số tiền đầy đủ theo đồng, giữ dấu âm (phụ lục giảm)
 const dong = v => (v < 0 ? '−' : '') + Math.abs(Math.round(v || 0)).toLocaleString('vi-VN');
 function health(p) {
-  // Ngân sách luôn so với chi phí trước VAT, không đổi theo nút
-  const all = sum(projTxs(p.id)), used = p.budget ? all.expPre / p.budget : 0, flags = [];
+  // Ngân sách luôn so với chi phí trước VAT, không đổi theo nút; tiền về so với hợp đồng / quyết toán sau VAT
+  const all = sum(projTxs(p.id), revEvents(p.id)), used = p.budget ? all.expPre / p.budget : 0, flags = [];
+  const rt = revTotals(p.id), over = rt.post > 0 && all.cashIn > rt.post;
   if (all.profit < 0 && all.exp > 0) flags.push(['bad', 'Đang lỗ']);
   if (used > 1) flags.push(['bad', 'Vượt ngân sách']); else if (used > 0.9) flags.push(['warn', 'Gần chạm ngân sách']);
-  return {all, used, flags};
+  if (over) flags.push(['bad', 'Tiền về vượt HĐ']);
+  return {all, used, flags, rt, over};
 }
 const meterCls = u => u > 1 ? 'bad' : u > 0.9 ? 'warn' : '';
 const statusChip = s => `<span class="chip ${esc(s)}">${STATUS[s] || esc(s)}</span>`;
@@ -668,20 +713,21 @@ const projectName = id => S.projects.find(p => p.id === id)?.name || 'Dự án �
 const sortedProjects = () => [...S.projects].sort((a, b) => (a.code || '').localeCompare(b.code || '', 'vi'));
 
 /* ---------- render ---------- */
-const VIEW_TITLES = {overview: 'Tổng quan tài chính', project: 'Chi tiết dự án', revenue: 'Doanh thu', expense: 'Chi phí', journal: 'Sổ giao dịch'};
+const VIEW_TITLES = {overview: 'Tổng quan tài chính', project: 'Chi tiết dự án', revenue: 'Tiền về', expense: 'Chi phí', journal: 'Sổ giao dịch'};
 const PAGE_SIZE = 50;
 const PSORTS = {
   code: ['Mã dự án', (a, b) => (a.p.code || '').localeCompare(b.p.code || '', 'vi')],
   profit: ['Lợi nhuận thấp nhất', (a, b) => a.s.profit - b.s.profit],
   rev: ['Doanh thu cao nhất', (a, b) => b.s.rev - a.s.rev],
-  collected: ['Thu tiền chậm nhất', (a, b) => a.c - b.c],
+  collected: ['Tiền về chậm nhất (so hợp đồng)', (a, b) => a.c - b.c],
   used: ['Dùng ngân sách nhiều nhất', (a, b) => b.h.used - a.h.used]
 };
 const isLedger = () => S.view === 'revenue' || S.view === 'expense';
 function render() {
   if (S.view === 'entry') S.view = 'revenue';
+  EV = null;
   document.querySelectorAll('[data-view]').forEach(b => b.dataset.view === S.view ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
-  $('#ph-eyebrow').textContent = (S.view === 'overview' ? 'Danh mục dự án · ' : isLedger() ? (S.view === 'revenue' ? 'Khoản thu · ' : 'Khoản chi · ') : '') + periodLabel();
+  $('#ph-eyebrow').textContent = (S.view === 'overview' ? 'Danh mục dự án · ' : isLedger() ? (S.view === 'revenue' ? 'Thực thu, đã gồm VAT · ' : 'Khoản chi · ') : '') + periodLabel();
   $('#ph-title').textContent = VIEW_TITLES[S.view];
   renderNotice(); renderFilters();
   document.querySelectorAll('[data-vat]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.vat === S.vatMode)));
@@ -697,7 +743,7 @@ function render() {
 }
 // Dữ liệu ví dụ: một nhãn nhỏ cạnh tiêu đề thay cho dải thông báo
 function renderNotice() {
-  const el = $('#ph-badge'), has = S.mode === 'db' && (S.projects.some(p => p.sample) || S.txs.some(t => t.sample) || S.contracts.some(c => c.sample));
+  const el = $('#ph-badge'), has = S.mode === 'db' && (S.projects.some(p => p.sample) || S.txs.some(t => t.sample) || S.contracts.some(c => c.sample) || S.acc.some(a => a.sample));
   el.innerHTML = has ? `<span class="sample-badge">Dữ liệu ví dụ${S.canWrite ? '<button id="btn-clear-sample" title="Xóa toàn bộ dữ liệu ví dụ">Xóa</button>' : ''}</span>` : '';
   const b = $('#btn-clear-sample'); if (b) b.onclick = clearSample;
 }
@@ -748,8 +794,8 @@ const within = ([a, b]) => t => t.date >= a && t.date <= b;
 
 /* ---------- thẻ chỉ số ---------- */
 const money = (v, cls = '') => `<span class="num ${cls}" title="${vnd(v)}">${short(v)}</span>`;
-function kpi(label, value, sub, {dot = '', cls = '', hero = false, title = '', foot = '', wide = false} = {}) {
-  return `<div class="kpi${hero ? ' hero' : ''}${wide ? ' wide-m' : ''}"><span class="lab">${dot ? `<i class="dot ${dot}"></i>` : ''}${label}</span>
+function kpi(label, value, sub, {dot = '', cls = '', hero = false, title = '', foot = '', wide = false, half = false} = {}) {
+  return `<div class="kpi${hero ? ' hero' : ''}${wide ? ' wide-m' : ''}${half ? ' half' : ''}"><span class="lab">${dot ? `<i class="dot ${dot}"></i>` : ''}${label}</span>
     <span class="val num ${cls}"${title ? ` title="${title}"` : ''}>${value}</span><span class="sub">${sub}</span>${foot ? `<div class="foot">${foot}</div>` : ''}</div>`;
 }
 // Thay đổi so với kỳ trước; goodUp=false cho chi phí (tăng là xấu)
@@ -766,8 +812,9 @@ function last12(fn) {
   const end = (range()[1] || today()).slice(0, 7) > today().slice(0, 7) ? today().slice(0, 7) : (range()[1] || today()).slice(0, 7);
   let [y, m] = end.split('-').map(Number); const ms = [];
   for (let i = 0; i < 12; i++) { ms.unshift(`${y}-${String(m).padStart(2, '0')}`); if (--m < 1) { m = 12; y--; } }
-  const acc = Object.fromEntries(ms.map(k => [k, {rev: 0, exp: 0}]));
-  for (const t of S.txs) { const o = acc[t.date.slice(0, 7)]; if (o) o[t.type === 'in' ? 'rev' : 'exp'] += txVal(t); }
+  const acc = Object.fromEntries(ms.map(k => [k, {rev: 0, exp: 0, cashIn: 0, cashOut: 0}]));
+  for (const e of allEvents()) { const o = acc[e.date.slice(0, 7)]; if (o) o.rev += evVal(e); }
+  for (const t of S.txs) { const o = acc[t.date.slice(0, 7)]; if (!o) continue; if (t.type === 'in') o.cashIn += txPost(t); else { o.exp += txVal(t); o.cashOut += txPost(t); } }
   return ms.map(k => fn(acc[k]));
 }
 function spark(vals, color, fill) {
@@ -788,11 +835,11 @@ function mixPanel(st) {
   const kind = S.mix, rows = Object.entries(st.cat[kind]).sort((a, b) => b[1] - a[1]), tot = rows.reduce((s, r) => s + r[1], 0);
   const top = rows.slice(0, 5); if (rows.length > 5) top.push(['Khác (' + (rows.length - 5) + ' hạng mục)', rows.slice(5).reduce((s, r) => s + r[1], 0)]);
   const mx = Math.max(1, ...top.map(r => r[1]));
-  return `<section class="panel"><div class="panel-head"><h2>Cơ cấu ${kind === 'in' ? 'doanh thu' : 'chi phí'} <small class="vw">${vatWord()}</small></h2>
-      <div class="seg-mini" role="group" aria-label="Chọn cơ cấu"><button data-mix="in" aria-pressed="${kind === 'in'}">Thu</button><button data-mix="out" aria-pressed="${kind === 'out'}">Chi</button></div></div>
+  return `<section class="panel"><div class="panel-head"><h2>Cơ cấu ${kind === 'in' ? 'tiền về' : 'chi phí'} <small class="vw">${kind === 'in' ? 'sau VAT' : vatWord()}</small></h2>
+      <div class="seg-mini" role="group" aria-label="Chọn cơ cấu"><button data-mix="in" aria-pressed="${kind === 'in'}">Tiền về</button><button data-mix="out" aria-pressed="${kind === 'out'}">Chi</button></div></div>
     <div class="big-total num ${kind === 'in' ? 'c-rev' : 'c-exp'}">${short(tot)}</div>
     ${top.length ? `<div class="cats">${top.map(([k, v]) => `<div class="cat"><span>${esc(k)}</span><div class="meter ${kind === 'in' ? 'rev' : 'exp'}"><i style="width:${(v / mx * 100).toFixed(1)}%"></i></div><span class="v num">${short(v)}<small>${pct(v / tot)}</small></span></div>`).join('')}${totalCat(tot)}</div>`
-      : `<p class="muted" style="margin:0">Chưa có khoản ${kind === 'in' ? 'thu' : 'chi'} nào trong kỳ này.</p>`}
+      : `<p class="muted" style="margin:0">Chưa có khoản ${kind === 'in' ? 'tiền về' : 'chi'} nào trong kỳ này.</p>`}
   </section>`;
 }
 // Lợi nhuận theo dự án: thanh ngang hai phía quanh mốc 0, lãi màu gradient, lỗ màu đỏ
@@ -809,11 +856,17 @@ function profitPanel(rows) {
       return `<div class="pbar total" title="Tổng cộng: ${vnd(t)}"><span class="pb-name">Tổng cộng</span><span></span><span class="pb-val num ${t < 0 ? 'c-bad' : ''}">${short(t)}</span></div>`; })()}</div>` : '<p class="muted" style="margin:0">Chưa có giao dịch trong kỳ này.</p>'}
   </section>`;
 }
-function chartPanel(id, title) {
-  const cum = S.chartMode === 'cum';
-  return `<section class="panel grow"><div class="panel-head"><h2>${title}</h2>
-    <div class="ph-tools"><div class="legend"><span><i class="dot bg-rev"></i>Doanh thu</span><span><i class="dot bg-exp"></i>Chi phí</span><span><i class="dot bg-pro" style="width:16px;height:3px;border-radius:2px"></i>${cum ? 'Lợi nhuận lũy kế' : 'Lợi nhuận tháng'}</span></div>
-      <div class="seg-mini" role="group" aria-label="Cách hiện lợi nhuận"><button data-cmode="cum" aria-pressed="${cum}">Lũy kế</button><button data-cmode="month" aria-pressed="${!cum}">Theo tháng</button></div></div></div>
+// Biểu đồ theo tháng: "Kết quả" (doanh thu ghi nhận – chi phí – lợi nhuận, theo nút VAT) hoặc "Dòng tiền thực"
+// (tiền về – thực chi – còn lại, luôn sau VAT)
+const chartLabels = () => S.chartKind === 'cash'
+  ? {rev: 'Tiền về', exp: 'Thực chi', line: S.chartMode === 'cum' ? 'Còn lại lũy kế' : 'Còn lại tháng', title: 'Dòng tiền thực', vw: 'sau VAT'}
+  : {rev: 'Doanh thu', exp: 'Chi phí', line: S.chartMode === 'cum' ? 'Lợi nhuận lũy kế' : 'Lợi nhuận tháng', title: 'Doanh thu – Chi phí – Lợi nhuận', vw: vatWord()};
+function chartPanel(id) {
+  const cum = S.chartMode === 'cum', L = chartLabels(), cash = S.chartKind === 'cash';
+  return `<section class="panel grow"><div class="panel-head"><h2>${L.title} theo tháng <small class="vw">${L.vw}</small></h2>
+    <div class="seg-mini" role="group" aria-label="Loại biểu đồ"><button data-ckind="pl" aria-pressed="${!cash}">Kết quả</button><button data-ckind="cash" aria-pressed="${cash}">Dòng tiền thực</button></div></div>
+    <div class="ph-tools"><div class="legend"><span><i class="dot bg-rev"></i>${L.rev}</span><span><i class="dot bg-exp"></i>${L.exp}</span><span><i class="dot bg-pro" style="width:16px;height:3px;border-radius:2px"></i>${L.line}</span></div>
+      <div class="seg-mini" role="group" aria-label="Cách hiện đường"><button data-cmode="cum" aria-pressed="${cum}">Lũy kế</button><button data-cmode="month" aria-pressed="${!cum}">Theo tháng</button></div></div>
     <div class="chart" data-chart="${id}"></div></section>`;
 }
 function emptyState() {
@@ -827,8 +880,9 @@ const marginCell = s => s.rev || s.exp ? (s.profit < 0 ? '<span class="chip bad"
 function alerts() {
   const out = [];
   for (const p of sortedProjects()) {
-    const h = health(p), cv = cvPost(p), bg = +p.budget || 0;
-    if (h.all.profit < 0 && h.all.exp > 0) out.push({p, sev: 0, tag: 'ĐANG LỖ', detail: `Lỗ lũy kế ${short(-h.all.profit)}.${cv ? ` Mới thu ${pct(h.all.revPost / cv)} giá trị hợp đồng (sau VAT).` : ''}`});
+    const h = health(p), cv = h.rt.post, bg = +p.budget || 0, base = h.rt.settled ? 'quyết toán' : 'hợp đồng';
+    if (h.over) out.push({p, sev: 0, tag: 'TIỀN VỀ VƯỢT HỢP ĐỒNG', detail: `Tiền về ${short(h.all.cashIn)} vượt giá trị ${base} sau VAT ${short(cv)} (vượt ${short(h.all.cashIn - cv)}). Kiểm tra lại khoản tiền về hoặc bổ sung phụ lục.`});
+    if (h.all.profit < 0 && h.all.exp > 0) out.push({p, sev: 0, tag: 'ĐANG LỖ', detail: `Chi phí vượt doanh thu ghi nhận ${short(-h.all.profit)}.${cv ? ` Tiền về ${pct(h.all.cashIn / cv)} giá trị ${base} (sau VAT).` : ' Chưa có hợp đồng: thêm HĐ gốc để ghi nhận doanh thu.'}`});
     if (h.used > 1) out.push({p, sev: 0, tag: 'VƯỢT NGÂN SÁCH', detail: `Đã chi ${pct(h.used)} ngân sách (vượt ${short(h.all.expPre - bg)}, theo chi phí trước VAT).`});
     else if (h.used > 0.9) out.push({p, sev: 1, tag: 'SẮP HẾT NGÂN SÁCH', detail: `Đã dùng ${pct(h.used)} ngân sách, còn ${short(bg - h.all.expPre)}.`});
   }
@@ -845,72 +899,87 @@ function alertPanel(list) {
 const chartData = {};
 function viewOverview() {
   if (!S.projects.length) return emptyState();
-  const txs = S.txs.filter(inRange), st = sum(txs), all = sum(S.txs);
-  chartData.overview = monthly(txs);
+  const evs = allEvents(), txs = S.txs.filter(inRange), st = sum(txs, evs.filter(inRange)), all = sum(S.txs, evs);
+  chartData.overview = monthly(txs, evs.filter(inRange));
   const bg = S.projects.reduce((a, p) => a + (+p.budget || 0), 0);
-  const cvP = S.projects.reduce((a, p) => a + cvPre(p), 0), cvT = S.projects.reduce((a, p) => a + cvPost(p), 0), cv = S.vatMode === 'post' ? cvT : cvP;
-  const recv = S.projects.reduce((a, p) => a + Math.max(0, cvPost(p) - sum(projTxs(p.id)).revPost), 0);
-  const pv = prevPeriod(), ps = pv ? sum(S.txs.filter(within(pv.range))) : null;
+  const rts = S.projects.map(p => revTotals(p.id)), planRev = rts.reduce((a, r) => a + r.pre, 0), cvT = rts.reduce((a, r) => a + r.post, 0);
+  const cv = S.vatMode === 'post' ? cvT : planRev, nSettled = rts.filter(r => r.settled).length;
+  // Còn phải thu: giá trị HĐ (hoặc QT) sau VAT − tiền về, từng dự án
+  const recv = S.projects.reduce((a, p, i) => a + Math.max(0, rts[i].post - sum(projTxs(p.id)).cashIn), 0);
+  const pv = prevPeriod(), ps = pv ? sum(S.txs.filter(within(pv.range)), evs.filter(within(pv.range))) : null;
   const cmp = (k, good) => pv ? delta(st[k], ps[k], pv.label, good) : '<span class="sub">Toàn bộ thời gian</span>';
-  const rows = sortedProjects().map(p => { const h = health(p), cvp = cvPost(p); return {p, s: sum(projTxs(p.id).filter(inRange)), h, c: cvp ? h.all.revPost / cvp : 0}; });
+  const rows = sortedProjects().map(p => { const h = health(p); return {p, s: sum(projTxs(p.id).filter(inRange), revEvents(p.id).filter(inRange)), h, c: h.rt.post ? h.all.cashIn / h.rt.post : 0}; });
   rows.sort((PSORTS[S.psort] || PSORTS.code)[1]);
+  const kw = S.year === 'all' ? '' : ' kỳ này', vwS = '<small class="vw">sau VAT</small>';
+  const meterCell = (v, cls, bad) => `<div class="inline"><div class="meter ${cls}" style="flex:1"><i style="width:${Math.min(100, v * 100).toFixed(1)}%"></i></div><span class="num ${bad ? 'c-bad' : ''}" style="font-size:12.5px;font-weight:700;min-width:46px;text-align:right">${pct(v)}</span></div>`;
+  const usedAll = bg ? all.expPre / bg : 0;
   return `<div class="stack">
-    <section class="kpis" aria-label="Chỉ số chính">
-      ${kpi(`Lợi nhuận <small class="vw">${vatWord()}</small>`, short(st.profit), `Biên ${pct(st.margin)} · kế hoạch danh mục ${short(cvP - bg)}`, {hero: true, title: vnd(st.profit),
+    <section class="kpis k5" aria-label="Chỉ số chính">
+      ${kpi(`Lợi nhuận <small class="vw">${vatWord()}</small>`, short(st.profit), `Doanh thu ghi nhận − chi phí · biên ${pct(st.margin)} · kế hoạch danh mục ${short(planRev - bg)}`, {hero: true, title: vnd(st.profit),
         foot: cmp('profit', true) + spark(last12(o => o.rev - o.exp), '#FFFFFF', 'rgba(255,255,255,.16)')})}
-      ${kpi(`Doanh thu <small class="vw">${vatWord()}</small>`, short(st.rev), `${txs.filter(t => t.type === 'in').length} khoản thu trong kỳ`, {dot: 'bg-rev', title: vnd(st.rev),
+      ${kpi(`Doanh thu ghi nhận <small class="vw">${vatWord()}</small>`, short(st.rev), `Theo hợp đồng + phụ lục; ${nSettled} dự án đã quyết toán (theo giá trị quyết toán)`, {dot: 'bg-rev', title: vnd(st.rev),
         foot: cmp('rev', true) + spark(last12(o => o.rev), 'var(--rev)', 'color-mix(in srgb,var(--rev) 16%,transparent)')})}
       ${kpi(`Chi phí <small class="vw">${vatWord()}</small>`, short(st.exp), `${txs.filter(t => t.type === 'out').length} khoản chi trong kỳ`, {dot: 'bg-exp', title: vnd(st.exp),
         foot: cmp('exp', false) + spark(last12(o => o.exp), 'var(--exp)', 'color-mix(in srgb,var(--exp) 16%,transparent)')})}
-      ${kpi('Còn phải thu', short(recv), `Đã thu <b class="num c-rev">${cvT ? pct(all.revPost / cvT) : '—'}</b> hợp đồng (theo sau VAT) · tổng giá trị hợp đồng ${vatWord()} <b class="num" title="${vnd(cv)}">${short(cv)}</b>`, {title: vnd(recv), wide: true,
-        foot: `<div class="meter rev" style="flex:1"><i style="width:${cvT ? Math.min(100, all.revPost / cvT * 100).toFixed(1) : 0}%"></i></div>`})}
+      ${kpi(`Tiền về / Còn lại ${vwS}`, short(st.cashIn), `Thực chi <b class="num" title="${vnd(st.cashOut)}">${short(st.cashOut)}</b> · Còn lại <b class="num ${st.left < 0 ? 'c-bad' : ''}" title="${vnd(st.left)}">${short(st.left)}</b>`, {dot: 'bg-rev', half: true, title: vnd(st.cashIn),
+        foot: cmp('cashIn', true) + spark(last12(o => o.cashIn - o.cashOut), 'var(--pro)', 'color-mix(in srgb,var(--pro) 14%,transparent)')})}
+      ${kpi(`Còn phải thu ${vwS}`, short(recv), `Tiền về <b class="num c-rev">${cvT ? pct(all.cashIn / cvT) : '—'}</b> giá trị hợp đồng / quyết toán (sau VAT) · tổng giá trị ${vatWord()} <b class="num" title="${vnd(cv)}">${short(cv)}</b>`, {title: vnd(recv), wide: true, half: true,
+        foot: `<div class="meter rev" style="flex:1"><i style="width:${cvT ? Math.min(100, all.cashIn / cvT * 100).toFixed(1) : 0}%"></i></div>`})}
     </section>
-    <div class="row">${chartPanel('overview', `Dòng tiền theo tháng <small class="vw">${vatWord()}</small>`)}${alertPanel(alerts())}</div>
-    <section class="panel">
+    <div class="row">${chartPanel('overview')}${alertPanel(alerts())}</div>
+    <section class="panel ppanel">
       <div class="panel-head"><h2>Kết quả theo dự án <small class="vw">${vatWord()}</small></h2>
         <label class="inline" style="font-size:13px;font-weight:600;color:var(--muted)">Sắp xếp <select id="p-sort">${Object.entries(PSORTS).map(([k, [l]]) => `<option value="${k}"${k === S.psort ? ' selected' : ''}>${l}</option>`).join('')}</select></label></div>
-      <div class="tbl-wrap desk"><table>
-        <thead><tr><th>Dự án</th><th>Trạng thái</th><th class="r">Doanh thu</th><th class="r">Chi phí</th><th class="r">Lợi nhuận</th><th class="r">Biên</th><th title="Tiền đã thu (sau VAT) so với giá trị hợp đồng sau VAT">Đã thu / hợp đồng</th><th title="Chi phí trước VAT so với ngân sách">Đã chi / ngân sách</th></tr></thead>
+      <div class="tbl-wrap desk"><table class="ptbl">
+        <thead><tr><th>Dự án</th><th class="r">Doanh thu</th><th class="r">Chi phí</th><th class="r">Lợi nhuận</th><th class="r">Tiền về (sau VAT)</th><th class="r">Còn lại (sau VAT)</th><th title="Tiền về (sau VAT) so với giá trị hợp đồng / quyết toán sau VAT">Tiền về / hợp đồng</th><th title="Chi phí trước VAT so với ngân sách">Đã chi / ngân sách</th></tr></thead>
         <tbody>${rows.map(({p, s, h, c}) => `<tr class="link" data-open="${esc(p.id)}">
-          <td><div class="pname"><span class="num">${esc(p.code)}</span> · ${esc(p.name)}</div><div class="psub">${esc(p.client)}</div></td>
-          <td><div style="display:flex;flex-wrap:wrap;gap:4px">${statusChip(p.status)}${flagChips(h)}</div></td>
+          <td><div class="pname"><span class="num">${esc(p.code)}</span> · ${esc(p.name)}</div><div class="psub">${esc(p.client)}</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${statusChip(p.status)}${h.rt.settled ? '<span class="chip done">Đã quyết toán</span>' : ''}${flagChips(h)}</div></td>
           <td class="r num" style="font-weight:600">${short(s.rev)}</td><td class="r num" style="font-weight:600">${short(s.exp)}</td>
-          <td class="r num ${s.profit < 0 ? 'c-bad' : ''}" style="font-weight:800">${short(s.profit)}</td><td class="r num muted">${marginCell(s)}</td>
-          <td><div class="inline"><div class="meter rev" style="flex:1"><i style="width:${Math.min(100, c * 100).toFixed(1)}%"></i></div><span class="num" style="font-size:12.5px;font-weight:700;min-width:46px;text-align:right">${pct(c)}</span></div></td>
-          <td><div class="inline"><div class="meter ${meterCls(h.used)}" style="flex:1"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></div><span class="num ${h.used > 1 ? 'c-bad' : ''}" style="font-size:12.5px;font-weight:700;min-width:46px;text-align:right">${pct(h.used)}</span></div></td>
+          <td class="r num ${s.profit < 0 ? 'c-bad' : ''}" style="font-weight:800">${short(s.profit)}<div class="psub" style="font-weight:600">${marginCell(s)}</div></td>
+          <td class="r num c-rev" style="font-weight:600">${short(s.cashIn)}</td><td class="r num ${s.left < 0 ? 'c-bad' : ''}" style="font-weight:600">${short(s.left)}</td>
+          <td>${meterCell(c, h.over ? 'bad' : 'rev', h.over)}</td>
+          <td>${meterCell(h.used, meterCls(h.used), h.used > 1)}</td>
         </tr>`).join('')}</tbody>
-        <tfoot><tr><td colspan="2">Tổng cộng</td><td class="r num">${short(st.rev)}</td><td class="r num">${short(st.exp)}</td><td class="r num ${st.profit < 0 ? 'c-bad' : ''}">${short(st.profit)}</td><td class="r num">${marginCell(st)}</td><td colspan="2"></td></tr></tfoot>
+        <tfoot><tr><td>Tổng cộng</td><td class="r num">${short(st.rev)}</td><td class="r num">${short(st.exp)}</td><td class="r num ${st.profit < 0 ? 'c-bad' : ''}">${short(st.profit)}<div class="psub">${marginCell(st)}</div></td>
+          <td class="r num">${short(st.cashIn)}</td><td class="r num ${st.left < 0 ? 'c-bad' : ''}">${short(st.left)}</td>
+          <td title="Lũy kế toàn thời gian">${meterCell(cvT ? all.cashIn / cvT : 0, 'rev', cvT && all.cashIn > cvT)}</td><td title="Lũy kế toàn thời gian">${meterCell(usedAll, meterCls(usedAll), usedAll > 1)}</td></tr></tfoot>
       </table></div>
       <div class="cards">${rows.map(({p, s, h, c}) => `<button class="pcard" data-open="${esc(p.id)}">
-        <span class="top"><span class="num psub" style="font-weight:700">${esc(p.code)}</span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${statusChip(p.status)}${flagChips(h)}</span></span>
+        <span class="top"><span class="num psub" style="font-weight:700">${esc(p.code)}</span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${statusChip(p.status)}${h.rt.settled ? '<span class="chip done">Đã QT</span>' : ''}${flagChips(h)}</span></span>
         <span class="pname" style="line-height:1.35">${esc(p.name)}</span>
-        <span class="line"><span>Lợi nhuận${S.year === 'all' ? '' : ' kỳ này'}</span><b class="num ${s.profit < 0 ? 'c-bad' : ''}">${short(s.profit)}</b></span>
-        <span class="line"><span title="Theo giá trị hợp đồng sau VAT">Đã thu ${pct(c)} hợp đồng</span><span>Đã chi ${pct(h.used)} ngân sách</span></span>
+        <span class="line"><span>Doanh thu${kw}</span><b class="num">${short(s.rev)}</b></span>
+        <span class="line"><span>Lợi nhuận${kw}</span><b class="num ${s.profit < 0 ? 'c-bad' : ''}">${short(s.profit)}</b></span>
+        <span class="line"><span>Tiền về · Còn lại (sau VAT)</span><b class="num"><span class="c-rev">${short(s.cashIn)}</span> · <span class="${s.left < 0 ? 'c-bad' : ''}">${short(s.left)}</span></b></span>
+        <span class="line"><span class="${h.over ? 'c-bad' : ''}">Tiền về ${pct(c)} hợp đồng</span><span>Đã chi ${pct(h.used)} ngân sách</span></span>
         <span class="meter ${meterCls(h.used)}"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></span>
       </button>`).join('')}
         <div class="pcard total"><span class="pname" style="color:var(--ink)">Tổng cộng</span>
-          <span class="line"><span>Doanh thu${S.year === 'all' ? '' : ' kỳ này'}</span><b class="num c-rev" title="${vnd(st.rev)}">${short(st.rev)}</b></span>
-          <span class="line"><span>Chi phí${S.year === 'all' ? '' : ' kỳ này'}</span><b class="num c-exp" title="${vnd(st.exp)}">${short(st.exp)}</b></span>
-          <span class="line"><span>Lợi nhuận${S.year === 'all' ? '' : ' kỳ này'}</span><b class="num ${st.profit < 0 ? 'c-bad' : ''}" title="${vnd(st.profit)}">${short(st.profit)}</b></span>
+          <span class="line"><span>Doanh thu${kw} (${vatWord()})</span><b class="num c-rev" title="${vnd(st.rev)}">${short(st.rev)}</b></span>
+          <span class="line"><span>Chi phí${kw} (${vatWord()})</span><b class="num c-exp" title="${vnd(st.exp)}">${short(st.exp)}</b></span>
+          <span class="line"><span>Lợi nhuận${kw}</span><b class="num ${st.profit < 0 ? 'c-bad' : ''}" title="${vnd(st.profit)}">${short(st.profit)}</b></span>
+          <span class="line"><span>Tiền về${kw} (sau VAT)</span><b class="num" title="${vnd(st.cashIn)}">${short(st.cashIn)}</b></span>
+          <span class="line"><span>Còn lại${kw} (sau VAT)</span><b class="num ${st.left < 0 ? 'c-bad' : ''}" title="${vnd(st.left)}">${short(st.left)}</b></span>
         </div></div>
     </section>
     <div class="grid2">${profitPanel(rows)}${mixPanel(st)}</div>
   </div>`;
 }
-
 function viewProject() {
   if (!S.projects.length) return emptyState();
   const list = sortedProjects();
   let p = list.find(x => x.id === S.projectId); if (!p) { p = list[0]; S.projectId = p.id; }
-  const all = projTxs(p.id), txs = all.filter(inRange), st = sum(txs), h = health(p);
-  chartData.project = monthly(txs);
-  const ct = contractTotals(p.id), bg = +p.budget || 0;
-  const collected = ct.post ? h.all.revPost / ct.post : 0;   // tiền thu (sau VAT) so với hợp đồng sau VAT
-  const forecast = ct.pre - Math.max(bg, h.all.expPre);      // lợi nhuận dự báo / kế hoạch theo trước VAT
-  const left = bg - h.all.expPre;                             // ngân sách so với chi phí trước VAT
+  const all = projTxs(p.id), txs = all.filter(inRange), evs = revEvents(p.id), st = sum(txs, evs.filter(inRange)), h = health(p);
+  chartData.project = monthly(txs, evs.filter(inRange));
+  const ct = contractTotals(p.id), rt = h.rt, bg = +p.budget || 0, base = rt.settled ? 'quyết toán' : 'hợp đồng';
+  const cashIn = h.all.cashIn, cashOut = h.all.cashOut, cashLeft = cashIn - cashOut;   // luôn sau VAT
+  const collected = rt.post ? cashIn / rt.post : 0;           // tiền về so với HĐ (hoặc QT) sau VAT
+  const forecast = rt.pre - Math.max(bg, h.all.expPre);       // lợi nhuận dự báo / kế hoạch theo trước VAT (đã QT thì theo QT)
+  const left = bg - h.all.expPre;                              // ngân sách so với chi phí trước VAT
+  const nts = projAcc(p.id).filter(a => a.kind === 'nghiemthu'), ntPre = nts.reduce((a, x) => a + (+x.value || 0), 0), ntPost = nts.reduce((a, x) => a + accPost(x), 0);
+  const accepted = ct.pre > 0 ? ntPre / ct.pre : 0, revShow = S.vatMode === 'post' ? rt.post : rt.pre;
   return `<div class="pv">
     <nav class="plist" aria-label="Danh sách dự án">${list.map(x => {
-      const s = sum(projTxs(x.id).filter(inRange));
+      const s = sum(projTxs(x.id).filter(inRange), revEvents(x.id).filter(inRange));
       return `<button class="pitem" data-pick="${esc(x.id)}" aria-current="${x.id === p.id}"><span class="row2"><span class="num psub" style="font-weight:700">${esc(x.code)}</span>${statusChip(x.status)}</span><span class="pname">${esc(x.name)}</span><span class="row2"><span class="muted">Lợi nhuận kỳ này</span><b class="num ${s.profit < 0 ? 'c-bad' : ''}">${short(s.profit)}</b></span></button>`;
     }).join('')}</nav>
     <div class="stack">
@@ -921,31 +990,39 @@ function viewProject() {
             <h2>${esc(p.name)}</h2>
             <div class="meta"><span>Khách hàng: <b>${esc(p.client) || '—'}</b></span><span>Phụ trách: <b>${esc(p.manager) || '—'}</b></span><span class="num">${fmtDate(p.start) || '?'} → ${fmtDate(p.end) || '?'}</span></div>
           </div>
-          ${S.canWrite ? `<div class="inline" style="flex-wrap:wrap"><button class="btn" data-act="edit-project" data-id="${esc(p.id)}">Sửa dự án</button><button class="btn tin" data-act="new-in" data-id="${esc(p.id)}">+ Thu</button><button class="btn tout" data-act="new-out" data-id="${esc(p.id)}">+ Chi</button></div>` : ''}
+          ${S.canWrite ? `<div class="inline" style="flex-wrap:wrap"><button class="btn" data-act="edit-project" data-id="${esc(p.id)}">Sửa dự án</button><button class="btn tin" data-act="new-in" data-id="${esc(p.id)}">+ Tiền về</button><button class="btn tout" data-act="new-out" data-id="${esc(p.id)}">+ Chi</button></div>` : ''}
         </div>
       </section>
       ${contractPanel(p)}
+      ${accPanel(p)}
       <section class="plan" aria-label="Kế hoạch và thực tế">
-        <div class="kpi"><span class="lab">Đã thu / giá trị hợp đồng (sau VAT)</span>
-          <span class="pair"><span class="val num c-rev" title="${vnd(h.all.revPost)}">${short(h.all.revPost)}</span><span class="num muted" style="font-weight:600" title="${vnd(ct.post)}">/ ${short(ct.post)}</span></span>
-          <div class="meter rev"><i style="width:${Math.min(100, collected * 100).toFixed(1)}%"></i></div>
-          <span class="sub"><b class="num">${pct(collected)}</b> · còn ${short(Math.max(0, ct.post - h.all.revPost))} chưa thu</span></div>
+        <div class="kpi"><span class="lab">Doanh thu ghi nhận <small class="vw">${vatWord()}</small></span>
+          <span class="val num" title="${vnd(revShow)}">${short(revShow)}</span>
+          <div class="meter rev"><i style="width:${Math.min(100, accepted * 100).toFixed(1)}%"></i></div>
+          <span class="sub">${rt.settled ? '<span class="chip done">Đã quyết toán</span>' : '<span class="chip">Chưa quyết toán</span>'} ${rt.settled ? `Theo giá trị quyết toán ngày ${fmtDate(rt.q.date)}` : `Theo HĐ gốc + phụ lục${ct.count ? '' : ' (chưa có hợp đồng: thêm HĐ gốc để ghi nhận doanh thu)'}`} · đã nghiệm thu <b class="num">${pct(accepted)}</b> giá trị HĐ (trước VAT)</span></div>
+        <div class="kpi"><span class="lab">Tiền về / giá trị ${rt.settled ? 'QT' : 'HĐ'} <small class="vw">sau VAT</small></span>
+          <span class="pair"><span class="val num ${h.over ? 'c-bad' : 'c-rev'}" title="${vnd(cashIn)}">${short(cashIn)}</span><span class="num muted" style="font-weight:600" title="${vnd(rt.post)}">/ ${short(rt.post)}</span></span>
+          <div class="meter ${h.over ? 'bad' : 'rev'}"><i style="width:${Math.min(100, collected * 100).toFixed(1)}%"></i></div>
+          <span class="sub"><b class="num">${pct(collected)}</b> · ${h.over ? `<span class="chip bad">Vượt ${short(cashIn - rt.post)}</span>` : `còn ${short(Math.max(0, rt.post - cashIn))} chưa thu`}${nts.length ? ` · nghiệm thu chưa thu tiền <b class="num" title="${vnd(Math.max(0, ntPost - cashIn))}">${short(Math.max(0, ntPost - cashIn))}</b>` : ''}</span></div>
+        <div class="kpi"><span class="lab">Còn lại <small class="vw">sau VAT</small></span>
+          <span class="val num ${cashLeft < 0 ? 'c-bad' : ''}" title="${vnd(cashLeft)}">${short(cashLeft)}</span>
+          <span class="sub">Tiền về <b class="num c-rev" title="${vnd(cashIn)}">${short(cashIn)}</b> − Thực chi <b class="num c-exp" title="${vnd(cashOut)}">${short(cashOut)}</b> (lũy kế)</span></div>
         <div class="kpi"><span class="lab">Đã chi / ngân sách chi phí (trước VAT)</span>
           <span class="pair"><span class="val num c-exp" title="${vnd(h.all.expPre)}">${short(h.all.expPre)}</span><span class="num muted" style="font-weight:600">/ ${short(bg)}</span></span>
           <div class="meter ${h.used > 1 ? 'bad' : h.used > .9 ? 'warn' : 'exp'}"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></div>
           <span class="sub"><b class="num ${h.used > 1 ? 'c-bad' : ''}">${pct(h.used)}</b> · ${left >= 0 ? `còn ${short(left)}` : `<span class="c-bad">vượt ${short(-left)}</span>`}</span></div>
         <div class="kpi hero"><span class="lab">Lợi nhuận dự báo khi hoàn thành (trước VAT)</span>
           <span class="val num" title="${vnd(forecast)}">${short(forecast)}</span>
-          <div class="split"><span>Kế hoạch<b class="num">${short(ct.pre - bg)} · ${pct(ct.pre ? (ct.pre - bg) / ct.pre : NaN)}</b></span><span>Lũy kế đến nay<b class="num">${short(h.all.profit)} · ${pct(h.all.margin)}</b></span></div></div>
+          <div class="split"><span>Kế hoạch${rt.settled ? ' (theo QT)' : ''}<b class="num">${short(rt.pre - bg)} · ${pct(rt.pre ? (rt.pre - bg) / rt.pre : NaN)}</b></span><span>Lũy kế đến nay<b class="num">${short(h.all.profit)} · ${pct(h.all.margin)}</b></span></div></div>
       </section>
       <h2 class="sec-title">Kết quả ${periodLabel().toLowerCase()} <small class="vw">${vatWord()}</small></h2>
       <section class="kpis" aria-label="Kết quả trong kỳ">
-        ${kpi('Doanh thu', short(st.rev), `${txs.filter(t => t.type === 'in').length} khoản thu`, {dot: 'bg-rev', title: vnd(st.rev)})}
-        ${kpi('Chi phí', short(st.exp), `${txs.filter(t => t.type === 'out').length} khoản chi`, {dot: 'bg-exp', title: vnd(st.exp)})}
+        ${kpi('Doanh thu ghi nhận', short(st.rev), `Tiền về ${short(st.cashIn)} (sau VAT) · ${txs.filter(t => t.type === 'in').length} khoản`, {dot: 'bg-rev', title: vnd(st.rev)})}
+        ${kpi('Chi phí', short(st.exp), `Thực chi ${short(st.cashOut)} (sau VAT) · ${txs.filter(t => t.type === 'out').length} khoản`, {dot: 'bg-exp', title: vnd(st.exp)})}
         ${kpi('Lợi nhuận', short(st.profit), vnd(st.profit), {dot: 'bg-pro', cls: st.profit < 0 ? 'c-bad' : '', title: vnd(st.profit)})}
         ${kpi('Biên lợi nhuận', st.profit < 0 && (st.rev || st.exp) ? 'Lỗ' : pct(st.margin), 'Lợi nhuận / doanh thu', {cls: st.profit < 0 ? 'c-bad' : ''})}
       </section>
-      ${chartPanel('project', `Dòng tiền theo tháng <small class="vw">${vatWord()}</small>`)}
+      ${chartPanel('project')}
       ${mixPanel(st)}
       <section class="panel"><div class="panel-head"><h2>Giao dịch gần đây</h2>${txs.length > 10 ? `<button class="link-btn" data-act="journal-of" data-id="${esc(p.id)}">Xem cả ${txs.length} giao dịch trong sổ →</button>` : ''}</div>${txTable(txs, false, 10)}</section>
     </div>
@@ -959,19 +1036,23 @@ function contractPanel(p) {
   const label = c => c.kind === 'base' ? 'HĐ gốc' : `Phụ lục ${c.seq}`;
   const vatCell = c => c.vat == null ? '<span class="chip warn" title="Chưa nhập VAT, tạm coi là 0">Tạm tính</span>' : dong(c.vat);
   const lastEdit = c => c.updatedAt ? `Sửa lần cuối: ${c.updatedByName || '—'} · ${new Date(c.updatedAt).toLocaleString('vi-VN')}` : '';
-  const delBtn = c => c.kind === 'base' && nApp
-    ? `<button class="btn sm danger" disabled title="Xóa các phụ lục trước khi xóa hợp đồng gốc">Xóa</button>`
+  // Không xóa được: HĐ gốc còn phụ lục / đã quyết toán; hợp đồng còn nghiệm thu gắn vào (máy chủ cũng chặn)
+  const block = c => c.kind === 'base' && nApp ? 'Xóa các phụ lục trước khi xóa hợp đồng gốc'
+    : c.kind === 'base' && settlement(p.id) ? 'Dự án đã quyết toán: xóa quyết toán trước'
+    : S.acc.some(a => a.contractId === c.id) ? 'Còn đợt nghiệm thu gắn với hợp đồng này' : '';
+  const delBtn = c => block(c)
+    ? `<button class="btn sm danger" disabled title="${block(c)}">Xóa</button>`
     : `<button class="btn sm danger" data-act="del-contract" data-id="${esc(c.id)}">Xóa</button>`;
   const acts = c => S.canWrite ? `<div class="actions"><button class="btn sm" data-act="edit-contract" data-id="${esc(c.id)}">Sửa</button>${delBtn(c)}</div>` : '';
   const add = !S.canWrite ? '' : hasBase ? `<button class="btn sm" data-act="new-contract" data-kind="appendix" data-id="${esc(p.id)}">+ Phụ lục</button>`
     : `<button class="btn sm primary" data-act="new-contract" data-kind="base" data-id="${esc(p.id)}">+ HĐ gốc</button>`;
   const provNote = t.provisional ? `<span class="chip warn">${t.provisional} dòng VAT tạm tính</span>` : '';
-  // Đã thu (sau VAT) theo từng hợp đồng = tổng các khoản thu gắn vào; khoản thu ngoài hợp đồng / chưa gắn hiện riêng dưới bảng
+  // Tiền về (sau VAT) theo từng hợp đồng = tổng các khoản tiền về gắn vào; khoản ngoài hợp đồng / chưa gắn hiện riêng dưới bảng
   const ins = projTxs(p.id).filter(x => x.type === 'in'), paid = c => ins.filter(x => x.contractId === c.id).reduce((a, x) => a + txPost(x), 0);
   const paidAll = ins.filter(x => list.some(c => c.id === x.contractId)).reduce((a, x) => a + txPost(x), 0);
   const outside = ins.filter(x => !list.some(c => c.id === x.contractId)), outsideSum = outside.reduce((a, x) => a + txPost(x), 0);
-  const paidLine = v => `<div class="psub num" style="font-weight:600" title="Tổng các khoản thu (sau VAT) gắn với hợp đồng này">Đã thu ${dong(v)}</div>`;
-  const outsideNote = outside.length ? `<p class="psub" style="margin:0">Khoản thu ngoài hợp đồng / chưa gắn hợp đồng: <b class="num">${outside.length}</b> khoản · <b class="num">${vnd(outsideSum)}</b> (sau VAT).</p>` : '';
+  const paidLine = (v, cap) => `<div class="psub num" style="font-weight:600" title="Tổng tiền về (sau VAT) gắn với hợp đồng này">Tiền về ${dong(v)}${cap > 0 && v > cap ? ' <span class="chip bad" style="padding:1px 7px" title="Tiền về vượt giá trị sau VAT của dòng này">Vượt</span>' : ''}</div>`;
+  const outsideNote = outside.length ? `<p class="psub" style="margin:0">Tiền về ngoài hợp đồng / chưa gắn hợp đồng: <b class="num">${outside.length}</b> khoản · <b class="num">${vnd(outsideSum)}</b> (sau VAT).</p>` : '';
   const head = `<div class="panel-head"><h2>Hợp đồng với CĐT</h2><div class="inline" style="flex-wrap:wrap">${add}</div></div>`;
   if (!list.length) return `<section class="panel cpanel">${head}<p class="muted" style="margin:0">Chưa có hợp đồng nào.${t.pre ? ` Đang dùng giá trị hợp đồng nhập trước đây: <b class="num">${vnd(t.pre)}</b>.` : ''}${S.canWrite ? ' Thêm hợp đồng gốc (giá trị trước VAT, VAT theo hợp đồng), sau đó thêm các phụ lục.' : ''}</p></section>`;
   return `<section class="panel cpanel">${head}
@@ -980,17 +1061,17 @@ function contractPanel(p) {
       <tbody>${list.map(c => `<tr>
         <td><div style="font-weight:700;white-space:nowrap">${label(c)}</div><div class="psub num">${esc(c.no) || 'Chưa có số'}</div><div class="psub num">${c.signDate ? 'Ký ' + fmtDate(c.signDate) : 'Chưa có ngày ký'}</div></td>
         <td class="r num ${c.value < 0 ? 'c-bad' : ''}" style="font-weight:700">${dong(c.value)}</td><td class="r num">${vatCell(c)}</td>
-        <td class="r num" style="font-weight:800">${dong((+c.value || 0) + (+c.vat || 0))}${paidLine(paid(c))}</td>
+        <td class="r num" style="font-weight:800">${dong((+c.value || 0) + (+c.vat || 0))}${paidLine(paid(c), (+c.value || 0) + (+c.vat || 0))}</td>
         <td class="cnote">${c.note ? `<div style="font-size:13px">${esc(c.note)}</div>` : ''}<div class="psub" title="${esc(lastEdit(c))}">Nhập: ${esc(c.createdByName) || '—'}</div></td>${S.canWrite ? `<td>${acts(c)}</td>` : ''}
       </tr>`).join('')}</tbody>
-      <tfoot><tr><td>Tổng cộng ${provNote}</td><td class="r num">${dong(t.pre)}</td><td class="r num">${dong(t.vat)}</td><td class="r num">${dong(t.post)}${paidLine(paidAll)}</td><td colspan="${S.canWrite ? 2 : 1}"></td></tr></tfoot>
+      <tfoot><tr><td>Tổng cộng ${provNote}</td><td class="r num">${dong(t.pre)}</td><td class="r num">${dong(t.vat)}</td><td class="r num">${dong(t.post)}${paidLine(paidAll, t.post)}</td><td colspan="${S.canWrite ? 2 : 1}"></td></tr></tfoot>
     </table></div>
     <div class="cards">${list.map(c => `<div class="pcard" style="cursor:default">
       <span class="top"><b>${label(c)}</b><span class="num psub">${esc(c.no)}${c.signDate ? ` · ${fmtDate(c.signDate)}` : ''}</span></span>
       <span class="line"><span>Trước VAT</span><b class="num ${c.value < 0 ? 'c-bad' : ''}">${dong(c.value)} ₫</b></span>
       <span class="line"><span>VAT</span><b class="num">${c.vat == null ? vatCell(c) : dong(c.vat) + ' ₫'}</b></span>
       <span class="line"><span>Sau VAT</span><b class="num" style="color:var(--ink)">${dong((+c.value || 0) + (+c.vat || 0))} ₫</b></span>
-      <span class="line"><span>Đã thu (sau VAT)</span><b class="num c-rev">${dong(paid(c))} ₫</b></span>
+      <span class="line"><span>Tiền về (sau VAT)</span><b class="num c-rev">${dong(paid(c))} ₫</b></span>
       <span class="line"><span title="${esc(lastEdit(c))}">Người nhập: ${esc(c.createdByName) || '—'}</span></span>
       ${c.note ? `<span class="psub">${esc(c.note)}</span>` : ''}${acts(c)}
     </div>`).join('')}
@@ -998,15 +1079,111 @@ function contractPanel(p) {
         <span class="line"><span>Trước VAT</span><b class="num">${dong(t.pre)} ₫</b></span>
         <span class="line"><span>VAT</span><b class="num">${dong(t.vat)} ₫</b></span>
         <span class="line"><span>Sau VAT</span><b class="num">${dong(t.post)} ₫</b></span>
-        <span class="line"><span>Đã thu (sau VAT)</span><b class="num">${dong(paidAll)} ₫</b></span>
+        <span class="line"><span>Tiền về (sau VAT)</span><b class="num">${dong(paidAll)} ₫</b></span>
       </div></div>
     ${outsideNote}
   </section>`;
 }
 
+// Khối Nghiệm thu & quyết toán ở Chi tiết dự án. Nghiệm thu chỉ theo dõi khối lượng, không đổi doanh thu;
+// quyết toán (tối đa một mỗi dự án) thay giá trị HĐ + PL làm doanh thu ghi nhận. Số tiền đầy đủ theo đồng.
+function accPanel(p) {
+  const list = projAcc(p.id), nts = list.filter(a => a.kind === 'nghiemthu'), q = settlement(p.id);
+  const hasBase = projContracts(p.id).some(c => c.kind === 'base'), ct = contractTotals(p.id);
+  const ctLabel = a => { const c = S.contracts.find(x => x.id === a.contractId); return c ? (c.kind === 'base' ? 'HĐ gốc' : 'Phụ lục ' + c.seq) : 'Không gắn hợp đồng'; };
+  const label = a => a.kind === 'quyettoan' ? 'Quyết toán' : `Nghiệm thu đợt ${a.seq}`;
+  const vatCell = a => a.vat == null ? '<span class="chip warn" title="Chưa nhập VAT, tạm coi là 0">Tạm tính</span>' : dong(a.vat);
+  const lastEdit = a => a.updatedAt ? `Sửa lần cuối: ${a.updatedByName || '—'} · ${new Date(a.updatedAt).toLocaleString('vi-VN')}` : '';
+  const acts = a => S.canWrite ? `<div class="actions"><button class="btn sm" data-act="edit-acc" data-id="${esc(a.id)}">Sửa</button><button class="btn sm danger" data-act="del-acc" data-id="${esc(a.id)}">Xóa</button></div>` : '';
+  const add = !S.canWrite || !hasBase ? '' : `<button class="btn sm" data-act="new-acc" data-kind="nghiemthu" data-id="${esc(p.id)}">+ Nghiệm thu</button>${q ? '' : `<button class="btn sm" data-act="new-acc" data-kind="quyettoan" data-id="${esc(p.id)}">+ Quyết toán</button>`}`;
+  const head = `<div class="panel-head"><h2>Nghiệm thu &amp; quyết toán</h2><div class="inline" style="flex-wrap:wrap">${add}</div></div>`;
+  if (!list.length) return `<section class="panel cpanel">${head}<p class="muted" style="margin:0">${hasBase ? 'Chưa có biên bản nghiệm thu hay quyết toán. Nghiệm thu dùng để theo dõi khối lượng (không đổi doanh thu); quyết toán thay giá trị hợp đồng làm doanh thu ghi nhận.' : 'Thêm hợp đồng gốc trước khi nhập nghiệm thu, quyết toán.'}</p></section>`;
+  const t = nts.reduce((o, a) => ({pre: o.pre + (+a.value || 0), vat: o.vat + (+a.vat || 0), post: o.post + accPost(a), prov: o.prov + (a.vat == null ? 1 : 0)}), {pre: 0, vat: 0, post: 0, prov: 0});
+  const row = a => `<tr${a.kind === 'quyettoan' ? ' class="qt-row"' : ''}>
+        <td><div style="font-weight:700;white-space:nowrap">${label(a)}${a.kind === 'quyettoan' ? ' <span class="chip done">Doanh thu</span>' : ''}</div><div class="psub">${a.kind === 'quyettoan' ? 'Cả hợp đồng (HĐ gốc + phụ lục)' : esc(ctLabel(a))}</div><div class="psub num">${esc(a.no) || 'Chưa có số'} · ${fmtDate(a.date)}</div></td>
+        <td class="r num" style="font-weight:700">${dong(a.value)}</td><td class="r num">${vatCell(a)}</td><td class="r num" style="font-weight:800">${dong(accPost(a))}</td>
+        <td class="cnote">${a.note ? `<div style="font-size:13px">${esc(a.note)}</div>` : ''}<div class="psub" title="${esc(lastEdit(a))}">Nhập: ${esc(a.createdByName) || '—'}</div></td>${S.canWrite ? `<td>${acts(a)}</td>` : ''}</tr>`;
+  const card = a => `<div class="pcard${a.kind === 'quyettoan' ? ' qt-card' : ''}" style="cursor:default">
+      <span class="top"><b>${label(a)}</b><span class="num psub">${esc(a.no)}${a.no ? ' · ' : ''}${fmtDate(a.date)}</span></span>
+      <span class="psub">${a.kind === 'quyettoan' ? 'Cả hợp đồng · thay giá trị HĐ làm doanh thu' : esc(ctLabel(a))}</span>
+      <span class="line"><span>Trước VAT</span><b class="num">${dong(a.value)} ₫</b></span>
+      <span class="line"><span>VAT</span><b class="num">${a.vat == null ? vatCell(a) : dong(a.vat) + ' ₫'}</b></span>
+      <span class="line"><span>Sau VAT</span><b class="num" style="color:var(--ink)">${dong(accPost(a))} ₫</b></span>
+      <span class="line"><span title="${esc(lastEdit(a))}">Người nhập: ${esc(a.createdByName) || '—'}</span></span>
+      ${a.note ? `<span class="psub">${esc(a.note)}</span>` : ''}${acts(a)}</div>`;
+  const pctTxt = ct.pre > 0 ? ` · ${pct(t.pre / ct.pre)} giá trị HĐ (trước VAT)` : '';
+  return `<section class="panel cpanel">${head}
+    <div class="tbl-wrap desk"><table class="ctbl">
+      <thead><tr><th>Biên bản</th><th class="r">Trước VAT (₫)</th><th class="r">VAT (₫)</th><th class="r">Sau VAT (₫)</th><th>Ghi chú</th>${S.canWrite ? '<th></th>' : ''}</tr></thead>
+      <tbody>${nts.map(row).join('')}
+        <tr class="sum-row"><td>Tổng nghiệm thu lũy kế (${nts.length} đợt)${pctTxt}${t.prov ? ` <span class="chip warn">${t.prov} dòng VAT tạm tính</span>` : ''}</td><td class="r num">${dong(t.pre)}</td><td class="r num">${dong(t.vat)}</td><td class="r num">${dong(t.post)}</td><td colspan="${S.canWrite ? 2 : 1}"></td></tr>
+        ${q ? row(q) : ''}</tbody>
+    </table></div>
+    <div class="cards">${nts.map(card).join('')}
+      <div class="pcard total"><span class="pname" style="color:var(--ink)">Tổng nghiệm thu lũy kế (${nts.length} đợt)</span>${t.prov ? `<span><span class="chip warn">${t.prov} dòng VAT tạm tính</span></span>` : ''}
+        <span class="line"><span>Trước VAT</span><b class="num">${dong(t.pre)} ₫</b></span>
+        <span class="line"><span>VAT</span><b class="num">${dong(t.vat)} ₫</b></span>
+        <span class="line"><span>Sau VAT</span><b class="num">${dong(t.post)} ₫</b></span></div>
+      ${q ? card(q) : ''}</div>
+  </section>`;
+}
+// Thêm / sửa nghiệm thu hoặc quyết toán. Người nhập do máy chủ ghi.
+function openAcc(a, projectId, kind) {
+  const k = a ? a.kind : kind, pid = a ? a.projectId : projectId, p = S.projects.find(x => x.id === pid), isQ = k === 'quyettoan';
+  const next = Math.max(0, ...projAcc(pid).filter(x => x.kind === 'nghiemthu').map(x => +x.seq || 0)) + 1;
+  const title = a ? `Sửa ${isQ ? 'quyết toán' : 'nghiệm thu đợt ' + a.seq}` : isQ ? 'Thêm quyết toán' : `Thêm nghiệm thu đợt ${next}`;
+  const mInput = (id, v, ph) => `<input type="text" inputmode="numeric" id="${id}" value="${v == null ? '' : Math.round(v).toLocaleString('vi-VN')}" placeholder="${ph}" autocomplete="off">`;
+  form.innerHTML = `<h2>${title}</h2>
+    <p class="muted" style="margin:-6px 0 0;font-size:13px">${p ? `${esc(p.code)} · ${esc(p.name)}` : ''}</p>
+    ${isQ ? '<p class="psub" style="margin:0">Quyết toán áp cho cả hợp đồng (HĐ gốc + phụ lục). Khi đã quyết toán, doanh thu ghi nhận của dự án = giá trị quyết toán; phần chênh so với HĐ ghi vào ngày quyết toán.</p>'
+      : '<p class="psub" style="margin:0">Nghiệm thu dùng để theo dõi khối lượng đã nghiệm thu, không làm đổi doanh thu.</p>'}
+    <div class="form">
+      ${isQ ? '' : `<label class="field full"><span>Theo hợp đồng</span><select id="a-contract"><option value="">Không gắn hợp đồng</option>${projContracts(pid).map(c => `<option value="${esc(c.id)}"${a?.contractId === c.id ? ' selected' : ''}>${esc(contractLabel(c))}</option>`).join('')}</select></label>`}
+      <label class="field"><span>Số ${isQ ? 'hồ sơ quyết toán' : 'biên bản'}</span><input type="text" id="a-no" maxlength="60" value="${esc(a?.no)}"></label>
+      <label class="field"><span>Ngày ${isQ ? 'quyết toán' : 'nghiệm thu'}</span><input type="date" id="a-date" value="${esc(a?.date || today())}"></label>
+      <label class="field"><span>Giá trị trước VAT (₫) <b class="num" data-hint="a-value" style="text-transform:none;letter-spacing:0">${a ? spoken(a.value) : ''}</b></span>${mInput('a-value', a?.value, '0')}</label>
+      <label class="field"><span>VAT (₫) <b class="num" data-hint="a-vat" style="text-transform:none;letter-spacing:0">${a?.vat ? spoken(a.vat) : ''}</b></span>${mInput('a-vat', a?.vat, 'Trống = tạm tính')}</label>
+      <div class="field full"><span>Sau VAT</span><div class="ro"><b class="num" id="a-post"></b><small id="a-post-note"></small></div></div>
+      <label class="field full"><span>Ghi chú</span><input type="text" id="a-note" maxlength="500" value="${esc(a?.note)}"></label>
+    </div>
+    <div class="err" id="a-err"></div>
+    <div class="dlg-foot"><span></span><div class="inline"><button type="button" class="btn" id="a-cancel">Hủy</button><button type="submit" class="btn primary">${a ? 'Lưu thay đổi' : 'Thêm'}</button></div></div>`;
+  bindMoney();
+  const vatVal = () => $('#a-vat').value.trim() === '' ? null : parseMoney($('#a-vat').value);
+  const showPost = () => { const v = parseMoney($('#a-value').value), vat = vatVal(); $('#a-post').textContent = vnd(v + (vat || 0)); $('#a-post-note').textContent = vat == null ? 'VAT để trống: Tạm tính (VAT coi là 0), nhập bổ sung sau.' : ''; };
+  ['a-value', 'a-vat'].forEach(id => $('#' + id).addEventListener('input', showPost)); showPost();
+  $('#a-cancel').onclick = () => dlg.close();
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const body = {no: $('#a-no').value.trim(), date: $('#a-date').value, value: parseMoney($('#a-value').value), vat: vatVal(), note: $('#a-note').value.trim()};
+    if (!isQ) body.contractId = $('#a-contract').value;
+    if (!body.date) return $('#a-err').textContent = `Chọn ngày ${isQ ? 'quyết toán' : 'nghiệm thu'}.`;
+    if (!(body.value > 0)) return $('#a-err').textContent = 'Nhập giá trị trước VAT lớn hơn 0.';
+    if (!a) Object.assign(body, {projectId: pid, kind: k});
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+    try {
+      const rec = await retry(() => api('PUT', 'acceptances/' + encodeURIComponent(a?.id || uid()), body));
+      const i = S.acc.findIndex(x => x.id === rec.id); if (i >= 0) S.acc[i] = rec; else S.acc.push(rec);
+      dlg.close(); toast(a ? 'Đã lưu' : isQ ? 'Đã thêm quyết toán' : 'Đã thêm nghiệm thu'); refresh();
+    } catch (er) { $('#a-err').textContent = failMsg(er); }
+    finally { btn.disabled = false; }
+  };
+  dlg.showModal(); $('#a-no').focus();
+}
+function deleteAcc(a) {
+  if (!a) return;
+  const name = a.kind === 'quyettoan' ? 'quyết toán' : 'nghiệm thu đợt ' + a.seq, p = S.projects.find(x => x.id === a.projectId);
+  return askPasscode({title: `Xóa ${name}`, confirmLabel: `Xóa ${name}`,
+    detail: `${a.kind === 'quyettoan' ? 'Quyết toán' : 'Nghiệm thu đợt ' + a.seq}${a.no ? ' số ' + a.no : ''} · ${fmtDate(a.date)} · trước VAT ${dong(a.value)} ₫ · ${p?.code || ''}`,
+    run: async code => {
+      await api('DELETE', 'acceptances/' + encodeURIComponent(a.id), {passcode: code});
+      S.acc = S.acc.filter(x => x.id !== a.id); toast(`Đã xóa ${name}`); refresh();
+    }});
+}
+
 /* ---------- trang Doanh thu / Chi phí: ô nhập liệu + số liệu của loại đó ---------- */
 const ENTRY = {
-  in: {title: 'Ghi doanh thu', lead: 'Khoản tiền thu về: tạm ứng, nghiệm thu, quyết toán…', save: 'Lưu khoản thu', word: 'thu',
+  in: {title: 'Ghi tiền về', lead: 'Tiền thực nhận, đã gồm VAT: tạm ứng, thanh toán theo nghiệm thu, quyết toán…', save: 'Lưu khoản tiền về', word: 'tiền về',
     icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>'},
   out: {title: 'Ghi chi phí', lead: 'Khoản tiền chi ra: nhân công, vật tư, thầu phụ…', save: 'Lưu khoản chi', word: 'chi',
     icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7L7 17"/><path d="M16 17H7V8"/></svg>'}
@@ -1044,9 +1221,9 @@ function txFields(px, t, typeCtl = 'none') {
   const id = k => px + k, type = t.type, hasCt = projContracts(t.projectId).length > 0;
   const vat = t.vat ?? null, post = t.amount || null, pre = t.amount ? (t.pre ?? t.amount) : null;
   const typeHtml = typeCtl === 'pick'
-    ? `<div class="field full"><span>Loại</span><div class="seg"><input type="radio" name="${id('type')}" id="${id('in')}" value="in"${type === 'in' ? ' checked' : ''}><label for="${id('in')}" class="in">Thu</label><input type="radio" name="${id('type')}" id="${id('out')}" value="out"${type === 'out' ? ' checked' : ''}><label for="${id('out')}" class="out">Chi</label></div></div>`
+    ? `<div class="field full"><span>Loại</span><div class="seg"><input type="radio" name="${id('type')}" id="${id('in')}" value="in"${type === 'in' ? ' checked' : ''}><label for="${id('in')}" class="in">Tiền về</label><input type="radio" name="${id('type')}" id="${id('out')}" value="out"${type === 'out' ? ' checked' : ''}><label for="${id('out')}" class="out">Chi</label></div></div>`
     : typeCtl === 'locked'
-    ? `<div class="field full"><span>Loại</span><div class="type-lock"><span class="chip ${type}">${type === 'in' ? 'Khoản thu' : 'Khoản chi'}</span><small>Muốn đổi loại: xóa khoản này và nhập lại.</small></div></div>` : '';
+    ? `<div class="field full"><span>Loại</span><div class="type-lock"><span class="chip ${type}">${type === 'in' ? 'Tiền về' : 'Khoản chi'}</span><small>Muốn đổi loại: xóa khoản này và nhập lại.</small></div></div>` : '';
   const who = type === 'in'
     ? `<label class="field full" id="${id('ct-wrap')}"${hasCt ? '' : ' hidden'}><span>Theo hợp đồng</span><select id="${id('contract')}">${hasCt ? contractOptions(t.projectId, t.contractId ?? null) : ''}</select></label>`
     : `<label class="field full"><span>Đối tác (nhà cung cấp / thầu phụ)</span><input type="text" id="${id('partner')}" list="${id('partners')}" maxlength="120" value="${esc(t.partner)}" placeholder="Không bắt buộc" autocomplete="off"><datalist id="${id('partners')}">${partnerList().map(x => `<option value="${esc(x)}">`).join('')}</datalist></label>`;
@@ -1118,11 +1295,14 @@ function viewLedger(type) {
 // Phần bên phải vẽ lại riêng, để lưu xong hay dữ liệu đổi cũng không xóa những gì đang gõ trong ô nhập
 function renderLedgerSide() {
   const el = $('#ledger-side'); if (!el) return;
+  EV = null;
   const type = el.dataset.type, word = ENTRY[type].word, isIn = type === 'in';
-  const rows = S.txs.filter(t => t.type === type && inRange(t)), total = rows.reduce((a, t) => a + txVal(t), 0);
-  const pv = prevPeriod(), prev = pv ? S.txs.filter(t => t.type === type && within(pv.range)(t)).reduce((a, t) => a + txVal(t), 0) : 0;
+  // Tiền về là tiền thực (đã gồm VAT): luôn sau VAT. Chi phí theo nút, kèm Thực chi (sau VAT)
+  const val = isIn ? txPost : txVal, vw = isIn ? 'sau VAT' : vatWord();
+  const rows = S.txs.filter(t => t.type === type && inRange(t)), total = rows.reduce((a, t) => a + val(t), 0), totalPost = rows.reduce((a, t) => a + txPost(t), 0);
+  const pv = prevPeriod(), prev = pv ? S.txs.filter(t => t.type === type && within(pv.range)(t)).reduce((a, t) => a + val(t), 0) : 0;
   const byP = {}, byC = {};
-  for (const t of rows) { byP[t.projectId] = (byP[t.projectId] || 0) + txVal(t); byC[t.category || 'Khác'] = (byC[t.category || 'Khác'] || 0) + txVal(t); }
+  for (const t of rows) { byP[t.projectId] = (byP[t.projectId] || 0) + val(t); byC[t.category || 'Khác'] = (byC[t.category || 'Khác'] || 0) + val(t); }
   // Tối đa 6 dòng; phần còn lại gộp vào một dòng "Khác" để dòng Tổng cộng khớp với tổng các dòng
   const bars = (obj, label, unit) => { const all = Object.entries(obj).sort((a, b) => b[1] - a[1]), list = all.slice(0, 6).map(([k, v]) => [label(k), v]);
     if (all.length > 6) list.push([`Khác (${all.length - 6} ${unit})`, all.slice(6).reduce((a, r) => a + r[1], 0)]);
@@ -1132,8 +1312,8 @@ function renderLedgerSide() {
   const todays = S.txs.filter(t => t.type === type && (t.createdAt || 0) >= t0.getTime());
   el.innerHTML = `
     <section class="kpis" aria-label="Tổng ${word}">
-      ${kpi(`Tổng ${word} · ${periodLabel()} <small class="vw">${vatWord()}</small>`, short(total), `${rows.length} khoản · hôm nay đã ghi ${todays.length} khoản`, {dot: isIn ? 'bg-rev' : 'bg-exp', cls: isIn ? 'c-rev' : 'c-exp', title: vnd(total),
-        foot: (pv ? delta(total, prev, pv.label, isIn) : '<span class="sub">Toàn bộ thời gian</span>') + spark(last12(o => isIn ? o.rev : o.exp), isIn ? 'var(--rev)' : 'var(--exp)', `color-mix(in srgb,var(${isIn ? '--rev' : '--exp'}) 16%,transparent)`)})}
+      ${kpi(`Tổng ${word} · ${periodLabel()} <small class="vw">${vw}</small>`, short(total), `${rows.length} khoản · hôm nay đã ghi ${todays.length} khoản${isIn ? '' : ` · Thực chi (sau VAT) <b class="num" title="${vnd(totalPost)}">${short(totalPost)}</b>`}`, {dot: isIn ? 'bg-rev' : 'bg-exp', cls: isIn ? 'c-rev' : 'c-exp', title: vnd(total), wide: true,
+        foot: (pv ? delta(total, prev, pv.label, isIn) : '<span class="sub">Toàn bộ thời gian</span>') + spark(last12(o => isIn ? o.cashIn : o.exp), isIn ? 'var(--rev)' : 'var(--exp)', `color-mix(in srgb,var(${isIn ? '--rev' : '--exp'}) 16%,transparent)`)})}
     </section>
     ${rows.length ? `<div class="grid2">
       <section class="panel"><h2>Theo dự án</h2>${bars(byP, k => { const p = S.projects.find(x => x.id === k); return p ? `<span class="ell" title="${esc(p.name)}"><span class="num" style="font-weight:700">${esc(p.code)}</span> <span class="psub">${esc(p.name)}</span></span>` : 'Dự án đã xóa'; }, 'dự án')}</section>
@@ -1149,6 +1329,7 @@ async function saveEntry(f) {
   if (r.error) { err.textContent = r.error; $('#' + px + r.focus)?.focus(); return; }
   const data = r.data;
   err.textContent = '';
+  if (!(await confirmOver(data, null))) return;
   const btn = f.querySelector('.save'); btn.disabled = true;
   try {
     await put('transactions', uid(), data);
@@ -1173,10 +1354,10 @@ function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false
   const sg = t => t.type === 'in' ? '+' : '−', n = v => Math.abs(Math.round(v)).toLocaleString('vi-VN');
   const vatCell = t => txVat(t) == null ? '<span class="chip warn" title="Chưa nhập VAT, tạm coi là 0">Tạm tính</span>' : n(txVat(t));
   const party = t => t.type === 'in' ? txContractLabel(t) : (t.partner || '');
-  const partyCell = t => txUnlinked(t) ? '<span class="chip warn" title="Khoản thu chưa gắn hợp đồng: bấm Sửa để chọn hợp đồng hoặc Ngoài hợp đồng">Chưa gắn hợp đồng</span>' : esc(party(t)) || '<span class="muted">—</span>';
+  const partyCell = t => txUnlinked(t) ? '<span class="chip warn" title="Tiền về chưa gắn hợp đồng: bấm Sửa để chọn hợp đồng hoặc Ngoài hợp đồng">Chưa gắn hợp đồng</span>' : esc(party(t)) || '<span class="muted">—</span>';
   // Người nhập (máy chủ ghi); giao dịch cũ chưa có thì để trống. Rê chuột: người sửa lần cuối
   const edited = t => t.updatedByName && t.updatedAt ? `Sửa lần cuối: ${t.updatedByName} · ${new Date(t.updatedAt).toLocaleString('vi-VN')}` : '';
-  const meta = t => [kind ? '' : `<span class="chip ${t.type}" style="padding:1px 7px">${t.type === 'in' ? 'Thu' : 'Chi'}</span>`, t.invoiceNo ? `HĐơn ${esc(t.invoiceNo)}` : '',
+  const meta = t => [kind ? '' : `<span class="chip ${t.type}" style="padding:1px 7px">${t.type === 'in' ? 'Tiền về' : 'Chi'}</span>`, t.invoiceNo ? `HĐơn ${esc(t.invoiceNo)}` : '',
     t.createdByName ? `<span title="${esc(edited(t))}">Nhập: ${esc(t.createdByName)}</span>` : ''].filter(Boolean).join(' · ');
   // Tổng: một dòng nếu cả bảng cùng loại; bảng lẫn thu chi thì Tổng thu, Tổng chi, Chênh lệch
   const tot = list => list.reduce((a, t) => ({pre: a.pre + txPre(t), vat: a.vat + (txVat(t) || 0), post: a.post + txPost(t), prov: a.prov + (txVat(t) == null ? 1 : 0), cnt: a.cnt + 1}), {pre: 0, vat: 0, post: 0, prov: 0, cnt: 0});
@@ -1185,7 +1366,7 @@ function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false
   const sgn = v => (v < 0 ? '−' : '') + n(v);
   const provTxt = c => c ? `<span class="chip warn" style="margin-left:6px">${c} dòng VAT tạm tính</span>` : '';
   const totRows = kind ? [[`Tổng cộng (${txs.length} khoản)`, kind === 'in' ? ti : to, kind === 'in' ? 'c-rev' : '', kind === 'in' ? '+' : '−']]
-    : [['Tổng thu', ti, 'c-rev', '+'], ['Tổng chi', to, 'c-exp', '−'], ['Chênh lệch (thu − chi)', {...net, prov: 0}, net.post < 0 ? 'c-bad' : '', null]];
+    : [['Tổng tiền về', ti, 'c-rev', '+'], ['Tổng chi', to, 'c-exp', '−'], ['Chênh lệch (tiền về − chi)', {...net, prov: 0}, net.post < 0 ? 'c-bad' : '', null]];
   const lead = (showProject ? 2 : 1) + 2;   // Ngày, [Dự án], Hợp đồng/Đối tác, Hạng mục
   const head = kind === 'in' ? 'Hợp đồng' : kind === 'out' ? 'Đối tác' : 'Hợp đồng / Đối tác';
   const money = (v, s) => s == null ? sgn(v) : s + n(v);
@@ -1216,7 +1397,7 @@ function viewJournal() {
   return `<section class="panel">
     <div class="controls">
       <select id="j-project" aria-label="Lọc theo dự án" style="flex:1 1 200px"><option value="">Tất cả dự án</option>${sortedProjects().map(p => `<option value="${esc(p.id)}">${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select>
-      <select id="j-type" aria-label="Lọc theo loại" style="flex:1 1 140px"><option value="">Thu và chi</option><option value="in">Chỉ khoản thu</option><option value="out">Chỉ khoản chi</option><option value="unlinked">Khoản thu chưa gắn hợp đồng</option></select>
+      <select id="j-type" aria-label="Lọc theo loại" style="flex:1 1 140px"><option value="">Tiền về và chi</option><option value="in">Chỉ tiền về</option><option value="out">Chỉ khoản chi</option><option value="unlinked">Tiền về chưa gắn hợp đồng</option></select>
       <input type="search" id="j-q" placeholder="Tìm hạng mục, diễn giải…" style="flex:2 1 200px">
       <button class="btn" id="j-export">Xuất CSV</button>
     </div>
@@ -1252,7 +1433,8 @@ function drawCharts() {
 // Cột doanh thu / chi phí theo tháng + đường lợi nhuận (lũy kế hoặc từng tháng); rê chuột tô sáng cả tháng
 function drawChart(el, data) {
   if (!data.length) { el.innerHTML = `<div class="empty" style="min-height:260px;justify-content:center">Chưa có giao dịch trong kỳ này.</div>`; return; }
-  const cumMode = S.chartMode === 'cum';
+  const cumMode = S.chartMode === 'cum', LB = chartLabels();
+  if (S.chartKind === 'cash') data = data.map(d => ({m: d.m, rev: d.cashIn || 0, exp: d.cashOut || 0, profit: (d.cashIn || 0) - (d.cashOut || 0)}));
   let run = 0; const rows = data.map(d => ({...d, cum: (run += d.profit)}));
   const line = d => cumMode ? d.cum : d.profit;
   const hi = Math.max(1, ...rows.map(d => Math.max(d.rev, d.exp, line(d)))), lo = Math.min(0, ...rows.map(line));
@@ -1290,13 +1472,14 @@ function drawChart(el, data) {
   const lv = line(rows[n - 1]), ly = Math.max(T + 4, pts[n - 1][1] - 12);
   g += `<text x="${Math.min(pts[n - 1][0] + 8, W - 2)}" y="${ly}" text-anchor="end" style="fill:${lv < 0 ? 'var(--bad)' : 'var(--pro)'};font-weight:800;font-size:12px;paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round">${short(lv)}</text>`;
   rows.forEach((d, i) => g += `<rect class="hit" data-i="${i}" x="${L + band * i}" y="${T - 8}" width="${band}" height="${H - T - B + 8}" fill="transparent"/>`);
-  el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Doanh thu, chi phí theo tháng và ${cumMode ? 'lợi nhuận lũy kế' : 'lợi nhuận từng tháng'}">${g}</svg><div class="tip" hidden></div>`;
+  el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${LB.rev}, ${LB.exp.toLowerCase()} theo tháng và ${LB.line.toLowerCase()}">${g}</svg><div class="tip" hidden></div>`;
   const tip = el.querySelector('.tip'), hl = el.querySelector('.hl');
   el.querySelectorAll('.hit').forEach(r => {
     r.addEventListener('pointerenter', () => {
       const i = +r.dataset.i, d = rows[i], [yy, mm] = d.m.split('-');
       hl.setAttribute('x', L + band * i); hl.setAttribute('opacity', '1');
-      tip.innerHTML = `<b>Tháng ${+mm}/${yy}</b><br>Doanh thu <span class="num">${short(d.rev)}</span><br>Chi phí <span class="num">${short(d.exp)}</span><br>Lợi nhuận tháng <span class="num">${short(d.profit)}</span><br>Lũy kế <span class="num">${short(d.cum)}</span>`;
+      const lw = S.chartKind === 'cash' ? 'Còn lại' : 'Lợi nhuận';
+      tip.innerHTML = `<b>Tháng ${+mm}/${yy}</b><br>${LB.rev} <span class="num">${short(d.rev)}</span><br>${LB.exp} <span class="num">${short(d.exp)}</span><br>${lw} tháng <span class="num">${short(d.profit)}</span><br>${lw} lũy kế <span class="num">${short(d.cum)}</span>`;
       tip.hidden = false;
       tip.style.left = Math.min(Math.max(cx(i), 90), W - 90) + 'px'; tip.style.top = Math.max(96, Math.min(y(d.rev), y(d.exp), y(line(d))) - 8) + 'px';
     });
@@ -1323,7 +1506,7 @@ function openTx(tx, projectId, type = 'out') {
   const t = tx || {type, date: today(), projectId: projectId || S.projectId || sortedProjects()[0]?.id, category: '', amount: 0, note: ''};
   const who = tx && (tx.createdByName || tx.updatedByName)
     ? `<p class="psub" style="margin:-8px 0 0">${tx.createdByName ? `Nhập: ${esc(tx.createdByName)}` : ''}${tx.updatedByName && tx.updatedAt ? `${tx.createdByName ? ' · ' : ''}Sửa lần cuối: ${esc(tx.updatedByName)} · ${new Date(tx.updatedAt).toLocaleString('vi-VN')}` : ''}</p>` : '';
-  form.innerHTML = `<h2 id="x-title">${tx ? 'Sửa giao dịch' : type === 'in' ? 'Ghi khoản thu' : 'Ghi khoản chi'}</h2>${who}
+  form.innerHTML = `<h2 id="x-title">${tx ? 'Sửa giao dịch' : type === 'in' ? 'Ghi tiền về' : 'Ghi khoản chi'}</h2>${who}
     <div class="form entry ${t.type}" id="x-fields">${txFields('x-', t, tx ? 'locked' : 'pick')}</div>
     <div class="err" id="x-err"></div>
     <div class="dlg-foot">${tx ? `<button type="button" class="btn danger" id="x-del">Xóa giao dịch</button>` : '<span></span>'}
@@ -1334,7 +1517,7 @@ function openTx(tx, projectId, type = 'out') {
     const ty = curType(), v = k => $('#x-' + k).value, keep = {projectId: v('project'), date: v('date'), note: v('note'), invoiceNo: v('invoiceNo'), invoiceDate: v('invoiceDate')};
     const post = parseMoney(v('amount')), vat = v('vat').trim() === '' ? null : parseMoney(v('vat'));
     $('#x-fields').innerHTML = txFields('x-', {...keep, type: ty, category: '', amount: post || 0, vat, pre: post ? post - (vat || 0) : null}, 'pick');
-    $('#x-fields').className = 'form entry ' + ty; $('#x-title').textContent = ty === 'in' ? 'Ghi khoản thu' : 'Ghi khoản chi';
+    $('#x-fields').className = 'form entry ' + ty; $('#x-title').textContent = ty === 'in' ? 'Ghi tiền về' : 'Ghi khoản chi';
     bindMoney(); bindType(); vatCalc('x-');
   }); };
   bindType(); bindMoney(); vatCalc('x-');
@@ -1344,6 +1527,7 @@ function openTx(tx, projectId, type = 'out') {
     e.preventDefault();
     const r = readTx('x-', curType());
     if (r.error) { $('#x-err').textContent = r.error; $('#x-' + r.focus)?.focus(); return; }
+    if (!(await confirmOver(r.data, tx?.id))) return;
     const btn = form.querySelector('[type=submit]'); btn.disabled = true;
     try { await put('transactions', tx?.id || uid(), r.data); dlg.close(); toast(tx ? 'Đã cập nhật giao dịch' : 'Đã ghi giao dịch'); }
     catch (er) { $('#x-err').textContent = failMsg(er); }
@@ -1477,7 +1661,28 @@ function askPasscode({title, detail, confirmLabel = 'Xóa', run}) {
     cdlg.showModal(); $('#cd-code').focus();
   });
 }
-const txLabel = t => `Giao dịch ${t.type === 'in' ? 'thu' : 'chi'} ${vnd(t.amount)} (sau VAT) · ${t.category || 'Khác'} · ${S.projects.find(p => p.id === t.projectId)?.code || 'dự án đã xóa'} · ${fmtDate(t.date)}`;
+// Hộp xác nhận nhỏ (dùng chung <dialog> mã xóa). Trả true khi người dùng đồng ý.
+function askConfirm({title, detail, okLabel = 'Vẫn lưu'}) {
+  return new Promise(resolve => {
+    let ok = false;
+    cform.innerHTML = `<h2>${esc(title)}</h2><p style="margin:0;font-size:13.5px">${detail}</p>
+      <div class="dlg-foot"><span></span><div class="inline"><button type="button" class="btn" id="cf-no">Quay lại sửa</button><button type="submit" class="btn primary">${esc(okLabel)}</button></div></div>`;
+    $('#cf-no').onclick = () => cdlg.close();
+    cdlg.onclose = () => resolve(ok);
+    cform.onsubmit = e => { e.preventDefault(); ok = true; cdlg.close(); };
+    cdlg.showModal();
+  });
+}
+// Tiền về của dự án sau khi lưu khoản này vượt giá trị HĐ (hoặc QT) sau VAT: chỉ cảnh báo, không chặn (máy chủ vẫn nhận)
+async function confirmOver(data, oldId) {
+  if (data.type !== 'in') return true;
+  const rt = revTotals(data.projectId); if (!(rt.post > 0)) return true;
+  const cash = S.txs.filter(t => t.type === 'in' && t.projectId === data.projectId && t.id !== oldId).reduce((a, t) => a + txPost(t), 0) + data.amount;
+  if (cash <= rt.post) return true;
+  return askConfirm({title: 'Tiền về vượt hợp đồng',
+    detail: `Sau khi lưu, tiền về của dự án là <b class="num">${vnd(cash)}</b>, vượt giá trị ${rt.settled ? 'quyết toán' : 'hợp đồng'} sau VAT <b class="num">${vnd(rt.post)}</b> là <b class="num c-bad">${vnd(cash - rt.post)}</b>. Kiểm tra lại số tiền, hoặc bổ sung phụ lục / quyết toán.`});
+}
+const txLabel = t => `${t.type === 'in' ? 'Tiền về' : 'Giao dịch chi'} ${vnd(t.amount)} (sau VAT) · ${t.category || 'Khác'} · ${S.projects.find(p => p.id === t.projectId)?.code || 'dự án đã xóa'} · ${fmtDate(t.date)}`;
 async function deleteTx(t) {
   if (!t) return false;
   return askPasscode({title: 'Xóa giao dịch', detail: txLabel(t), confirmLabel: 'Xóa giao dịch',
@@ -1509,9 +1714,9 @@ async function exportCsv() {
   const tot = rows.reduce((a, t) => ({pre: a.pre + sg(t) * txPre(t), vat: a.vat + sg(t) * (txVat(t) || 0), post: a.post + sg(t) * txPost(t), prov: a.prov + (txVat(t) == null ? 1 : 0)}), {pre: 0, vat: 0, post: 0, prov: 0});
   const csv = '﻿' + ['Ngày,Mã dự án,Tên dự án,Loại,Hợp đồng,Đối tác,Hạng mục,Số hóa đơn,Ngày hóa đơn,Diễn giải,Trước VAT (VND),VAT (VND),Sau VAT (VND),Người nhập',
     ...rows.map(t => { const p = S.projects.find(x => x.id === t.projectId) || {};
-      return [t.date, p.code, p.name, t.type === 'in' ? 'Thu' : 'Chi', txContractLabel(t), t.partner, t.category, t.invoiceNo, t.invoiceDate, t.note,
+      return [t.date, p.code, p.name, t.type === 'in' ? 'Tiền về' : 'Chi', txContractLabel(t), t.partner, t.category, t.invoiceNo, t.invoiceDate, t.note,
         sg(t) * txPre(t), txVat(t) == null ? '' : sg(t) * txVat(t), sg(t) * txPost(t), t.createdByName].map(q).join(','); }),
-    ['Tổng cộng', '', '', '', '', '', '', '', '', `Chênh lệch thu − chi (${rows.length} khoản${tot.prov ? `, ${tot.prov} khoản VAT tạm tính` : ''})`, tot.pre, tot.vat, tot.post, ''].map(q).join(',')].join('\r\n');
+    ['Tổng cộng', '', '', '', '', '', '', '', '', `Chênh lệch tiền về − chi (${rows.length} khoản${tot.prov ? `, ${tot.prov} khoản VAT tạm tính` : ''})`, tot.pre, tot.vat, tot.post, ''].map(q).join(',')].join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
   a.download = `so-giao-dich-${periodLabel().replace(/[^\p{L}\d]+/gu, '-').toLowerCase()}.csv`;
@@ -1560,10 +1765,15 @@ $('#main').addEventListener('click', e => {
     if (a === 'new-contract') openContract(null, id, act.dataset.kind);
     if (a === 'edit-contract') openContract(S.contracts.find(c => c.id === id));
     if (a === 'del-contract') openDeleteContract(S.contracts.find(c => c.id === id));
+    if (a === 'new-acc') openAcc(null, id, act.dataset.kind);
+    if (a === 'edit-acc') openAcc(S.acc.find(x => x.id === id));
+    if (a === 'del-acc') deleteAcc(S.acc.find(x => x.id === id));
     if (a === 'journal-of') { S.jf = {project: id, type: '', q: ''}; S.jpage = 0; S.view = 'journal'; store.set('view', S.view); render(); window.scrollTo({top: 0}); }
     if (a === 'del-tx') deleteTx(S.txs.find(t => t.id === id));
     return;
   }
+  const ck = e.target.closest('[data-ckind]');
+  if (ck) { S.chartKind = ck.dataset.ckind; store.set('chartKind', S.chartKind); render(); return; }
   const cm = e.target.closest('[data-cmode]'), mx = e.target.closest('[data-mix]');
   if (cm) { S.chartMode = cm.dataset.cmode; store.set('chartMode', S.chartMode); render(); return; }
   if (mx) { S.mix = mx.dataset.mix; store.set('mix', S.mix); render(); return; }
@@ -1624,9 +1834,9 @@ render();
 async function load(first) {
   try {
     const d = await api('GET', 'data', null, !first);
-    const cts = d.contracts || [];
-    const same = JSON.stringify(d.projects) === JSON.stringify(S.projects) && JSON.stringify(d.transactions) === JSON.stringify(S.txs) && JSON.stringify(cts) === JSON.stringify(S.contracts);
-    S.projects = d.projects; S.txs = d.transactions.filter(t => t.date); S.contracts = cts; S.mode = 'db';
+    const cts = d.contracts || [], acc = d.acceptances || [];
+    const same = JSON.stringify(d.projects) === JSON.stringify(S.projects) && JSON.stringify(d.transactions) === JSON.stringify(S.txs) && JSON.stringify(cts) === JSON.stringify(S.contracts) && JSON.stringify(acc) === JSON.stringify(S.acc);
+    S.projects = d.projects; S.txs = d.transactions.filter(t => t.date); S.contracts = cts; S.acc = acc; S.mode = 'db'; EV = null;
     if (first || !same) { if (dlg.open) return; refresh(); }
   } catch (e) {
     if (first) $('#main').innerHTML = `<div class="panel empty">Không kết nối được máy chủ. Tải lại trang để thử lại.</div>`;
