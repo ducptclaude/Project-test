@@ -219,13 +219,15 @@ module.exports = function (store, wrap) {
     const u = await store.get('users', req.params.u);
     if (!u) return res.status(204).end();
     if (u.role === 'admin' && u.active !== false && (await activeAdmins()).length <= 1) return res.status(400).json({ error: 'Phải còn ít nhất một quản trị viên đang hoạt động.' });
+    const bad = await checkDeletePasscode(req, req.body?.passcode);
+    if (bad) return res.status(bad.status).json({ error: bad.error });
     await store.del('users', u.id);
     res.status(204).end();
   }));
 
   /* ---------- mã xóa dữ liệu ---------- */
   // Quản trị viên đặt mã xóa (4–12 ký tự); lưu băm scrypt trong meta deletePasscode, không bao giờ trả mã ra ngoài.
-  // Hiện dùng khi xóa dòng hợp đồng với CĐT (Nhập liệu và Quản trị đều phải nhập mã).
+  // Áp dụng cho mọi thao tác xóa: giao dịch, dự án, hợp đồng, dữ liệu ví dụ, tài khoản.
   const PASSCODE_MAX_FAILS = 5;
   authed.get('/api/delete-passcode', admin, wrap(async (req, res) => {
     const m = await store.get('meta', 'deletePasscode');

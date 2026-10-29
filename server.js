@@ -130,6 +130,12 @@ app.get('/api/info', (req, res) => res.set('Cache-Control', 'no-store').json({ e
 app.use(auth.router);
 app.use(auth.requireLogin);
 const canWrite = auth.requireRole('editor');
+// Mọi thao tác xóa phải kèm mã xóa (body {passcode}); gọi sau khi đã kiểm quyền và các ràng buộc dữ liệu
+async function passcodeOk(req, res) {
+  const bad = await auth.checkDeletePasscode(req, req.body?.passcode);
+  if (bad) { res.status(bad.status).json({ error: bad.error }); return false; }
+  return true;
+}
 
 app.get('/api/data', wrap(async (req, res) => {
   const [projects, transactions, contracts] = await Promise.all([store.all('projects'), store.all('transactions'), store.all('contracts')]);
@@ -139,6 +145,7 @@ app.get('/api/data', wrap(async (req, res) => {
 // Xóa dữ liệu ví dụ: xóa giao dịch ví dụ; dự án ví dụ chỉ xóa khi không còn giao dịch hay hợp đồng thật nào.
 // Dự án ví dụ đã có giao dịch / hợp đồng thật người dùng nhập vào (hoặc đã sửa) thì giữ lại cùng hợp đồng của nó, bỏ cờ ví dụ.
 app.delete('/api/sample', canWrite, wrap(async (req, res) => {
+  if (!(await passcodeOk(req, res))) return;
   const [projects, txs, contracts] = await Promise.all([store.all('projects'), store.all('transactions'), store.all('contracts')]);
   for (const t of txs) if (t.sample) await store.del('transactions', t.id);
   const used = new Set([...txs, ...contracts].filter(x => !x.sample).map(x => x.projectId));
@@ -207,8 +214,7 @@ app.delete('/api/contracts/:id', canWrite, wrap(async (req, res) => {
     const n = (await store.all('contracts')).filter(x => x.projectId === c.projectId && x.kind === 'appendix').length;
     if (n) return res.status(409).json({ error: `Hợp đồng gốc còn ${n} phụ lục. Xóa các phụ lục trước.` });
   }
-  const bad = await auth.checkDeletePasscode(req, req.body?.passcode);
-  if (bad) return res.status(bad.status).json({ error: bad.error });
+  if (!(await passcodeOk(req, res))) return;
   await store.del('contracts', id);
   res.status(204).end();
 }));
@@ -248,6 +254,7 @@ app.delete('/api/:col/:id', canWrite, wrap(async (req, res) => {
     if (n && !m) return res.status(409).json({ error: `Dự án còn ${n} giao dịch. Xóa hoặc chuyển các giao dịch sang dự án khác trước, hoặc đổi trạng thái thành Hoàn thành.` });
     if (m) return res.status(409).json({ error: `Dự án còn ${[n && `${n} giao dịch`, `${m} dòng hợp đồng`].filter(Boolean).join(' và ')}. Xóa các giao dịch và hợp đồng của dự án trước, hoặc đổi trạng thái thành Hoàn thành.` });
   }
+  if (!(await passcodeOk(req, res))) return;
   await store.del(req.params.col, req.params.id);
   res.status(204).end();
 }));

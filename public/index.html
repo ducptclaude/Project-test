@@ -319,6 +319,7 @@ button.txrow{cursor:pointer}
 .empty{padding:40px 20px;text-align:center;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:12px}
 
 /* hộp thoại */
+#dlg-code{width:min(460px,calc(100vw - 32px))}
 dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);padding:0;width:min(580px,calc(100vw - 32px));max-height:calc(100vh - 32px);box-shadow:0 30px 70px rgba(8,22,50,.3)}
 dialog::backdrop{background:rgba(10,20,40,.5)}
 dialog.wide{width:min(880px,calc(100vw - 32px))}
@@ -464,6 +465,7 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
   <button data-fab="expense"><span class="e-dot out"></span>Ghi chi phí</button>
 </div>
 <dialog id="dlg"><form class="dlg" id="dlg-form" novalidate></form></dialog>
+<dialog id="dlg-code"><form class="dlg" id="code-form" novalidate></form></dialog>
 <div id="toast" class="toast" hidden></div>
 
 <script>
@@ -552,8 +554,8 @@ async function put(col, id, data) {
   if (i >= 0) list[i] = {id, ...data}; else list.push({id, ...data});
   refresh();
 }
-async function del(col, id) {
-  await retry(() => api('DELETE', col + '/' + encodeURIComponent(id)));
+async function del(col, id, passcode) {
+  await retry(() => api('DELETE', col + '/' + encodeURIComponent(id), {passcode}));
   if (col === 'projects') S.projects = S.projects.filter(x => x.id !== id); else S.txs = S.txs.filter(x => x.id !== id);
   refresh();
 }
@@ -664,7 +666,7 @@ function render() {
 function renderNotice() {
   const el = $('#ph-badge'), has = S.mode === 'db' && (S.projects.some(p => p.sample) || S.txs.some(t => t.sample) || S.contracts.some(c => c.sample));
   el.innerHTML = has ? `<span class="sample-badge">Dữ liệu ví dụ${S.canWrite ? '<button id="btn-clear-sample" title="Xóa toàn bộ dữ liệu ví dụ">Xóa</button>' : ''}</span>` : '';
-  const b = $('#btn-clear-sample'); if (b) b.onclick = () => armButton(b, 'Chắc chắn xóa?', clearSample);
+  const b = $('#btn-clear-sample'); if (b) b.onclick = clearSample;
 }
 
 /* ---------- chọn kỳ ---------- */
@@ -1195,7 +1197,7 @@ function openTx(tx, projectId, type = 'out') {
   fillCats(); form.querySelectorAll('input[name=x-type]').forEach(r => r.onchange = fillCats);
   bindMoney();
   $('#x-cancel').onclick = () => dlg.close();
-  if (tx) $('#x-del').onclick = e => armButton(e.target, 'Bấm lần nữa để xóa', async () => { dlg.close(); try { await del('transactions', tx.id); toast('Đã xóa giao dịch'); } catch (er) { toast(failMsg(er)); } });
+  if (tx) $('#x-del').onclick = async () => { if (await deleteTx(tx)) dlg.close(); };
   form.onsubmit = async e => {
     e.preventDefault();
     const data = {projectId: $('#x-project').value, type: form.querySelector('input[name=x-type]:checked').value, date: $('#x-date').value,
@@ -1230,11 +1232,11 @@ function openProject(p) {
   $('#p-status').value = x.status; bindMoney();
   $('#p-cancel').onclick = () => dlg.close();
   // Chỉ xóa được dự án không còn giao dịch (máy chủ cũng chặn), để không mất dữ liệu
-  if (p && !cnt && !nct) $('#p-del').onclick = e => armButton(e.target, 'Bấm lần nữa để xóa', async () => {
-    dlg.close();
-    try { await del('projects', p.id); toast('Đã xóa dự án'); }
-    catch (er) { toast(failMsg(er)); }
-  });
+  if (p && !cnt && !nct) $('#p-del').onclick = async () => {
+    const ok = await askPasscode({title: 'Xóa dự án', detail: `Dự án ${p.code || ''} · ${p.name}`, confirmLabel: 'Xóa dự án',
+      run: async code => { await del('projects', p.id, code); toast('Đã xóa dự án'); }});
+    if (ok) dlg.close();
+  };
   form.onsubmit = async e => {
     e.preventDefault();
     const data = {code: $('#p-code').value.trim(), name: $('#p-name').value.trim(), client: $('#p-client').value.trim(), manager: $('#p-manager').value.trim(),
@@ -1295,33 +1297,67 @@ function openContract(c, projectId, kind) {
   };
   dlg.showModal(); $(c ? '#c-value' : '#c-no').focus();
 }
-// Xóa dòng hợp đồng: phải nhập mã xóa do quản trị viên đặt; sai thì báo ngay trong hộp
+// Hộp nhập mã xóa dùng chung cho mọi thao tác xóa. Mở trong <dialog> riêng nên không làm mất hộp đang mở bên dưới.
+// run(code) gửi yêu cầu xóa; lỗi (sai mã, còn dữ liệu liên quan…) báo ngay trong hộp để nhập lại. Trả true khi đã xóa, false khi Hủy.
+const cdlg = $('#dlg-code'), cform = $('#code-form');
+function askPasscode({title, detail, confirmLabel = 'Xóa', run}) {
+  return new Promise(resolve => {
+    let done = false;
+    cform.innerHTML = `<h2>${esc(title)}</h2>
+      <p style="margin:0;font-size:13.5px;font-weight:600">${esc(detail)}</p>
+      <p class="muted" style="margin:0;font-size:12.5px">Nhập mã xóa do quản trị viên đặt để xác nhận. Dữ liệu đã xóa không khôi phục được.</p>
+      <label class="field"><span>Mã xóa</span><input type="password" id="cd-code" autocomplete="off" maxlength="12"></label>
+      <div class="err" id="cd-err"></div>
+      <div class="dlg-foot"><span></span><div class="inline"><button type="button" class="btn" id="cd-cancel">Hủy</button><button type="submit" class="btn danger">${esc(confirmLabel)}</button></div></div>`;
+    const err = $('#cd-err');
+    $('#cd-cancel').onclick = () => cdlg.close();
+    cdlg.onclose = () => resolve(done);
+    cform.onsubmit = async e => {
+      e.preventDefault();
+      const code = $('#cd-code').value;
+      if (!code) { err.textContent = 'Nhập mã xóa.'; return; }
+      const btn = cform.querySelector('[type=submit]'); btn.disabled = true;
+      try { await run(code); done = true; cdlg.close(); }
+      catch (er) {
+        const msg = failMsg(er);
+        err.textContent = msg;
+        // Chưa đặt mã: chỉ dẫn; quản trị viên có nút mở thẳng phần đặt mã
+        if (/chưa đặt mã xóa/i.test(msg)) {
+          err.textContent = 'Quản trị viên chưa đặt mã xóa. Vào Quản lý tài khoản → Mã xóa dữ liệu.';
+          if (S.me?.role === 'admin') {
+            const go = document.createElement('button'); go.type = 'button'; go.className = 'btn sm'; go.style.marginLeft = '8px'; go.textContent = 'Đặt mã xóa';
+            go.onclick = () => { cdlg.close(); openUsers(null, 'passcode'); };
+            err.appendChild(go);
+          }
+        } else $('#cd-code').select();
+      }
+      finally { btn.disabled = false; }
+    };
+    cdlg.showModal(); $('#cd-code').focus();
+  });
+}
+const txLabel = t => `Giao dịch ${t.type === 'in' ? 'thu' : 'chi'} ${vnd(t.amount)} · ${t.category || 'Khác'} · ${S.projects.find(p => p.id === t.projectId)?.code || 'dự án đã xóa'} · ${fmtDate(t.date)}`;
+async function deleteTx(t) {
+  if (!t) return false;
+  return askPasscode({title: 'Xóa giao dịch', detail: txLabel(t), confirmLabel: 'Xóa giao dịch',
+    run: async code => { await del('transactions', t.id, code); toast('Đã xóa giao dịch'); }});
+}
 function openDeleteContract(c) {
-  const name = c.kind === 'base' ? 'hợp đồng gốc' : 'phụ lục ' + c.seq;
-  form.innerHTML = `<h2>Xóa ${name}</h2>
-    <p class="muted" style="margin:0;font-size:13.5px">${c.no ? `Số <b class="num">${esc(c.no)}</b> · ` : ''}giá trị trước VAT <b class="num">${dong(c.value)} ₫</b>. Nhập mã xóa do quản trị viên đặt để xác nhận.</p>
-    <label class="field"><span>Mã xóa</span><input type="password" id="dp-code" autocomplete="off" maxlength="12"></label>
-    <div class="err" id="dp-err"></div>
-    <div class="dlg-foot"><span></span><div class="inline"><button type="button" class="btn" id="dp-cancel">Hủy</button><button type="submit" class="btn danger">Xóa ${name}</button></div></div>`;
-  $('#dp-cancel').onclick = () => dlg.close();
-  form.onsubmit = async e => {
-    e.preventDefault();
-    const code = $('#dp-code').value;
-    if (!code) return $('#dp-err').textContent = 'Nhập mã xóa.';
-    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
-    try {
+  if (!c) return;
+  const name = c.kind === 'base' ? 'hợp đồng gốc' : 'phụ lục ' + c.seq, p = S.projects.find(x => x.id === c.projectId);
+  return askPasscode({title: `Xóa ${name}`, confirmLabel: `Xóa ${name}`,
+    detail: `${c.kind === 'base' ? 'HĐ gốc' : 'Phụ lục ' + c.seq}${c.no ? ' số ' + c.no : ''} · trước VAT ${dong(c.value)} ₫ · ${p?.code || ''}`,
+    run: async code => {
       await api('DELETE', 'contracts/' + encodeURIComponent(c.id), {passcode: code});
-      S.contracts = S.contracts.filter(x => x.id !== c.id); dlg.close(); toast(`Đã xóa ${name}`); refresh();
-    } catch (er) { $('#dp-err').textContent = failMsg(er); $('#dp-code').select(); }
-    finally { btn.disabled = false; }
-  };
-  dlg.showModal(); $('#dp-code').focus();
+      S.contracts = S.contracts.filter(x => x.id !== c.id); toast(`Đã xóa ${name}`); refresh();
+    }});
 }
 
-async function clearSample() {
-  // Máy chủ giữ lại dự án ví dụ đã có giao dịch thật, nên lấy lại dữ liệu từ máy chủ thay vì tự lọc
-  try { await api('DELETE', 'sample'); await load(true); toast('Đã xóa dữ liệu ví dụ'); }
-  catch (er) { toast(failMsg(er)); }
+function clearSample() {
+  // Máy chủ giữ lại dự án ví dụ đã có dữ liệu thật hoặc đã sửa, nên lấy lại dữ liệu từ máy chủ thay vì tự lọc
+  return askPasscode({title: 'Xóa dữ liệu ví dụ', confirmLabel: 'Xóa dữ liệu ví dụ',
+    detail: 'Toàn bộ dữ liệu ví dụ (giao dịch, dự án, hợp đồng ví dụ). Dự án ví dụ đã có dữ liệu thật hoặc đã được sửa sẽ được giữ lại.',
+    run: async code => { await api('DELETE', 'sample', {passcode: code}); await load(true); toast('Đã xóa dữ liệu ví dụ'); }});
 }
 
 async function exportCsv() {
@@ -1381,7 +1417,7 @@ $('#main').addEventListener('click', e => {
     if (a === 'edit-contract') openContract(S.contracts.find(c => c.id === id));
     if (a === 'del-contract') openDeleteContract(S.contracts.find(c => c.id === id));
     if (a === 'journal-of') { S.jf = {project: id, type: '', q: ''}; S.jpage = 0; S.view = 'journal'; store.set('view', S.view); render(); window.scrollTo({top: 0}); }
-    if (a === 'del-tx') armButton(act, 'Xóa?', async () => { try { await del('transactions', id); toast('Đã xóa giao dịch'); } catch (er) { toast(failMsg(er)); } });
+    if (a === 'del-tx') deleteTx(S.txs.find(t => t.id === id));
     return;
   }
   const cm = e.target.closest('[data-cmode]'), mx = e.target.closest('[data-mix]');
@@ -1480,7 +1516,7 @@ function openPassword(forced) {
   dlg.showModal(); $('#pw-cur').focus();
 }
 
-async function openUsers(note) {
+async function openUsers(note, focus) {
   dlg.classList.add('wide'); dlg.oncancel = null;
   let users = [], dp = {};
   try { [users, dp] = await Promise.all([api('GET', 'users'), api('GET', 'delete-passcode')]); } catch (er) { toast(failMsg(er)); return; }
@@ -1510,7 +1546,7 @@ async function openUsers(note) {
     <div class="err" id="us-err"></div>
     <div class="dlg-foot"><span></span><button type="submit" class="btn primary">Tạo tài khoản</button></div>
     <h3>Mã xóa dữ liệu</h3>
-    <p class="psub" style="margin:0">Nhập liệu và Quản trị phải nhập mã này khi xóa một dòng hợp đồng với CĐT. ${dp.set ? `<span class="chip done">Đã đặt</span> lần cuối ${esc(dp.updatedByName || '')} · ${dp.updatedAt ? new Date(dp.updatedAt).toLocaleString('vi-VN') : ''}` : '<span class="chip warn">Chưa đặt</span> chưa ai xóa được dòng hợp đồng.'}</p>
+    <p class="psub" style="margin:0">Nhập liệu và Quản trị phải nhập mã này mỗi khi xóa: giao dịch, dự án, hợp đồng, dữ liệu ví dụ, tài khoản. ${dp.set ? `<span class="chip done">Đã đặt</span> lần cuối ${esc(dp.updatedByName || '')} · ${dp.updatedAt ? new Date(dp.updatedAt).toLocaleString('vi-VN') : ''}` : '<span class="chip warn">Chưa đặt</span> chưa ai xóa được dữ liệu.'}</p>
     <div class="inline" style="flex-wrap:wrap"><input type="password" id="dp-new" maxlength="12" autocomplete="new-password" placeholder="4–12 ký tự" style="flex:1 1 180px"><button type="button" class="btn" id="dp-save">${dp.set ? 'Đổi mã xóa' : 'Đặt mã xóa'}</button></div>
     <div class="err" id="dp-err2"></div>`;
   const fail = er => $('#us-err').textContent = failMsg(er);
@@ -1526,9 +1562,13 @@ async function openUsers(note) {
   form.querySelectorAll('[data-active]').forEach(b => b.onclick = async () => {
     try { await api('PATCH', 'users/' + encodeURIComponent(b.dataset.active), {active: b.dataset.v === '1'}); openUsers(); } catch (er) { fail(er); }
   });
-  form.querySelectorAll('[data-del]').forEach(b => b.onclick = () => armButton(b, 'Xóa?', async () => {
-    try { await api('DELETE', 'users/' + encodeURIComponent(b.dataset.del)); toast('Đã xóa tài khoản'); openUsers(); } catch (er) { fail(er); }
-  }));
+  // Hộp mã xóa mở chồng lên Quản lý tài khoản; xóa xong mới vẽ lại danh sách
+  form.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    const u = users.find(x => x.username === b.dataset.del);
+    const ok = await askPasscode({title: 'Xóa tài khoản', detail: `Tài khoản ${u.username} · ${u.name} (${ROLE_NAMES[u.role] || u.role})`, confirmLabel: 'Xóa tài khoản',
+      run: async code => { await api('DELETE', 'users/' + encodeURIComponent(u.username), {passcode: code}); toast('Đã xóa tài khoản'); }});
+    if (ok) openUsers();
+  });
   form.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyText(b.dataset.copy, b));
   const saveDp = async () => {
     const v = $('#dp-new').value;
@@ -1544,6 +1584,7 @@ async function openUsers(note) {
     catch (er) { fail(er); }
   };
   if (!dlg.open) dlg.showModal();
+  if (focus === 'passcode') { $('#dp-new').scrollIntoView({block: 'center'}); $('#dp-new').focus(); }
 }
 dlg.addEventListener('close', () => { dlg.classList.remove('wide'); });
 

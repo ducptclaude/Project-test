@@ -31,7 +31,7 @@
 - Tiền thu theo hồ sơ quyết toán là **sau VAT** → "Đã thu / hợp đồng", "Còn phải thu" luôn so với giá trị hợp đồng **sau VAT**. Lợi nhuận kế hoạch / dự báo = giá trị **trước VAT** − ngân sách.
 - Nút **Trước VAT | Sau VAT** trên đầu trang (nhớ theo trình duyệt) đổi cách hiện giá trị hợp đồng; chưa áp dụng cho giao dịch thu/chi.
 - Người nhập / người sửa do máy chủ tự ghi theo tài khoản đăng nhập.
-- **Mã xóa**: Quản trị viên đặt trong Quản lý tài khoản (4–12 ký tự, lưu băm). Nhập liệu và Quản trị phải nhập mã khi **xóa dòng hợp đồng**; sai 5 lần / 15 phút thì tạm khóa. Chưa chốt có áp dụng mã xóa cho các thao tác xóa khác hay không.
+- **Mã xóa**: Quản trị viên đặt trong Quản lý tài khoản (4–12 ký tự, lưu băm). Mã xóa **áp dụng cho mọi thao tác xóa (giao dịch, dự án, hợp đồng, dữ liệu ví dụ, tài khoản)**: máy chủ kiểm tra mã ở mọi đường xóa, sau khi kiểm quyền và các ràng buộc dữ liệu (chưa đặt mã → 409, sai mã → 403, sai 5 lần / 15 phút theo tài khoản → 429). Khóa/mở khóa tài khoản, cấp lại mật khẩu không phải xóa nên không cần mã. Giao diện dùng chung hộp nhập mã `askPasscode` (thay cho bước bấm hai lần).
 - Không xóa HĐ gốc khi còn phụ lục; không xóa dự án còn hợp đồng hoặc giao dịch.
 - Làm sau: đính kèm file scan, hợp đồng phía chi (thầu phụ, nhà cung cấp).
 

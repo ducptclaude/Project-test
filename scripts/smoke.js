@@ -58,7 +58,49 @@ check('phân quyền: Chỉ xem không ghi được, Nhập liệu ghi được'
   assert.equal((await e('PUT', '/api/transactions/smoke1', tx)).status, 204);
   assert.equal((await e('PUT', '/api/transactions/smoke2', { ...tx, amount: -5 })).status, 400);
   assert.equal((await e('GET', '/api/users')).status, 403);
-  assert.equal((await e('DELETE', '/api/transactions/smoke1')).status, 204);
+  assert.equal((await v('DELETE', '/api/transactions/smoke1')).status, 403, 'Chỉ xem không xóa được');
+});
+const MA = { passcode: 'Ma2026' };
+check('mã xóa áp dụng cho mọi thao tác xóa: giao dịch, dự án, dữ liệu ví dụ, tài khoản', async () => {
+  const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+  const e = client(); await e('POST', '/api/login', { username: 'nhap', password: 'Nhap12345' });
+  assert.equal((await a('PUT', '/api/projects/mx-p', { name: 'Dự án để xóa' })).status, 204);
+  assert.equal((await a('POST', '/api/users', { username: 'tam', name: 'Tạm', role: 'editor', password: 'Tam123456' })).status, 201);
+  const before = (await a('GET', '/api/data')).json;
+  // chưa đặt mã: mọi đường xóa trả 409, không xóa gì
+  for (const [c, url] of [[e, '/api/transactions/smoke1'], [e, '/api/projects/mx-p'], [e, '/api/sample'], [a, '/api/users/tam']]) {
+    const r = await c('DELETE', url, MA);
+    assert.equal(r.status, 409, url); assert.equal(r.json.error, 'Quản trị viên chưa đặt mã xóa.', url);
+  }
+  let d = (await a('GET', '/api/data')).json;
+  assert.equal(d.transactions.length, before.transactions.length); assert.equal(d.projects.length, before.projects.length);
+  assert.ok((await a('GET', '/api/users')).json.some(u => u.username === 'tam'));
+  // chỉ quản trị viên đặt mã; mã 4–12 ký tự; không lộ mã băm
+  assert.equal((await e('PUT', '/api/delete-passcode', MA)).status, 403);
+  assert.equal((await e('GET', '/api/delete-passcode')).status, 403);
+  assert.equal((await a('PUT', '/api/delete-passcode', { passcode: 'abc' })).status, 400);
+  assert.equal((await a('PUT', '/api/delete-passcode', { passcode: 'qua-dai-hon-12' })).status, 400);
+  assert.equal((await a('PUT', '/api/delete-passcode', MA)).status, 204);
+  const g = await a('GET', '/api/delete-passcode');
+  assert.equal(g.json.set, true); assert.ok(!JSON.stringify(g.json).includes('scrypt'), 'không lộ mã băm');
+  // sai mã hoặc thiếu mã: 403, dữ liệu còn nguyên
+  for (const [c, url] of [[e, '/api/transactions/smoke1'], [e, '/api/projects/mx-p'], [e, '/api/sample'], [a, '/api/users/tam']]) {
+    const r = await c('DELETE', url, { passcode: 'sai-ma' });
+    assert.equal(r.status, 403, url); assert.equal(r.json.error, 'Mã xóa không đúng.');
+  }
+  assert.equal((await a('DELETE', '/api/users/tam')).status, 403, 'thiếu mã');
+  d = (await a('GET', '/api/data')).json;
+  assert.ok(d.transactions.some(t => t.id === 'smoke1') && d.projects.some(p => p.id === 'mx-p') && d.transactions.some(t => t.sample));
+  assert.ok((await a('GET', '/api/users')).json.some(u => u.username === 'tam'));
+  // đúng mã: xóa được
+  assert.equal((await e('DELETE', '/api/transactions/smoke1', MA)).status, 204);
+  assert.equal((await e('DELETE', '/api/projects/mx-p', MA)).status, 204);
+  assert.equal((await a('DELETE', '/api/users/tam', MA)).status, 204);
+  d = (await a('GET', '/api/data')).json;
+  assert.ok(!d.transactions.some(t => t.id === 'smoke1') && !d.projects.some(p => p.id === 'mx-p'));
+  assert.ok(!(await a('GET', '/api/users')).json.some(u => u.username === 'tam'));
+  // vẫn giữ các chặn khác dù đúng mã
+  assert.equal((await a('DELETE', '/api/users/admin', MA)).status, 400, 'không tự xóa mình');
 });
 check('đổi mật khẩu, khóa tài khoản thì phiên cũ hết hiệu lực', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
@@ -94,12 +136,12 @@ check('không xóa được dự án còn giao dịch, dữ liệu còn nguyên'
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
   const before = (await a('GET', '/api/data')).json, n = before.transactions.filter(t => t.projectId === 'da02').length;
   assert.ok(n > 0);
-  const r = await a('DELETE', '/api/projects/da02');
-  assert.equal(r.status, 409); assert.match(r.json.error, new RegExp(`Dự án còn ${n} giao dịch`));
+  const r = await a('DELETE', '/api/projects/da02', MA);
+  assert.equal(r.status, 409, 'ràng buộc dữ liệu vẫn chặn dù mã đúng'); assert.match(r.json.error, new RegExp(`Dự án còn ${n} giao dịch`));
   const after = (await a('GET', '/api/data')).json;
   assert.ok(after.projects.some(p => p.id === 'da02'));
   assert.equal(after.transactions.length, before.transactions.length);
-  assert.equal((await a('DELETE', '/api/projects/trong')).status, 204, 'dự án không có giao dịch thì xóa được');
+  assert.equal((await a('DELETE', '/api/projects/trong', MA)).status, 204, 'dự án không có giao dịch thì xóa được');
 });
 check('chuyển dữ liệu cũ: mỗi dự án ví dụ có đúng một HĐ gốc VAT tạm tính', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
@@ -153,15 +195,7 @@ check('xóa dòng hợp đồng phải nhập mã xóa', async () => {
   assert.equal((await a('POST', '/api/users', { username: 'xem2', name: 'Xem 2', role: 'viewer', password: 'Xem123456' })).status, 201);
   const v = client(); await v('POST', '/api/login', { username: 'xem2', password: 'Xem123456' });
   assert.equal((await a('DELETE', '/api/contracts/hd1', { passcode: 'gi-cung-duoc' })).status, 409, 'HĐ gốc còn phụ lục');
-  let r = await e('DELETE', '/api/contracts/hd3', { passcode: 'Ma2026' });
-  assert.equal(r.status, 409); assert.equal(r.json.error, 'Quản trị viên chưa đặt mã xóa.');
-  assert.equal((await e('PUT', '/api/delete-passcode', { passcode: 'Ma2026' })).status, 403, 'chỉ quản trị viên đặt mã');
-  assert.equal((await e('GET', '/api/delete-passcode')).status, 403);
-  assert.equal((await a('PUT', '/api/delete-passcode', { passcode: 'abc' })).status, 400);
-  assert.equal((await a('PUT', '/api/delete-passcode', { passcode: 'Ma2026' })).status, 204);
-  r = await a('GET', '/api/delete-passcode');
-  assert.equal(r.json.set, true); assert.ok(!JSON.stringify(r.json).includes('scrypt'), 'không lộ mã băm');
-  r = await e('DELETE', '/api/contracts/hd3', { passcode: 'sai-ma' });
+  let r = await e('DELETE', '/api/contracts/hd3', { passcode: 'sai-ma' });
   assert.equal(r.status, 403); assert.equal(r.json.error, 'Mã xóa không đúng.');
   assert.equal((await v('DELETE', '/api/contracts/hd3', { passcode: 'Ma2026' })).status, 403, 'Chỉ xem không xóa được');
   assert.ok((await a('GET', '/api/data')).json.contracts.some(c => c.id === 'hd3'), 'còn nguyên sau khi bị từ chối');
@@ -174,10 +208,10 @@ check('xóa dòng hợp đồng phải nhập mã xóa', async () => {
 });
 check('không xóa được dự án còn hợp đồng', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
-  const r = await a('DELETE', '/api/projects/hd-p');
+  const r = await a('DELETE', '/api/projects/hd-p', MA);
   assert.equal(r.status, 409); assert.match(r.json.error, /2 dòng hợp đồng/);
   assert.ok((await a('GET', '/api/data')).json.projects.some(p => p.id === 'hd-p'));
-  assert.equal((await a('DELETE', '/api/projects/hd-q')).status, 204);
+  assert.equal((await a('DELETE', '/api/projects/hd-q', MA)).status, 204);
 });
 check('sửa giao dịch / dự án ví dụ thì không còn là dữ liệu ví dụ', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
@@ -195,7 +229,7 @@ check('xóa dữ liệu ví dụ giữ lại dự án ví dụ đang có giao d�
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
   assert.equal((await a('PUT', '/api/transactions/that1', { projectId: 'da01', type: 'out', date: '2026-10-03', amount: 2500000, category: 'Vật tư', note: 'giao dịch thật' })).status, 204);
   assert.equal((await a('PUT', '/api/projects/rieng', { name: 'Dự án riêng', code: 'R-01', contractValue: 0, budget: 0 })).status, 204);
-  assert.equal((await a('DELETE', '/api/sample')).status, 204);
+  assert.equal((await a('DELETE', '/api/sample', MA)).status, 204);
   const d = (await a('GET', '/api/data')).json;
   assert.ok(!d.transactions.some(t => t.sample), 'giao dịch ví dụ phải bị xóa');
   assert.ok(!d.projects.some(p => p.sample), 'không còn dự án mang cờ ví dụ');
