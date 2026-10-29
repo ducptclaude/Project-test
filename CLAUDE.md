@@ -5,7 +5,7 @@
 ## Kiến trúc
 - `server.js`: máy chủ Express. Lưu dữ liệu vào PostgreSQL (bảng `records(col, id, data jsonb)`) khi có `DATABASE_URL`, nếu không thì vào `DATA_DIR/db.json`. Các collection: `projects`, `transactions`, `contracts` (hợp đồng với CĐT), `acceptances` (nghiệm thu, quyết toán), `loans` (vay, trả nợ gốc) — ba collection này có đường dẫn API riêng, `users`, `meta`.
 - `auth.js`: trang `/login`, phiên cookie ký HMAC, vai trò `viewer` < `editor` < `admin`, API quản lý tài khoản.
-- `public/index.html`: toàn bộ giao diện ứng dụng (HTML + CSS + JS thuần trong một file).
+- `public/index.html`: toàn bộ giao diện ứng dụng (HTML + CSS + JS thuần trong một file). Hai khu: **Báo cáo** (chỉ xem) và **Nhập liệu** (Dự án · Doanh thu · Chi phí), xem mục "Nhập liệu và Báo cáo".
 - `public/login.html`: trang đăng nhập hai cột. Logo tùy chọn ở `public/brand/logo.png`.
 - `sample.js`: dữ liệu ví dụ nạp ở lần chạy đầu; `makeSample.rich()` dựng dự án mẫu đầy đủ **DA-M01** (HĐ gốc + phụ lục có VAT / tạm tính / âm, khoản thu gắn hợp đồng và ngoài hợp đồng, khoản chi có đối tác, hóa đơn). Mọi id tiền tố `mau-`, cờ `sample` (xóa được bằng "Xóa dữ liệu ví dụ"), người nhập "Dữ liệu mẫu".
 - `deploy/reset.json`: `token` / `scope` / `productionAccountsToken` (khởi tạo lại tài khoản), và `sampleToken`: token mới thì khi khởi động ở môi trường **không phải production** máy chủ **thêm / cập nhật** dự án mẫu DA-M01 đúng một lần (meta `sampleSeed`): chỉ ghi bản ghi `mau-` chưa có hoặc còn cờ `sample`; bản ghi `mau-` người dùng đã sửa (mất cờ `sample`) được **giữ nguyên**; bản mẫu trỏ tới dự án / hợp đồng không còn thì bỏ; không xóa, không đụng dữ liệu khác. Cơ sở dữ liệu mới (không phải production) cũng tự có DA-M01.
@@ -57,14 +57,16 @@
 6. **Lợi nhuận** = Doanh thu ghi nhận − Chi phí (cùng theo nút). Lợi nhuận kế hoạch / dự báo = HĐ (đã QT thì QT) trước VAT − ngân sách.
 7. **Tiền về vượt hợp đồng**: tiền về (sau VAT) > giá trị HĐ (hoặc QT) sau VAT → dòng "TIỀN VỀ VƯỢT HỢP ĐỒNG" trong Cần chú ý, chip ở dự án; khi lưu chỉ **cảnh báo, không chặn**. Còn phải thu = max(0, HĐ hoặc QT sau VAT − Tiền về).
 - Ràng buộc xóa (kiểm trước mã xóa): hợp đồng còn nghiệm thu gắn vào, HĐ gốc khi đã quyết toán, dự án còn nghiệm thu / quyết toán → 409. Xóa nghiệm thu / quyết toán cần quyền Nhập liệu trở lên và mã xóa.
-- Menu "Doanh thu" đổi thành **"Tiền về"** (view vẫn tên `revenue`).
+- Tiền về nằm ở Nhập liệu › Doanh thu › tab Tiền về (view vẫn tên `revenue`).
 - Làm sau: gắn khoản tiền về vào từng đợt nghiệm thu.
 
-### Giao diện nhập liệu trang Tiền về / Chi phí
-- Khối nhập "Ghi tiền về" / "Ghi chi phí" **ẩn mặc định**, mở bằng nút thêm mới (đầu trang, có nút Đóng ×, Esc để đóng). Lưu xong giữ khối mở; đóng khi đang gõ thì giữ giá trị tới khi tải lại trang (`S.entryDraft`).
-- Nút thêm mới **tách đôi** (`#addsplit`): phần chính theo trang (Tiền về "+ Ghi tiền về", Chi phí "+ Ghi chi phí", Chi tiết dự án "+ Tiền về", trang khác "+ Thêm mới" mở menu); phần ▾ mở menu Tiền về / Chi phí / Dự án (phím mũi tên, Enter, Esc). Người chỉ xem không thấy cụm này. Điện thoại: nút + thanh dưới mở cùng menu dạng bảng trượt.
-- **Một bộ lọc dự án chung** (`#ledger-proj`, `S.ledgerProject`) cho cả trang Tiền về / Chi phí: thẻ tổng, các panel và cây cùng theo bộ lọc.
-- Trang Tiền về có cây **Tiền về theo hợp đồng CĐT**: (Dự án khi xem nhiều dự án) → nhóm hợp đồng (+ "Ngoài hợp đồng / chưa gắn") → khoản. Số chính sau VAT, kèm trước VAT · VAT; mặc định thu gọn, trạng thái mở nhớ trong phiên (`sessionStorage stc:revOpen`).
+### Nhập liệu và Báo cáo (người dùng đã chốt)
+- Thanh bên: nhóm **BÁO CÁO** gồm *Báo cáo* (dashboard, view `overview`), *Báo cáo dự án* (`project`), *Sổ giao dịch* (`journal`); nhóm **NHẬP LIỆU ▸** gồm đúng 3 mục *Dự án* (`projects-entry`), *Doanh thu* (`revenue`), *Chi phí* (`expense`). Nhóm Nhập liệu mở / đóng nhớ theo trình duyệt; thanh bên thu gọn thì hiện menu bay ra. Người **Chỉ xem** không thấy nhóm Nhập liệu (vào đường dẫn Nhập liệu thì về Báo cáo). Điện thoại: thanh dưới Báo cáo · Dự án · Sổ giao dịch · Nhập liệu (bảng trượt 3 mục).
+- **Báo cáo chỉ để xem**: không có nút thêm / sửa / xóa (`data-act` new-/edit-/del-), không có nút tách đôi, không có nút Xóa dữ liệu ví dụ (nằm ở Nhập liệu › Dự án). Báo cáo dự án có lối tắt "Sửa trong Nhập liệu →" và "Nhập liệu cho dự án này ▾". **Sổ giao dịch** chỉ xem, tìm, lọc, xuất CSV; mỗi dòng có "Mở trong Nhập liệu →" (chuyển sang Doanh thu › Tiền về hoặc Chi phí › Thực chi và mở hộp sửa, xóa trong hộp đó, cần mã xóa); người chỉ xem không có nút này.
+- Tab: Doanh thu = **HĐ chủ đầu tư** (hợp đồng, phụ lục, nghiệm thu, quyết toán) · **Tiền về**; Chi phí = **Kế hoạch** · **Thực chi** · **Vay & trả gốc** (sẽ thêm HĐ đầu vào). Một bộ lọc dự án chung (`S.ledgerProject`, nhớ theo trình duyệt); tab cần một dự án (HĐ CĐT, Kế hoạch, Vay) khi xem "Tất cả dự án" thì hiện bảng tóm tắt để chọn. Đường dẫn ghi vào `location.hash` (`#bao-cao`, `#bao-cao/du-an`, `#so-giao-dich`, `#nhap/du-an`, `#nhap/doanh-thu/hd-cdt|tien-ve`, `#nhap/chi-phi/ke-hoach|thuc-chi|vay`).
+- **Dự án** bắt buộc mã, tên, **chủ đầu tư** (`client`); mã không trùng (không phân biệt hoa thường, bỏ khoảng trắng): máy chủ trả 400 "Nhập chủ đầu tư." / 409 "Mã dự án đã tồn tại." cả khi tạo và khi sửa. Phụ trách, ngày, trạng thái ở "Thông tin thêm". Form không còn ô ngân sách; không gửi `budget` / `budgetPlan` thì máy chủ giữ giá trị đang có.
+- **Màu theo phía**: doanh thu / tiền về **teal**, chi phí **cam**, dự án **navy**. Nút tách đôi chỉ hiện trong Nhập liệu, nút chính theo trang / tab (Doanh thu "+ Ghi tiền về" / "+ Hợp đồng CĐT" nền teal `#0B6E6C`; Chi phí "+ Ghi chi phí" / "+ Vay / trả gốc" nền cam `#C2410C`; Dự án "+ Dự án" nền navy). Menu ▾ chia nhóm DOANH THU / CHI PHÍ / DỰ ÁN có vạch màu, đánh dấu "Đang ở đây". Đầu trang Nhập liệu có dải màu và icon ↗ / ↙. Chữ trắng trên nền nút đạt AA (teal 6,07:1, cam 5,18:1, navy 13:1).
+- Khối nhập (Tiền về, Chi phí, Dự án) **ẩn mặc định**, mở bằng nút thêm mới (nút Đóng ×, Esc); lưu xong giữ khối mở; đóng khi đang gõ thì giữ giá trị tới khi tải lại trang (`S.entryDraft`). Trang Tiền về có cây **Tiền về theo hợp đồng CĐT** (số chính sau VAT, kèm trước VAT · VAT; mặc định thu gọn, nhớ trong phiên).
 
 ### Chi phí 3 khối và tiền vay (người dùng đã chốt)
 - Khoản chi có `group` + `category` (danh mục cố định, máy chủ kiểm tra hạng mục thuộc đúng khối, sai → 400):
@@ -76,6 +78,11 @@
 - Trang Chi phí dạng cây Khối → Hạng mục → Khoản chi (tổng, tỷ trọng %, Mở tất cả / Thu gọn tất cả, dòng Tổng cộng); tổng khối theo nút VAT.
 - **Tiền vay / trả nợ gốc** (`loans`: `kind` vay|tragoc, ngày, số tiền nguyên đồng không VAT, bên cho vay, số khế ước): **không phải chi phí**, không vào doanh thu, lợi nhuận, Tiền về, Thực chi, Còn lại. **Dư nợ vay = vay − trả gốc** (không được âm: trả gốc vượt → 400; xóa khoản vay làm dư nợ âm → 409). **Số dư tiền = Còn lại + Dư nợ vay**. Không xóa dự án còn khoản vay. Xóa cần mã xóa.
 - **Lãi vay là chi phí**: nhập như khoản chi ở Tài chính → "Lãi vay, phạt".
+
+### Chi phí kế hoạch theo hạng mục (người dùng đã chốt)
+- Dự án có `budgetPlan` `{"group|category": đồng, unallocated: đồng}` (khóa theo danh mục cố định của 3 khối, `unallocated` = "Chưa phân bổ"); máy chủ kiểm khóa hợp lệ, số nguyên ≥ 0 (sai → 400). Có `budgetPlan` thì **ngân sách `budget` = Σ budgetPlan** do máy chủ tính (bỏ qua `budget` gửi lên); `budgetPlanBy / budgetPlanByName / budgetPlanAt` do máy chủ ghi.
+- Dữ liệu cũ không chuyển tự động: dự án chưa có `budgetPlan` vẫn dùng `budget` cũ; tab Kế hoạch hiện sẵn dòng **Chưa phân bổ = ngân sách cũ**, lưu lần đầu mới ghi `budgetPlan` (tổng không đổi nếu không sửa). Chưa phân bổ khác 0 → chip vàng "Còn x chưa phân bổ".
+- So với **thực chi trước VAT lũy kế** (không theo kỳ, không đổi theo nút VAT): cột Thực chi · Còn lại · % đã dùng (vượt đỏ, > 90% vàng); hạng mục có thực chi mà kế hoạch 0 → "Ngoài kế hoạch". Cảnh báo "VƯỢT KẾ HOẠCH HẠNG MỤC" (nhẹ hơn vượt ngân sách, tối đa 3 hạng mục + "n hạng mục khác"). Báo cáo dự án có bảng Kế hoạch – Thực chi – Còn lại theo 3 khối (tỷ, dòng Tổng cộng).
 
 ## Môi trường và nhánh
 - `main` → Railway **production** (số liệu thật). `staging` → Railway **staging** (dữ liệu thử).

@@ -488,6 +488,41 @@ async function txProblem(data) {
   return null;
 }
 
+// Dự án (xem CLAUDE.md "Nhập liệu và Báo cáo", "Chi phí kế hoạch theo hạng mục"):
+// - bắt buộc mã dự án, tên, chủ đầu tư (client); mã không trùng (không phân biệt hoa thường, bỏ khoảng trắng đầu cuối);
+// - budgetPlan {"group|category": đồng, unallocated: đồng}: khóa theo danh mục cố định, số nguyên ≥ 0; có budgetPlan thì
+//   budget = Σ budgetPlan (máy chủ tính, bỏ qua budget gửi lên); người lưu kế hoạch / thời điểm do máy chủ ghi;
+// - không gửi budgetPlan / budget thì giữ giá trị đang có (form thông tin dự án không còn ô ngân sách).
+const PLAN_KEYS = new Set(['unallocated', ...Object.entries(COST_GROUPS).flatMap(([g, cs]) => cs.map(c => g + '|' + c))]);
+async function projectProblem(id, data, user) {
+  for (const k of ['code', 'client', 'manager', 'status', 'start', 'end'])
+    if (data[k] != null && typeof data[k] !== 'string') return [400, 'Dữ liệu không hợp lệ'];
+  data.name = data.name.trim();
+  data.code = String(data.code || '').trim(); data.client = String(data.client || '').trim();
+  if (!data.code) return [400, 'Nhập mã dự án.'];
+  if (data.code.length > 30 || data.name.length > 200 || data.client.length > 200) return [400, 'Dữ liệu quá dài.'];
+  if (!data.client) return [400, 'Nhập chủ đầu tư.'];
+  const all = await store.all('projects'), key = data.code.toLowerCase();
+  if (all.some(p => p.id !== id && String(p.code || '').trim().toLowerCase() === key)) return [409, 'Mã dự án đã tồn tại.'];
+  const old = all.find(p => p.id === id);
+  for (const k of ['budgetPlanBy', 'budgetPlanByName', 'budgetPlanAt']) delete data[k];
+  if (data.budgetPlan === undefined && old?.budgetPlan) {
+    data.budgetPlan = old.budgetPlan;
+    for (const k of ['budgetPlanBy', 'budgetPlanByName', 'budgetPlanAt']) if (old[k] !== undefined) data[k] = old[k];
+  } else if (data.budgetPlan != null) {
+    const bp = data.budgetPlan;
+    if (typeof bp !== 'object' || Array.isArray(bp)) return [400, 'Kế hoạch chi phí không hợp lệ.'];
+    for (const [k, v] of Object.entries(bp)) {
+      if (!PLAN_KEYS.has(k)) return [400, `Hạng mục kế hoạch không hợp lệ: ${k}`];
+      if (!(Number.isInteger(v) && v >= 0)) return [400, 'Kế hoạch mỗi hạng mục phải là số nguyên đồng, không âm.'];
+    }
+    Object.assign(data, { budgetPlanBy: user.id, budgetPlanByName: user.name || user.id, budgetPlanAt: new Date().toISOString() });
+  } else delete data.budgetPlan;
+  if (data.budgetPlan) data.budget = Object.values(data.budgetPlan).reduce((a, v) => a + v, 0);
+  else if (data.budget === undefined && old) data.budget = +old.budget || 0;
+  return null;
+}
+
 app.put('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (!check(req, res)) return;
   if (!valid(req.params.col, req.body)) return res.status(400).json({ error: 'Dữ liệu không hợp lệ' });
@@ -496,6 +531,10 @@ app.put('/api/:col/:id', canWrite, wrap(async (req, res) => {
   // Giao dịch luôn thuộc một dự án đang tồn tại
   if (req.params.col === 'transactions' && !(ID_RE.test(req.body.projectId) && await store.get('projects', req.body.projectId)))
     return res.status(400).json({ error: 'Dự án không tồn tại.' });
+  if (req.params.col === 'projects') {
+    const bad = await projectProblem(req.params.id, data, req.user);
+    if (bad) return res.status(bad[0]).json({ error: bad[1] });
+  }
   if (req.params.col === 'transactions') {
     const old = await store.get('transactions', req.params.id);
     if (old && old.type !== data.type) return res.status(400).json({ error: 'Không đổi được loại thu/chi của khoản đã ghi.' });

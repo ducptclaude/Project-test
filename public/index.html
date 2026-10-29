@@ -236,17 +236,29 @@ tbody tr.link:hover{background:var(--sunk)}
 .e-dot.in{background:var(--rev)} .e-dot.out{background:var(--exp)}
 /* Nút thêm mới dạng tách đôi: nền Navy → Teal đậm (chữ trắng ≥ 4.5:1 ở cả hai chế độ) */
 .addsplit{position:relative;display:inline-flex;border-radius:12px;box-shadow:0 6px 16px rgba(18,90,120,.22)}
-.addsplit>button{border:0;color:#FFFFFF;background:linear-gradient(90deg,#16305C 0%,#15507A 60%,#0B6E6C 100%);font:inherit;font-weight:700;font-size:14px;min-height:44px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
-.addsplit .as-main{padding:0 14px 0 14px;border-radius:12px 0 0 12px;background-size:140% 100%;background-position:0 0}
-.addsplit .as-more{padding:0 12px;border-radius:0 12px 12px 0;border-left:1px solid rgba(255,255,255,.35);background:#0B6E6C}
+.addsplit{--as-bg:#16305C;--as-more:#0F2547}
+.addsplit.rev{--as-bg:#0B6E6C;--as-more:#085654}
+.addsplit.exp{--as-bg:#C2410C;--as-more:#9A3412}
+.addsplit>button{border:0;color:#FFFFFF;background:var(--as-bg);font:inherit;font-weight:700;font-size:14px;min-height:44px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.addsplit .as-main{padding:0 14px 0 14px;border-radius:12px 0 0 12px}
+.addsplit .as-more{padding:0 12px;border-radius:0 12px 12px 0;border-left:1px solid rgba(255,255,255,.35);background:var(--as-more)}
 .addsplit>button:hover{filter:brightness(1.1)}
 .addsplit>button:disabled{opacity:.55;cursor:not-allowed}
 .add-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:20;display:flex;flex-direction:column;gap:2px;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px rgba(8,22,50,.25);min-width:280px}
 .add-menu button{display:flex;align-items:center;gap:12px;border:0;background:transparent;font:inherit;text-align:left;padding:10px 12px;border-radius:10px;cursor:pointer;color:var(--ink);min-height:52px}
-.add-menu button:hover,.add-menu button:focus{background:var(--sunk)}
+.add-menu button:hover,.add-menu button:focus-visible{background:var(--sunk)}
+.add-menu button:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+.add-menu:focus{outline:none}
+.am-g{display:flex;flex-direction:column;gap:2px;border-left:3px solid var(--am-c);padding-left:4px;margin:2px 0}
+.am-g.rev{--am-c:var(--rev)} .am-g.exp{--am-c:var(--exp)} .am-g.pj{--am-c:var(--navy)}
+:root[data-theme="dark"] .am-g.pj{--am-c:var(--accent)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .am-g.pj{--am-c:var(--accent)}}
+.am-h{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 12px 2px}
+.add-menu .here{margin-left:8px;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--sunk);color:var(--muted);letter-spacing:0}
+.add-menu button[aria-current="true"]{background:color-mix(in srgb,var(--sunk) 60%,transparent)}
 .add-menu button:disabled{opacity:.5;cursor:not-allowed}
 .add-menu .ai{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center}
-.add-menu .ai.in{background:var(--rev-soft);color:var(--rev-ink)} .add-menu .ai.out{background:var(--exp-soft);color:var(--exp-ink)} .add-menu .ai.pj{background:var(--accent-soft);color:var(--accent)}
+.add-menu .ai.in,.add-menu .ai.rev{background:var(--rev-soft);color:var(--rev-ink)} .add-menu .ai.out,.add-menu .ai.exp{background:var(--exp-soft);color:var(--exp-ink)} .add-menu .ai.pj{background:var(--accent-soft);color:var(--accent)}
 .add-menu b{display:flex;align-items:center;gap:6px;font-size:14.5px}
 .add-menu small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:2px}
 /* Điện thoại: cùng menu, dạng bảng trượt từ dưới lên */
@@ -470,7 +482,7 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
   .controls{width:100%}
   .period{flex:1}
   .period select{flex:1;min-width:0}
-  .addsplit{display:none}
+  .addsplit{width:100%}.addsplit .as-main{flex:1;justify-content:center}
   .presets{flex:1 1 100%}
   .pp{flex:1;padding:0 8px;font-size:12.5px}
   .period{flex:1 1 100%}
@@ -490,11 +502,92 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
   .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--surface);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
   .tb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:none;font-size:11px;font-weight:700;color:var(--muted);min-height:50px;cursor:pointer}
   .tb[aria-current="page"]{color:var(--accent)}
-  .tb-new{flex:none;width:58px;height:58px;margin:-24px 6px 0;border-radius:50%;border:0;color:#FFFFFF;background:var(--grad-card);box-shadow:0 10px 22px rgba(18,120,150,.35);display:grid;place-items:center;cursor:pointer}
-  .tb-new:disabled{opacity:.5}
+  .tb[aria-expanded="true"]{color:var(--accent)}
   .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
 }
 @media (prefers-reduced-motion:no-preference){.nav,.btn,.pitem,.pcard,.tb{transition:background .15s,border-color .15s,box-shadow .15s,color .15s}.side{transition:width .2s ease}.side-in{transition:padding .2s ease}.side-toggle svg{transition:transform .2s}}
+
+/* thanh bên: nhóm BÁO CÁO / NHẬP LIỆU; thanh bên thu gọn thì Nhập liệu mở menu bay ra */
+.nav-h{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.62);padding:10px 14px 4px}
+.nav-grp{position:relative;display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.nav-toggle .chev{margin-left:auto;transition:transform .15s}
+.nav-grp.open .nav-toggle .chev{transform:rotate(90deg)}
+.nav-sub{display:none;flex-direction:column;gap:4px;padding-left:14px}
+.nav-grp.open .nav-sub{display:flex}
+.nav-fly-h{display:none}
+.nav.nav-rev[aria-current="page"]{box-shadow:inset 3px 0 0 #5EEAD4}
+.nav.nav-exp[aria-current="page"]{box-shadow:inset 3px 0 0 #FDBA74}
+.nav:focus-visible{outline:2px solid #FFFFFF;outline-offset:-2px}
+@media (min-width:761px){
+  .app.slim .nav-h{font-size:0;padding:6px 0 0;border-top:1px solid rgba(255,255,255,.18);margin:4px 8px 0}
+  .app.slim .nav-toggle .chev{display:none}
+  .app.slim .nav-grp .nav-sub{display:none;position:absolute;left:calc(100% + 12px);top:-8px;width:220px;padding:8px;border-radius:14px;background:var(--grad-side);box-shadow:0 16px 36px rgba(8,22,50,.35);z-index:30}
+  .app.slim .nav-grp .nav-sub::before{content:"";position:absolute;left:-14px;top:0;bottom:0;width:14px}
+  .app.slim .nav-grp:hover .nav-sub,.app.slim .nav-grp.fly .nav-sub,.app.slim .nav-grp:focus-within .nav-sub{display:flex}
+  .app.slim .nav-sub .nav{justify-content:flex-start;padding-inline:12px}
+  .app.slim .nav-sub .nav .lbl{display:inline}
+  .app.slim .nav-fly-h{display:block;font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.7);padding:4px 12px 6px}
+}
+/* đầu trang Nhập liệu: dải màu theo phía và icon cạnh tiêu đề */
+.page-head{position:relative}
+.page-head[data-side="rev"],.page-head[data-side="exp"],.page-head[data-side="pj"]{padding-top:12px}
+.page-head[data-side="rev"]::before,.page-head[data-side="exp"]::before,.page-head[data-side="pj"]::before{content:"";position:absolute;left:0;top:0;width:min(220px,40%);height:4px;border-radius:4px;background:var(--side-c)}
+.page-head[data-side="rev"]{--side-c:var(--rev)} .page-head[data-side="exp"]{--side-c:var(--exp)} .page-head[data-side="pj"]{--side-c:var(--accent)}
+.ph-ico:empty{display:none}
+.ph-ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none}
+.ph-ico.rev{background:var(--rev-soft);color:var(--rev-ink)} .ph-ico.exp{background:var(--exp-soft);color:var(--exp-ink)}
+/* tab Nhập liệu */
+.entry-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px;min-width:0}
+.entry-top>*{min-width:0;max-width:100%}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line);min-width:0}
+.tabs .tab{border:0;background:none;font:inherit;font-weight:700;font-size:14px;color:var(--muted);padding:10px 14px;min-height:44px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+.tabs .tab:hover{color:var(--ink)}
+.tabs.rev .tab[aria-selected="true"]{color:var(--rev-ink);border-bottom-color:var(--rev)}
+.tabs.exp .tab[aria-selected="true"]{color:var(--exp-ink);border-bottom-color:var(--exp)}
+.tabs .tab:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+.hint-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding:10px 14px;border-radius:12px;background:var(--accent-soft);color:var(--ink);font-size:13px}
+.entry.pj .e-icon{background:var(--accent-soft);color:var(--accent)}
+.entry details.more summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--accent);min-height:32px;display:flex;align-items:center}
+.pjtbl tr.sel td{background:var(--accent-soft)}
+/* menu "Nhập liệu cho dự án này" ở Báo cáo dự án */
+details.dd{position:relative}
+details.dd>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+details.dd>summary::-webkit-details-marker{display:none}
+.dd-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:15;display:flex;flex-direction:column;min-width:250px;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 16px 36px rgba(8,22,50,.22)}
+.dd-menu button{border:0;background:none;font:inherit;font-weight:600;text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;color:var(--ink);min-height:40px}
+.dd-menu button:hover,.dd-menu button:focus-visible{background:var(--sunk)}
+/* bảng kế hoạch chi phí */
+.pl-tbl{display:flex;flex-direction:column}
+.pl-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(130px,170px) minmax(110px,150px) minmax(110px,150px) minmax(120px,170px);gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--line);font-size:13.5px}
+.pl-row>.num,.pl-row .r{text-align:right}
+.pl-h{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pl-g{background:var(--sunk);border-radius:8px;font-weight:700;margin-top:8px}
+.pl-row:not(.pl-g):not(.pl-h):not(.pl-total):not(.pl-un) .pl-name{padding-left:22px}
+.pl-name{min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pl-name small{flex-basis:100%;font-size:11.5px}
+.pl-in input{width:100%;text-align:right}
+.pl-in{text-align:right}
+.pl-un{margin-top:8px}
+.pl-total{font-weight:800;border-top:2px solid var(--ink);border-bottom:0}
+.pl-pct{display:flex;align-items:center;gap:8px}
+.pl-pct .meter{flex:1;height:8px}
+.pl-pct b{font-size:12.5px;min-width:46px;text-align:right}
+.pl-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.plsum td:last-child{min-width:160px}
+.panel-head .link-btn{white-space:nowrap}
+@media (max-width:760px){
+  .pl-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"name name" "in in" "act left" "pct pct";row-gap:6px}
+  .pl-row>:nth-child(1){grid-area:name}.pl-row>:nth-child(2){grid-area:in}.pl-row>:nth-child(3){grid-area:act;text-align:left}.pl-row>:nth-child(4){grid-area:left}.pl-row>:nth-child(5){grid-area:pct}
+  .pl-h{display:none}
+  .pl-row .pl-act::before{content:"Thực chi ";font-weight:500;color:var(--muted);font-size:12px}
+  .pl-row [data-left]::before{content:"Còn lại ";font-weight:500;color:var(--muted);font-size:12px}
+  .pl-un .pl-act::before{content:none}
+  .pl-row:not(.pl-g):not(.pl-h):not(.pl-total):not(.pl-un) .pl-name{padding-left:0}
+  .entry-top{flex-direction:column;align-items:stretch}
+  .tabs{overflow-x:auto;flex-wrap:nowrap}
+  .tabs .tab{white-space:nowrap;padding-inline:10px}
+  .dd-menu{right:auto;left:0}
+}
 </style>
 </head>
 <body>
@@ -508,11 +601,19 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
       <span class="side-title"><b id="b-name">Sổ Tài Chính Dự Án</b><small id="b-org">Quản lý tài chính dự án</small></span>
     </div>
     <nav class="side-nav" aria-label="Điều hướng chính">
-      <button class="nav" data-view="overview" title="Tổng quan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="lbl">Tổng quan</span></button>
-      <button class="nav" data-view="project" title="Dự án"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg><span class="lbl">Dự án</span></button>
-      <button class="nav" data-view="revenue" title="Tiền về"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg><span class="lbl">Tiền về</span></button>
-      <button class="nav" data-view="expense" title="Chi phí"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7L7 17"/><path d="M16 17H7V8"/></svg><span class="lbl">Chi phí</span></button>
+      <span class="nav-h">Báo cáo</span>
+      <button class="nav" data-view="overview" title="Báo cáo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="lbl">Báo cáo</span></button>
+      <button class="nav" data-view="project" title="Báo cáo dự án"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg><span class="lbl">Báo cáo dự án</span></button>
       <button class="nav" data-view="journal" title="Sổ giao dịch"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M9 9v11"/></svg><span class="lbl">Sổ giao dịch</span></button>
+      <div class="nav-grp" id="nav-entry" hidden>
+        <button class="nav nav-toggle" id="nav-entry-btn" aria-expanded="true" aria-controls="nav-sub" title="Nhập liệu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg><span class="lbl">Nhập liệu</span><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        <div class="nav-sub" id="nav-sub">
+          <span class="nav-fly-h">Nhập liệu</span>
+          <button class="nav" data-view="projects-entry" title="Nhập liệu · Dự án"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg><span class="lbl">Dự án</span></button>
+          <button class="nav nav-rev" data-view="revenue" title="Nhập liệu · Doanh thu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg><span class="lbl">Doanh thu</span></button>
+          <button class="nav nav-exp" data-view="expense" title="Nhập liệu · Chi phí"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7L7 17"/><path d="M16 17H7V8"/></svg><span class="lbl">Chi phí</span></button>
+        </div>
+      </div>
     </nav>
     <div class="userbox" id="userbox" hidden>
       <button class="userbtn" id="userbtn" aria-haspopup="menu" aria-expanded="false"><span class="avatar" id="u-avatar"></span><span class="who"><b id="u-name"></b><small id="u-role"></small></span></button>
@@ -527,7 +628,7 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
 
   <div class="content">
     <header class="page-head">
-      <div class="titles"><span class="eyebrow" id="ph-eyebrow"></span><div class="title-row"><h1 id="ph-title">Tổng quan tài chính</h1><span id="ph-badge"></span></div></div>
+      <div class="titles"><span class="eyebrow" id="ph-eyebrow"></span><div class="title-row"><span id="ph-ico" class="ph-ico" aria-hidden="true"></span><h1 id="ph-title">Báo cáo tài chính</h1><span id="ph-badge"></span></div></div>
       <div class="controls">
         <div class="presets" role="group" aria-label="Kỳ báo cáo">
           <button class="pp" data-preset="month">Tháng này</button><button class="pp" data-preset="quarter">Quý này</button><button class="pp" data-preset="year">Năm nay</button><button class="pp" data-preset="all">Tất cả</button><button class="pp" data-preset="custom">Tùy chọn</button>
@@ -546,14 +647,14 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
 </div>
 
 <nav class="tabbar" aria-label="Điều hướng nhanh">
-  <button class="tb" data-view="overview"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Tổng quan</button>
+  <button class="tb" data-view="overview"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Báo cáo</button>
   <button class="tb" data-view="project"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg>Dự án</button>
-  <button class="tb-new" id="tb-new" aria-label="Ghi tiền về hoặc chi phí" aria-haspopup="menu" aria-expanded="false"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
   <button class="tb" data-view="journal"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M9 9v11"/></svg>Sổ giao dịch</button>
+  <button class="tb" id="tb-new" aria-label="Nhập liệu" aria-haspopup="menu" aria-expanded="false" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>Nhập liệu</button>
 </nav>
 
 <div class="sheet-backdrop" id="fab-backdrop" hidden></div>
-<div class="fab-menu add-menu" id="fab-menu" role="menu" aria-label="Thêm mới" hidden></div>
+<div class="fab-menu add-menu" id="fab-menu" role="menu" aria-label="Nhập liệu" hidden></div>
 <dialog id="dlg"><form class="dlg" id="dlg-form" novalidate></form></dialog>
 <dialog id="dlg-code"><form class="dlg" id="code-form" novalidate></form></dialog>
 <div id="toast" class="toast" hidden></div>
@@ -614,7 +715,7 @@ const S = {
   year: store.get('year', String(new Date().getFullYear())), period: store.get('period', 'all'),
   jf: {project: '', type: '', q: ''}, jpage: 0, psort: store.get('psort', 'code'),
   entry: {in: {projectId: null, date: null}, out: {projectId: null, date: null, group: 'direct'}},
-  loans: [], ledgerProject: '', entryOpen: {in: false, out: false}, entryDraft: {},
+  loans: [], ledgerProject: store.get('ledgerProject', ''), tab: {revenue: 'tienve', expense: 'thucchi', ...store.get('tab', {})}, writer: false, pjEdit: null, planDraft: {}, entryOpen: {in: false, out: false, pj: false}, entryDraft: {},
   revOpen: (() => { try { return JSON.parse(sessionStorage.getItem('stc:revOpen')) || null; } catch { return null; } })() || {p: {}, g: {}}, costOpen: (() => { try { return JSON.parse(sessionStorage.getItem('stc:costOpen')) || null; } catch { return null; } })() || {g: {direct: true, indirect: true, finance: true}, c: {}},
   chartMode: store.get('chartMode', 'cum'), mix: store.get('mix', 'out'), custom: false
 };
@@ -825,7 +926,40 @@ const projectName = id => S.projects.find(p => p.id === id)?.name || 'Dự án �
 const sortedProjects = () => [...S.projects].sort((a, b) => (a.code || '').localeCompare(b.code || '', 'vi'));
 
 /* ---------- render ---------- */
-const VIEW_TITLES = {overview: 'Tổng quan tài chính', project: 'Chi tiết dự án', revenue: 'Tiền về', expense: 'Chi phí', journal: 'Sổ giao dịch'};
+const VIEW_TITLES = {overview: 'Báo cáo tài chính', project: 'Báo cáo dự án', journal: 'Sổ giao dịch', 'projects-entry': 'Dự án', revenue: 'Doanh thu', expense: 'Chi phí'};
+/* ---------- Báo cáo (chỉ xem) và Nhập liệu (Dự án · Doanh thu · Chi phí, mỗi mục có tab) ---------- */
+// Báo cáo: overview, project, journal — không có thao tác thêm / sửa / xóa. Nhập liệu: projects-entry, revenue, expense (giữ tên view cũ).
+const ENTRY_VIEWS = ['projects-entry', 'revenue', 'expense'];
+const isEntryView = () => ENTRY_VIEWS.includes(S.view);
+const TABS = {
+  revenue: [['hd', 'HĐ chủ đầu tư', 'hd-cdt'], ['tienve', 'Tiền về', 'tien-ve']],
+  expense: [['kehoach', 'Kế hoạch', 'ke-hoach'], ['thucchi', 'Thực chi', 'thuc-chi'], ['vay', 'Vay & trả gốc', 'vay']]
+};
+// Màu theo phía: doanh thu teal, chi phí cam, dự án navy
+const sideOf = () => S.view === 'revenue' ? 'rev' : S.view === 'expense' ? 'exp' : S.view === 'projects-entry' ? 'pj' : '';
+const ledgerType = () => S.view === 'revenue' && S.tab.revenue === 'tienve' ? 'in' : S.view === 'expense' && S.tab.expense === 'thucchi' ? 'out' : null;
+// Đường dẫn: #bao-cao, #bao-cao/du-an, #so-giao-dich, #nhap/du-an, #nhap/doanh-thu/tien-ve, #nhap/chi-phi/ke-hoach…
+const HASHES = {overview: 'bao-cao', project: 'bao-cao/du-an', journal: 'so-giao-dich', 'projects-entry': 'nhap/du-an'};
+function viewHash() {
+  if (S.view === 'revenue' || S.view === 'expense') return `nhap/${S.view === 'revenue' ? 'doanh-thu' : 'chi-phi'}/${TABS[S.view].find(t => t[0] === S.tab[S.view])[2]}`;
+  return HASHES[S.view] || 'bao-cao';
+}
+function readHash() {
+  const h = decodeURIComponent(location.hash.replace(/^#/, '')); if (!h) return false;
+  const v = Object.keys(HASHES).find(k => HASHES[k] === h);
+  if (v) { S.view = v; return true; }
+  const m = /^nhap\/(doanh-thu|chi-phi)(?:\/([\w-]+))?$/.exec(h); if (!m) return false;
+  S.view = m[1] === 'doanh-thu' ? 'revenue' : 'expense';
+  const t = TABS[S.view].find(x => x[2] === m[2]); if (t) S.tab[S.view] = t[0];
+  return true;
+}
+function go(view, tab) {
+  S.view = view; if (tab) S.tab[view] = tab;
+  store.set('view', S.view); store.set('tab', S.tab); render(); window.scrollTo({top: 0});
+}
+// Vẽ một phần báo cáo ở chế độ chỉ xem (không có nút thêm / sửa / xóa), kể cả với người có quyền nhập liệu
+const asViewer = fn => { const w = S.canWrite; S.canWrite = false; try { return fn(); } finally { S.canWrite = w; } };
+const setTitle = () => { document.title = `${S.envTag || ''}${VIEW_TITLES[S.view] || ''} · ${S.brand || 'Sổ Tài Chính Dự Án'}`; };
 const PAGE_SIZE = 50;
 const PSORTS = {
   code: ['Mã dự án', (a, b) => (a.p.code || '').localeCompare(b.p.code || '', 'vi')],
@@ -834,12 +968,24 @@ const PSORTS = {
   collected: ['Tiền về chậm nhất (so hợp đồng)', (a, b) => a.c - b.c],
   used: ['Dùng ngân sách nhiều nhất', (a, b) => b.h.used - a.h.used]
 };
-const isLedger = () => S.view === 'revenue' || S.view === 'expense';
+const isLedger = () => !!ledgerType();
 function render() {
   if (S.view === 'entry') S.view = 'revenue';
+  if (!VIEW_TITLES[S.view]) S.view = 'overview';
+  if (S.mode !== 'loading' && !S.writer && isEntryView()) S.view = 'overview';   // người chỉ xem không vào Nhập liệu
   EV = null;
+  const isEntry = isEntryView(), side = sideOf();
+  if (S.mode !== 'loading' && location.hash !== '#' + viewHash()) history.replaceState(null, '', '#' + viewHash());
+  setTitle();
+  $('.page-head').dataset.side = side;
+  $('#ph-ico').innerHTML = side === 'rev' ? ICON_IN : side === 'exp' ? ICON_OUT : '';
+  $('#ph-ico').className = 'ph-ico ' + side;
+  $('#tb-new').toggleAttribute('aria-current', isEntry);
+  $('#nav-entry').hidden = !S.writer; $('#tb-new').hidden = !S.writer;
+  if (isEntry) setNavOpen(true, false);
   document.querySelectorAll('[data-view]').forEach(b => b.dataset.view === S.view ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
-  $('#ph-eyebrow').textContent = (S.view === 'overview' ? 'Danh mục dự án · ' : isLedger() ? (S.view === 'revenue' ? 'Thực thu, đã gồm VAT · ' : 'Khoản chi · ') : '') + periodLabel();
+  $('#ph-eyebrow').textContent = S.view === 'projects-entry' ? 'Nhập liệu · mã, tên, chủ đầu tư' : S.view === 'revenue' ? 'Nhập liệu · Hợp đồng chủ đầu tư · Tiền về · ' + periodLabel()
+    : S.view === 'expense' ? 'Nhập liệu · Kế hoạch · Thực chi · Vay & trả gốc · ' + periodLabel() : (S.view === 'overview' ? 'Danh mục dự án · ' : S.view === 'journal' ? 'Chỉ xem, tìm và xuất CSV · ' : '') + periodLabel();
   $('#ph-title').textContent = VIEW_TITLES[S.view];
   renderNotice(); renderFilters();
   document.querySelectorAll('[data-vat]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.vat === S.vatMode)));
@@ -847,18 +993,18 @@ function render() {
   if (S.mode === 'loading') return;
   const main = $('#main');
   snapEntries();
-  main.innerHTML = S.view === 'overview' ? viewOverview() : S.view === 'project' ? viewProject() : isLedger() ? viewLedger(S.view === 'revenue' ? 'in' : 'out') : viewJournal();
+  main.innerHTML = S.view === 'overview' ? asViewer(viewOverview) : S.view === 'project' ? asViewer(viewProject) : isEntry ? viewEntry() : viewJournal();
   if (S.view === 'journal') renderJournalTable();
   if (isLedger()) renderLedgerSide();
-  restoreEntries();
+  restoreEntries(); restorePlan();
   document.querySelectorAll('[data-vatbox]').forEach(b => vatCalc(b.dataset.vatbox));
   drawCharts();
 }
 // Dữ liệu ví dụ: một nhãn nhỏ cạnh tiêu đề thay cho dải thông báo
 function renderNotice() {
   const el = $('#ph-badge'), has = S.mode === 'db' && (S.projects.some(p => p.sample) || S.txs.some(t => t.sample) || S.contracts.some(c => c.sample) || S.acc.some(a => a.sample) || S.loans.some(l => l.sample));
-  el.innerHTML = has ? `<span class="sample-badge">Dữ liệu ví dụ${S.canWrite ? '<button id="btn-clear-sample" title="Xóa toàn bộ dữ liệu ví dụ">Xóa</button>' : ''}</span>` : '';
-  const b = $('#btn-clear-sample'); if (b) b.onclick = clearSample;
+  // Báo cáo chỉ xem: nút Xóa dữ liệu ví dụ nằm ở Nhập liệu › Dự án
+  el.innerHTML = has ? `<span class="sample-badge">Dữ liệu ví dụ</span>` : '';
 }
 
 /* ---------- chọn kỳ ---------- */
@@ -994,7 +1140,7 @@ function chartPanel(id) {
 }
 function emptyState() {
   return `<div class="panel empty"><h2>Chưa có dự án nào</h2><p style="margin:0;max-width:46ch">Tạo dự án đầu tiên với giá trị hợp đồng và ngân sách chi phí, sau đó ghi các khoản thu, chi. Hệ thống tự tính lợi nhuận và biên lợi nhuận cho từng dự án và toàn danh mục.</p>
-    ${S.canWrite ? `<button class="btn primary" data-act="new-project">+ Tạo dự án đầu tiên</button>` : ''}</div>`;
+    ${S.writer ? `<button class="btn primary" data-goto="projects-entry:new">Đi tới Nhập liệu › Dự án →</button>` : '<p class="muted" style="margin:0">Chưa có dữ liệu.</p>'}</div>`;
 }
 const flagChips = h => h.flags.map(([c, l]) => `<span class="chip ${c}">${l}</span>`).join('');
 const marginCell = s => s.rev || s.exp ? (s.profit < 0 ? '<span class="chip bad">Lỗ</span>' : pct(s.margin)) : '—';
@@ -1009,6 +1155,10 @@ function alerts() {
     if (h.all.profit < 0 && h.all.exp > 0) out.push({p, sev: 0, tag: 'ĐANG LỖ', detail: `Chi phí vượt doanh thu ghi nhận ${short(-h.all.profit)}.${cv ? ` Tiền về ${pct(h.all.cashIn / cv)} giá trị ${base} (sau VAT).` : ' Chưa có hợp đồng: thêm HĐ gốc để ghi nhận doanh thu.'}`});
     if (h.used > 1) out.push({p, sev: 0, tag: 'VƯỢT NGÂN SÁCH', detail: `Đã chi ${pct(h.used)} ngân sách (vượt ${short(h.all.expPre - bg)}, theo chi phí trước VAT).`});
     else if (h.used > 0.9) out.push({p, sev: 1, tag: 'SẮP HẾT NGÂN SÁCH', detail: `Đã dùng ${pct(h.used)} ngân sách, còn ${short(bg - h.all.expPre)}.`});
+    // Vượt kế hoạch từng hạng mục (thực chi trước VAT > kế hoạch > 0): nhẹ hơn vượt ngân sách tổng; tối đa 3 hạng mục nặng nhất
+    const po = planOver(p);
+    if (po.length) out.push({p, sev: 1, tag: `VƯỢT KẾ HOẠCH HẠNG MỤC: ${po.slice(0, 3).map(x => `${x.cat} ${pct(x.r)}`).join(' · ')}${po.length > 3 ? ` +${po.length - 3} hạng mục khác` : ''}`,
+      detail: po.slice(0, 3).map(x => `${esc(x.cat)}: thực chi ${short(x.act)} / kế hoạch ${short(x.plan)} (vượt ${short(x.act - x.plan)})`).join('; ') + ' (trước VAT).'});
   }
   return out.sort((a, b) => a.sev - b.sev);
 }
@@ -1088,6 +1238,8 @@ function viewOverview() {
     <div class="grid2">${profitPanel(rows)}${mixPanel(st)}</div>
   </div>`;
 }
+// Báo cáo dự án chỉ xem: mỗi khối có lối tắt sang đúng tab Nhập liệu của dự án (chỉ người có quyền nhập liệu)
+const goLink = (g, p) => S.writer ? `<button type="button" class="link-btn" data-goto="${g}" data-pid="${esc(p.id)}">Sửa trong Nhập liệu →</button>` : '';
 function viewProject() {
   if (!S.projects.length) return emptyState();
   const list = sortedProjects();
@@ -1112,14 +1264,15 @@ function viewProject() {
           <div style="min-width:0">
             <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="chip code num">${esc(p.code)}</span>${statusChip(p.status)}${flagChips(h)}${p.sample ? '<span class="chip">Ví dụ</span>' : ''}</div>
             <h2>${esc(p.name)}</h2>
-            <div class="meta"><span>Khách hàng: <b>${esc(p.client) || '—'}</b></span><span>Phụ trách: <b>${esc(p.manager) || '—'}</b></span><span class="num">${fmtDate(p.start) || '?'} → ${fmtDate(p.end) || '?'}</span></div>
+            <div class="meta"><span>Chủ đầu tư: <b>${esc(p.client) || '—'}</b></span><span>Phụ trách: <b>${esc(p.manager) || '—'}</b></span><span class="num">${fmtDate(p.start) || '?'} → ${fmtDate(p.end) || '?'}</span></div>
           </div>
-          ${S.canWrite ? `<div class="inline" style="flex-wrap:wrap"><button class="btn" data-act="edit-project" data-id="${esc(p.id)}">Sửa dự án</button><button class="btn tin" data-act="new-in" data-id="${esc(p.id)}">+ Tiền về</button><button class="btn tout" data-act="new-out" data-id="${esc(p.id)}">+ Chi</button></div>` : ''}
+          ${S.writer ? `<details class="dd"><summary class="btn">Nhập liệu cho dự án này <span aria-hidden="true">▾</span></summary><div class="dd-menu">
+            ${[['projects-entry:', 'Thông tin dự án'], ['revenue:hd', 'Doanh thu › HĐ chủ đầu tư'], ['revenue:tienve', 'Doanh thu › Tiền về'], ['expense:kehoach', 'Chi phí › Kế hoạch'], ['expense:thucchi', 'Chi phí › Thực chi'], ['expense:vay', 'Chi phí › Vay & trả gốc']].map(([g, l]) => `<button type="button" data-goto="${g}" data-pid="${esc(p.id)}">${l}</button>`).join('')}</div></details>` : ''}
         </div>
       </section>
-      ${contractPanel(p)}
-      ${accPanel(p)}
-      ${loanPanel(p)}
+      ${contractPanel(p, goLink('revenue:hd', p))}
+      ${accPanel(p, goLink('revenue:hd', p))}
+      ${loanPanel(p, goLink('expense:vay', p))}
       <section class="plan" aria-label="Kế hoạch và thực tế">
         <div class="kpi"><span class="lab">Doanh thu ghi nhận <small class="vw">${vatWord()}</small></span>
           <span class="val num" title="${vnd(revShow)}">${short(revShow)}</span>
@@ -1132,14 +1285,11 @@ function viewProject() {
         <div class="kpi"><span class="lab">Còn lại <small class="vw">sau VAT</small></span>
           <span class="val num ${cashLeft < 0 ? 'c-bad' : ''}" title="${vnd(cashLeft)}">${short(cashLeft)}</span>
           <span class="sub">Tiền về <b class="num c-rev" title="${vnd(cashIn)}">${short(cashIn)}</b> − Thực chi <b class="num c-exp" title="${vnd(cashOut)}">${short(cashOut)}</b> (lũy kế)<br>Dư nợ vay <b class="num" title="${vnd(lt.du)}">${short(lt.du)}</b> · Số dư tiền <b class="num ${cashLeft + lt.du < 0 ? 'c-bad' : ''}" title="Còn lại + dư nợ vay: ${vnd(cashLeft + lt.du)}">${short(cashLeft + lt.du)}</b></span></div>
-        <div class="kpi"><span class="lab">Đã chi / ngân sách chi phí (trước VAT)</span>
-          <span class="pair"><span class="val num c-exp" title="${vnd(h.all.expPre)}">${short(h.all.expPre)}</span><span class="num muted" style="font-weight:600">/ ${short(bg)}</span></span>
-          <div class="meter ${h.used > 1 ? 'bad' : h.used > .9 ? 'warn' : 'exp'}"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></div>
-          <span class="sub"><b class="num ${h.used > 1 ? 'c-bad' : ''}">${pct(h.used)}</b> · ${left >= 0 ? `còn ${short(left)}` : `<span class="c-bad">vượt ${short(-left)}</span>`}</span></div>
         <div class="kpi hero"><span class="lab">Lợi nhuận dự báo khi hoàn thành (trước VAT)</span>
           <span class="val num" title="${vnd(forecast)}">${short(forecast)}</span>
           <div class="split"><span>Kế hoạch${rt.nSettled ? ' (QT nếu có)' : ''}<b class="num">${short(rt.pre - bg)} · ${pct(rt.pre ? (rt.pre - bg) / rt.pre : NaN)}</b></span><span>Lũy kế đến nay<b class="num">${short(h.all.profit)} · ${pct(h.all.margin)}</b></span></div></div>
       </section>
+      ${planSummary(p)}
       <h2 class="sec-title">Kết quả ${periodLabel().toLowerCase()} <small class="vw">${vatWord()}</small></h2>
       <section class="kpis" aria-label="Kết quả trong kỳ">
         ${kpi('Doanh thu ghi nhận', short(st.rev), `Tiền về ${short(st.cashIn)} (sau VAT) · ${txs.filter(t => t.type === 'in').length} khoản`, {dot: 'bg-rev', title: vnd(st.rev)})}
@@ -1155,7 +1305,7 @@ function viewProject() {
 }
 
 // Khối Hợp đồng với CĐT ở Chi tiết dự án: bảng trên máy tính, thẻ trên điện thoại; số tiền đầy đủ theo đồng
-function contractPanel(p) {
+function contractPanel(p, extra = '') {
   const list = projContracts(p.id), gs = contractGroups(p.id), rt = revTotals(p.id), ct = contractTotals(p.id);
   const vatCell = v => v == null ? '<span class="chip warn" title="Chưa nhập VAT, tạm coi là 0">Tạm tính</span>' : dong(v);
   const lastEdit = c => c.updatedAt ? `Sửa lần cuối: ${c.updatedByName || '—'} · ${new Date(c.updatedAt).toLocaleString('vi-VN')}` : '';
@@ -1176,7 +1326,7 @@ function contractPanel(p) {
   const stageChip = g => g.base ? `<span class="chip ${STAGE[g.stage][1]}">${STAGE[g.stage][0]}</span>` : '<span class="chip warn">Chưa gắn</span>';
   const gBtns = g => !S.canWrite || !g.base ? '' : `<button class="btn sm" data-act="new-contract" data-kind="appendix" data-id="${esc(p.id)}" data-parent="${esc(g.base.id)}">+ Phụ lục</button>${g.qt ? '' : `<button class="btn sm" data-act="new-acc" data-kind="quyettoan" data-id="${esc(p.id)}" data-contract="${esc(g.base.id)}">+ Quyết toán</button>`}<button class="btn sm" data-act="new-acc" data-kind="nghiemthu" data-id="${esc(p.id)}" data-contract="${esc(g.base.id)}">+ Nghiệm thu</button>`;
   const add = S.canWrite ? `<button class="btn sm ${gs.length ? '' : 'primary'}" data-act="new-contract" data-kind="base" data-id="${esc(p.id)}">+ Hợp đồng</button>` : '';
-  const head = `<div class="panel-head"><h2>Hợp đồng với CĐT</h2><div class="inline" style="flex-wrap:wrap">${add}</div></div>`;
+  const head = `<div class="panel-head"><h2>Hợp đồng với CĐT</h2><div class="inline" style="flex-wrap:wrap">${add}${extra}</div></div>`;
   if (!list.length) return `<section class="panel cpanel">${head}<p class="muted" style="margin:0">Chưa có hợp đồng nào.${ct.pre ? ` Đang dùng giá trị hợp đồng nhập trước đây: <b class="num">${vnd(ct.pre)}</b>.` : ''}${S.canWrite ? ' Thêm hợp đồng (HĐ gốc, giá trị trước VAT, VAT theo hợp đồng), sau đó thêm phụ lục, quyết toán cho từng hợp đồng.' : ''}</p>${outsideNote}</section>`;
   const cols = S.canWrite ? 6 : 5, open = g => !S.ctClosed?.[g.base?.id || 'orphan'];
   const pctOf = g => g.cur.post > 0 ? pct(g.cashIn / g.cur.post) : '—';
@@ -1227,7 +1377,7 @@ function contractPanel(p) {
 
 // Khối Nghiệm thu & quyết toán ở Chi tiết dự án. Nghiệm thu chỉ theo dõi khối lượng, không đổi doanh thu;
 // quyết toán (tối đa một mỗi dự án) thay giá trị HĐ + PL làm doanh thu ghi nhận. Số tiền đầy đủ theo đồng.
-function accPanel(p) {
+function accPanel(p, extra = '') {
   const gs = contractGroups(p.id).filter(g => g.base), hasBase = gs.length > 0;
   const label = a => a.kind === 'quyettoan' ? 'Quyết toán · TĐ3' : `Nghiệm thu đợt ${a.seq}`;
   const ctOf = a => { const c = S.contracts.find(x => x.id === a.contractId); return c ? (c.kind === 'base' ? 'HĐ gốc' : 'Phụ lục ' + c.seq) : 'Không gắn hợp đồng'; };
@@ -1235,7 +1385,7 @@ function accPanel(p) {
   const lastEdit = a => a.updatedAt ? `Sửa lần cuối: ${a.updatedByName || '—'} · ${new Date(a.updatedAt).toLocaleString('vi-VN')}` : '';
   const acts = a => S.canWrite ? `<div class="actions"><button class="btn sm" data-act="edit-acc" data-id="${esc(a.id)}">Sửa</button><button class="btn sm danger" data-act="del-acc" data-id="${esc(a.id)}">Xóa</button></div>` : '';
   const add = !S.canWrite || !hasBase ? '' : `<button class="btn sm" data-act="new-acc" data-kind="nghiemthu" data-id="${esc(p.id)}">+ Nghiệm thu</button>`;
-  const head = `<div class="panel-head"><h2>Nghiệm thu &amp; quyết toán</h2><div class="inline" style="flex-wrap:wrap">${add}</div></div>`;
+  const head = `<div class="panel-head"><h2>Nghiệm thu &amp; quyết toán</h2><div class="inline" style="flex-wrap:wrap">${add}${extra}</div></div>`;
   const used = gs.filter(g => g.accs.length || g.qt);
   if (!used.length) return `<section class="panel cpanel">${head}<p class="muted" style="margin:0">${hasBase ? 'Chưa có biên bản nghiệm thu hay quyết toán. Nghiệm thu theo dõi khối lượng (không đổi doanh thu); quyết toán từng hợp đồng (TĐ3) thay giá trị HĐ + phụ lục làm doanh thu của hợp đồng đó.' : 'Thêm hợp đồng trước khi nhập nghiệm thu, quyết toán.'}</p></section>`;
   const tot = list => list.reduce((o, a) => ({pre: o.pre + (+a.value || 0), vat: o.vat + (+a.vat || 0), post: o.post + accPost(a), prov: o.prov + (a.vat == null ? 1 : 0)}), {pre: 0, vat: 0, post: 0, prov: 0});
@@ -1270,7 +1420,7 @@ function accPanel(p) {
   </section>`;
 }
 // Khối Vay & trả nợ gốc ở Chi tiết dự án: không phải chi phí; Dư nợ = vay − trả gốc; lãi vay nhập như khoản chi (Tài chính → Lãi vay, phạt)
-function loanPanel(p) {
+function loanPanel(p, extra = '') {
   const list = projLoans(p.id), t = loanTotals(list);
   const kindChip = l => l.kind === 'vay' ? '<span class="chip in">Vay</span>' : '<span class="chip out">Trả gốc</span>';
   const amt = l => (l.kind === 'vay' ? '+' : '−') + dong(l.amount);
@@ -1279,7 +1429,7 @@ function loanPanel(p) {
   const block = l => l.kind === 'vay' && t.du - l.amount < 0 ? 'Xóa các khoản trả gốc tương ứng trước' : '';
   const acts = l => S.canWrite ? `<div class="actions"><button class="btn sm" data-act="edit-loan" data-id="${esc(l.id)}">Sửa</button><button class="btn sm danger" ${block(l) ? `disabled title="${block(l)}"` : `data-act="del-loan" data-id="${esc(l.id)}"`}>Xóa</button></div>` : '';
   const add = S.canWrite ? `<button class="btn sm" data-act="new-loan" data-kind="vay" data-id="${esc(p.id)}">+ Vay</button>${t.du > 0 ? `<button class="btn sm" data-act="new-loan" data-kind="tragoc" data-id="${esc(p.id)}">+ Trả gốc</button>` : ''}` : '';
-  const head = `<div class="panel-head"><h2>Vay &amp; trả nợ gốc</h2><div class="inline" style="flex-wrap:wrap">${add}${list.length ? `<button class="btn sm" data-act="loan-csv" data-id="${esc(p.id)}">Xuất CSV</button>` : ''}</div></div>`;
+  const head = `<div class="panel-head"><h2>Vay &amp; trả nợ gốc</h2><div class="inline" style="flex-wrap:wrap">${add}${list.length ? `<button class="btn sm" data-act="loan-csv" data-id="${esc(p.id)}">Xuất CSV</button>` : ''}${extra}</div></div>`;
   const note = '<p class="psub" style="margin:0">Tiền vay và trả nợ gốc không phải chi phí, không tính vào Tiền về / Thực chi / Còn lại. Lãi vay nhập như khoản chi ở khối Tài chính → Lãi vay, phạt.</p>';
   if (!list.length) return `<section class="panel cpanel">${head}<p class="muted" style="margin:0">Chưa có khoản vay nào.</p>${note}</section>`;
   const tots = [['Tổng vay', '+' + dong(t.vay)], ['Tổng trả gốc', '−' + dong(t.tra)], ['Dư nợ vay', dong(t.du)]];
@@ -1524,6 +1674,207 @@ function entryForm(type) {
     <button type="submit" class="btn primary save">${e.save}</button>
   </form>`;
 }
+/* ---------- Nhập liệu: khung trang, tab, bộ lọc dự án chung ---------- */
+const hintNhap = () => S.writer && !store.get('hintNhap', false) ? `<div class="hint-bar" role="note"><span>Nhập liệu đã gom về một mục: <b>Dự án</b>, <b>Doanh thu</b> (hợp đồng CĐT, tiền về), <b>Chi phí</b> (kế hoạch, thực chi, vay). Báo cáo và Sổ giao dịch chỉ để xem.</span><button type="button" class="link-btn" data-hint-close>Đã hiểu</button></div>` : '';
+const curProject = () => S.projects.find(p => p.id === S.ledgerProject) || null;
+function projBar() {
+  return `<div class="ledger-bar"><label for="ledger-proj">Dự án</label><select id="ledger-proj"><option value="">Tất cả dự án</option>${sortedProjects().map(p => `<option value="${esc(p.id)}"${p.id === S.ledgerProject ? ' selected' : ''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select>
+    ${S.ledgerProject ? '<button class="link-btn" data-ledger-all>Xem tất cả dự án</button>' : ''}</div>`;
+}
+function viewEntry() {
+  if (S.view === 'projects-entry') return viewProjectsEntry();
+  if (!S.projects.length) return emptyState();
+  if (S.ledgerProject && !curProject()) S.ledgerProject = '';
+  const cur = S.tab[S.view], side = sideOf();
+  const tabs = `<div class="tabs ${side}" role="tablist" aria-label="${VIEW_TITLES[S.view]}">${TABS[S.view].map(([k, l]) => `<button type="button" role="tab" class="tab" data-tab="${k}" aria-selected="${k === cur}">${l}</button>`).join('')}</div>`;
+  const p = curProject();
+  const body = S.view === 'revenue' ? (cur === 'hd' ? (p ? contractPanel(p) + accPanel(p) : pickHd()) : viewLedger('in'))
+    : cur === 'kehoach' ? (p ? planPanel(p) : pickPlan()) : cur === 'vay' ? (p ? loanPanel(p) : pickLoan()) : viewLedger('out');
+  return `<div class="stack">${hintNhap()}<div class="entry-top">${tabs}${projBar()}</div>${body}</div>`;
+}
+// Bảng tóm tắt khi đang xem "Tất cả dự án" ở tab cần chọn một dự án; bấm dòng để chọn dự án (máy tính: bảng; điện thoại: thẻ)
+function pickTable(title, note, cols, rows, foot) {
+  return `<section class="panel"><div class="panel-head"><h2>${title}</h2></div><p class="psub" style="margin:0">${note}</p>
+    <div class="tbl-wrap desk"><table class="ptbl stbl"><thead><tr>${cols.map((c, i) => `<th${i ? ' class="r"' : ''}>${c}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${rows.map(r => `<tr class="link" data-setproj="${esc(r.id)}">${r.cells.map((c, i) => `<td${i ? ' class="r num"' : ''}>${c}</td>`).join('')}<td class="r"><span class="link-btn">Chọn →</span></td></tr>`).join('')}</tbody>
+      <tfoot><tr>${foot.map((c, i) => `<td${i ? ' class="r num"' : ''}>${c}</td>`).join('')}<td></td></tr></tfoot></table></div>
+    <div class="cards">${rows.map(r => `<button class="pcard" data-setproj="${esc(r.id)}"><span class="pname">${r.cells[0]}</span>${cols.slice(1).map((c, i) => `<span class="line"><span>${c}</span><b class="num">${r.cells[i + 1]}</b></span>`).join('')}</button>`).join('')}
+      <div class="pcard total"><span class="pname" style="color:var(--ink)">${foot[0]}</span>${cols.slice(1).map((c, i) => `<span class="line"><span>${c}</span><b class="num">${foot[i + 1]}</b></span>`).join('')}</div></div></section>`;
+}
+const pjCell = p => `<div class="pname"><span class="num">${esc(p.code)}</span> · ${esc(p.name)}</div><div class="psub">${esc(p.client) || 'Chưa có chủ đầu tư'}</div>`;
+function pickHd() {
+  const rows = sortedProjects().map(p => { const rt = revTotals(p.id), cash = S.txs.filter(t => t.type === 'in' && t.projectId === p.id).reduce((a, t) => a + txPost(t), 0);
+    return {p, rt, cash, recv: receivable(p.id)}; });
+  const T = k => rows.reduce((a, r) => a + r[k], 0);
+  return pickTable('Hợp đồng chủ đầu tư theo dự án', 'Chọn một dự án để thêm, sửa hợp đồng, phụ lục, nghiệm thu, quyết toán. Giá trị theo tỷ đồng, sau VAT, lũy kế.',
+    ['Dự án', 'Hợp đồng (đã QT)', 'Giá trị hiện hành', 'Tiền về', 'Còn phải thu'],
+    rows.map(r => ({id: r.p.id, cells: [pjCell(r.p), `${r.rt.nGroups} (${r.rt.nSettled})`, short(r.rt.post), short(r.cash), short(r.recv)]})),
+    [`Tổng cộng (${rows.length} dự án)`, `${rows.reduce((a, r) => a + r.rt.nGroups, 0)} (${rows.reduce((a, r) => a + r.rt.nSettled, 0)})`, short(rows.reduce((a, r) => a + r.rt.post, 0)), short(T('cash')), short(T('recv'))]);
+}
+function pickLoan() {
+  const rows = sortedProjects().map(p => ({p, t: loanTotals(projLoans(p.id)), n: projLoans(p.id).length}));
+  const all = loanTotals(S.loans);
+  return pickTable('Vay & trả gốc theo dự án', 'Chọn một dự án để thêm, sửa khoản vay / trả gốc. Theo tỷ đồng, lũy kế. Tiền vay không phải chi phí.',
+    ['Dự án', 'Số khoản', 'Tổng vay', 'Trả gốc', 'Dư nợ vay'],
+    rows.map(r => ({id: r.p.id, cells: [pjCell(r.p), String(r.n), short(r.t.vay), short(r.t.tra), short(r.t.du)]})),
+    [`Tổng cộng (${rows.length} dự án)`, String(S.loans.length), short(all.vay), short(all.tra), short(all.du)]);
+}
+
+/* ---------- Kế hoạch chi phí theo hạng mục (trước VAT, lũy kế) ---------- */
+// budgetPlan {"group|category": đồng, unallocated: đồng}; chưa có thì toàn bộ ngân sách cũ là "Chưa phân bổ". Ngân sách = Σ kế hoạch.
+const planOf = p => p.budgetPlan ? {...p.budgetPlan} : {unallocated: +p.budget || 0};
+function planActual(pid) {
+  const a = {}; for (const t of S.txs) if (t.type === 'out' && t.projectId === pid) { const k = grpOf(t) + '|' + t.category; a[k] = (a[k] || 0) + txPre(t); }
+  return a;
+}
+// Hạng mục vượt kế hoạch (kế hoạch > 0 và thực chi trước VAT lớn hơn), nặng nhất trước
+function planOver(p) {
+  if (!p.budgetPlan) return [];
+  const a = planActual(p.id);
+  return Object.entries(p.budgetPlan).filter(([k, v]) => k !== 'unallocated' && v > 0 && (a[k] || 0) > v).map(([k, v]) => ({k, cat: k.split('|')[1], plan: v, act: a[k], r: a[k] / v})).sort((x, y) => y.r - x.r);
+}
+function planGroups(p, plan) {
+  const act = planActual(p.id);
+  return GROUPS.map(g => {
+    const cats = [...COST[g].cats, ...Object.keys(act).filter(k => k.startsWith(g + '|') && !COST[g].cats.includes(k.slice(g.length + 1))).map(k => k.slice(g.length + 1))];
+    const rows = cats.map(c => { const k = g + '|' + c; return {k, c, old: !COST[g].cats.includes(c), plan: plan[k] || 0, act: act[k] || 0}; });
+    return {g, rows, plan: rows.reduce((a, r) => a + r.plan, 0), act: rows.reduce((a, r) => a + r.act, 0)};
+  });
+}
+const usedCell = (act, plan) => { const u = plan > 0 ? act / plan : act > 0 ? Infinity : 0, cls = u > 1 ? 'bad' : u > 0.9 ? 'warn' : 'exp';
+  return `<span class="pl-pct"><span class="meter ${cls}"><i style="width:${Math.min(100, (isFinite(u) ? u : 1) * 100).toFixed(1)}%"></i></span><b class="num ${u > 1 ? 'c-bad' : ''}">${plan > 0 ? pct(u) : act > 0 ? '<span class="chip warn" style="padding:1px 7px">Ngoài kế hoạch</span>' : '—'}</b></span>`; };
+function planPanel(p) {
+  const draft = S.planDraft[p.id], plan = draft || planOf(p), gs = planGroups(p, plan);
+  const un = plan.unallocated || 0, total = gs.reduce((a, g) => a + g.plan, 0) + un, act = gs.reduce((a, g) => a + g.act, 0);
+  const W = S.canWrite, inp = (k, v, lbl) => W ? `<input type="text" inputmode="numeric" data-money data-plan="${esc(k)}" id="pl-${esc(k).replace(/[^\w]/g, '_')}" value="${v ? dong(v) : ''}" placeholder="0" aria-label="Kế hoạch ${esc(lbl)}" autocomplete="off">` : `<b class="num">${dong(v)}</b>`;
+  const left = (pl, a) => `<span class="num ${pl - a < 0 ? 'c-bad' : ''}" data-left>${dong(pl - a)}</span>`;
+  const row = r => `<div class="pl-row" data-plrow="${esc(r.k)}"><span class="pl-name">${r.old ? '(cũ) ' : ''}${esc(r.c)}</span>
+      <span class="pl-in">${r.old ? '<span class="muted">—</span>' : inp(r.k, r.plan, r.c)}</span><span class="num pl-act">${dong(r.act)}</span>${left(r.plan, r.act)}${usedCell(r.act, r.plan)}</div>`;
+  const grp = g => `<div class="pl-row pl-g" data-plgrp="${g.g}"><span class="pl-name"><i class="dot" style="background:${COST[g.g].color}"></i><b>${COST[g.g].label}</b></span><span class="num pl-in" data-sum>${dong(g.plan)}</span><span class="num pl-act">${dong(g.act)}</span>${left(g.plan, g.act)}${usedCell(g.act, g.plan)}</div>${g.rows.map(row).join('')}`;
+  const by = p.budgetPlanAt ? `Lưu lần cuối: ${esc(p.budgetPlanByName || '—')} · ${new Date(p.budgetPlanAt).toLocaleString('vi-VN')}` : 'Chưa lưu kế hoạch theo hạng mục: toàn bộ ngân sách cũ nằm ở dòng Chưa phân bổ.';
+  return `<section class="panel plan-panel" data-planpid="${esc(p.id)}"><div class="panel-head"><h2>Kế hoạch chi phí theo hạng mục <small class="vw">trước VAT</small></h2>
+      <span class="inline" style="flex-wrap:wrap" id="pl-chips">${un ? `<span class="chip warn">Còn ${short(un)} chưa phân bổ</span>` : ''}${draft ? '<span class="chip warn">Chưa lưu</span>' : ''}</span></div>
+    <p class="psub" style="margin:0">${esc(p.code)} · ${esc(p.name)}. Kế hoạch nhập theo đồng, trước VAT; thực chi là chi phí trước VAT lũy kế (không theo kỳ). <b>Ngân sách dự án = Tổng cộng kế hoạch.</b></p>
+    <div class="pl-tbl">
+      <div class="pl-row pl-h"><span>Hạng mục</span><span class="r">Kế hoạch (₫)</span><span class="r">Thực chi (₫)</span><span class="r">Còn lại (₫)</span><span>% đã dùng</span></div>
+      ${gs.map(grp).join('')}
+      <div class="pl-row pl-un" data-plrow="unallocated"><span class="pl-name"><b>Chưa phân bổ</b><small class="psub">Ngân sách chưa chia vào hạng mục</small></span><span class="pl-in">${inp('unallocated', un, 'Chưa phân bổ')}</span><span class="num pl-act">—</span><span></span><span></span></div>
+      <div class="pl-row pl-total"><span class="pl-name"><b>Tổng cộng = Ngân sách dự án</b></span><span class="num pl-in" data-total>${dong(total)}</span><span class="num pl-act">${dong(act)}</span>${left(total, act)}${usedCell(act, total)}</div>
+    </div>
+    <div class="pl-foot"><span class="psub">${by}</span>${W ? `<span class="inline">${draft ? '<button type="button" class="btn" data-plan-reset>Bỏ thay đổi</button>' : ''}<button type="button" class="btn primary" data-plan-save>Lưu kế hoạch</button></span>` : ''}</div>
+  </section>`;
+}
+// Gõ kế hoạch: cập nhật cộng khối, tổng, còn lại, % ngay (không vẽ lại để giữ con trỏ); giữ bản nháp tới khi lưu
+function readPlan(box) { const o = {}; box.querySelectorAll('[data-plan]').forEach(i => { o[i.dataset.plan] = parseMoney(i.value); }); return o; }
+function recalcPlan(box) {
+  const pid = box.dataset.planpid, p = S.projects.find(x => x.id === pid); if (!p) return;
+  const plan = readPlan(box); S.planDraft[pid] = plan;
+  const gs = planGroups(p, plan), total = gs.reduce((a, g) => a + g.plan, 0) + (plan.unallocated || 0), act = gs.reduce((a, g) => a + g.act, 0);
+  const setRow = (el, pl, a) => { if (!el) return; const l = el.querySelector('[data-left]'); l.textContent = dong(pl - a); l.classList.toggle('c-bad', pl - a < 0); el.querySelector('.pl-pct').outerHTML = usedCell(a, pl); };
+  for (const g of gs) { const el = box.querySelector(`[data-plgrp="${g.g}"]`); el.querySelector('[data-sum]').textContent = dong(g.plan); setRow(el, g.plan, g.act); for (const r of g.rows) setRow(box.querySelector(`[data-plrow="${CSS.escape(r.k)}"]`), r.plan, r.act); }
+  const t = box.querySelector('.pl-total'); t.querySelector('[data-total]').textContent = dong(total); setRow(t, total, act);
+  const un = plan.unallocated || 0;
+  box.querySelector('#pl-chips').innerHTML = `${un ? `<span class="chip warn">Còn ${short(un)} chưa phân bổ</span>` : ''}<span class="chip warn">Chưa lưu</span>`;
+}
+function restorePlan() { /* bản nháp đã nằm trong planPanel (S.planDraft) */ }
+async function savePlan(box) {
+  const pid = box.dataset.planpid, p = S.projects.find(x => x.id === pid); if (!p) return;
+  const plan = readPlan(box), clean = Object.fromEntries(Object.entries(plan).filter(([k, v]) => v > 0 || k === 'unallocated'));
+  const btn = box.querySelector('[data-plan-save]'); btn.disabled = true;
+  try {
+    const data = {...strip(p), budgetPlan: clean, budget: Object.values(clean).reduce((a, v) => a + v, 0)}; delete data.sample;
+    await put('projects', pid, data); delete S.planDraft[pid];
+    toast(`Đã lưu kế hoạch: ngân sách ${p.code} = ${vnd(data.budget)}`); load(false);
+  } catch (er) { toast(failMsg(er)); btn.disabled = false; }
+}
+// Báo cáo dự án: Kế hoạch – Thực chi – Còn lại theo 3 khối (tỷ, trước VAT, lũy kế)
+function planSummary(p) {
+  const plan = planOf(p), gs = planGroups(p, plan), un = plan.unallocated || 0, total = gs.reduce((a, g) => a + g.plan, 0) + un, act = gs.reduce((a, g) => a + g.act, 0);
+  const tr = (name, pl, a, cls = '') => `<tr class="${cls}"><td>${name}</td><td class="r num">${short(pl)}</td><td class="r num">${short(a)}</td><td class="r num ${pl - a < 0 ? 'c-bad' : ''}">${short(pl - a)}</td><td>${usedCell(a, pl)}</td></tr>`;
+  const card = (name, pl, a, cls = '') => `<div class="pcard ${cls}" style="cursor:default"><span class="pname">${name}</span><span class="line"><span>Kế hoạch · Thực chi</span><b class="num">${short(pl)} · ${short(a)}</b></span><span class="line"><span>Còn lại</span><b class="num ${pl - a < 0 ? 'c-bad' : ''}">${short(pl - a)}</b></span>${usedCell(a, pl)}</div>`;
+  const rows = [...gs.map(g => [`<i class="dot" style="background:${COST[g.g].color}"></i> ${COST[g.g].label}`, g.plan, g.act]), ...(un ? [['Chưa phân bổ', un, 0]] : [])];
+  return `<section class="panel"><div class="panel-head"><h2>Kế hoạch – Thực chi – Còn lại <small class="vw">trước VAT · lũy kế</small></h2>${S.writer ? `<button class="link-btn" data-goto="expense:kehoach" data-pid="${esc(p.id)}">Xem theo hạng mục →</button>` : ''}</div>
+    <div class="tbl-wrap desk"><table class="ptbl plsum"><thead><tr><th>Khối</th><th class="r">Kế hoạch</th><th class="r">Thực chi</th><th class="r">Còn lại</th><th>% đã dùng</th></tr></thead>
+      <tbody>${rows.map(r => tr(...r)).join('')}</tbody><tfoot>${tr('Tổng cộng (ngân sách)', total, act)}</tfoot></table></div>
+    <div class="cards">${rows.map(r => card(...r)).join('')}${card('Tổng cộng (ngân sách)', total, act, 'total')}</div></section>`;
+}
+function pickPlan() {
+  const rows = sortedProjects().map(p => { const a = Object.values(planActual(p.id)).reduce((x, v) => x + v, 0), bg = +p.budget || 0, un = planOf(p).unallocated || 0; return {p, a, bg, un}; });
+  const T = k => rows.reduce((x, r) => x + r[k], 0);
+  return pickTable('Kế hoạch chi phí theo dự án', 'Chọn một dự án để nhập kế hoạch theo hạng mục. Theo tỷ đồng, trước VAT, lũy kế.',
+    ['Dự án', 'Ngân sách', 'Thực chi', 'Còn lại', 'Chưa phân bổ'],
+    rows.map(r => ({id: r.p.id, cells: [pjCell(r.p), short(r.bg), short(r.a), `<span class="${r.bg - r.a < 0 ? 'c-bad' : ''}">${short(r.bg - r.a)}</span>`, r.un ? `<span class="chip warn">${short(r.un)}</span>` : '0']})),
+    [`Tổng cộng (${rows.length} dự án)`, short(T('bg')), short(T('a')), short(T('bg') - T('a')), short(T('un'))]);
+}
+
+/* ---------- Nhập liệu › Dự án ---------- */
+function projectFormHtml(p) {
+  const n = S.projects.length + 1, x = p || {code: 'DA-' + String(n).padStart(2, '0'), name: '', client: '', manager: '', status: 'active', start: today(), end: ''};
+  return `<form class="panel entry pj" data-entry="pj" id="pj-form" novalidate>
+    <div class="e-head"><span class="e-icon">${ICON_PJ}</span><div><h2>${p ? `Sửa dự án ${esc(p.code)}` : 'Tạo dự án mới'}</h2><p>Bắt buộc: mã dự án, tên dự án, chủ đầu tư. Ngân sách lấy từ Chi phí › Kế hoạch.</p></div><button type="button" class="e-close" data-entry-close="pj" aria-label="Đóng khối nhập" title="Đóng (Esc)">×</button></div>
+    <div class="form">
+      <label class="field"><span>Mã dự án *</span><input type="text" id="pj-code" maxlength="30" value="${esc(x.code)}" required></label>
+      <label class="field"><span>Chủ đầu tư *</span><input type="text" id="pj-client" maxlength="200" value="${esc(x.client)}" placeholder="Tên chủ đầu tư" required list="pj-clients"></label>
+      <label class="field full"><span>Tên dự án *</span><input type="text" id="pj-name" maxlength="200" value="${esc(x.name)}" placeholder="Ví dụ: Thi công nhà xưởng giai đoạn 2" required></label>
+      <details class="full more"${p ? ' open' : ''}><summary>Thông tin thêm</summary><div class="form" style="margin-top:12px">
+        <label class="field"><span>Người phụ trách</span><input type="text" id="pj-manager" maxlength="120" value="${esc(x.manager)}"></label>
+        <label class="field"><span>Trạng thái</span><select id="pj-status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${k === x.status ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
+        <label class="field"><span>Ngày bắt đầu</span><input type="date" id="pj-start" value="${esc(x.start)}"></label>
+        <label class="field"><span>Ngày kết thúc dự kiến</span><input type="date" id="pj-end" value="${esc(x.end)}"></label>
+      </div></details>
+    </div>
+    <datalist id="pj-clients">${[...new Set(S.projects.map(q => q.client).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    <p class="err" id="pj-err"></p>
+    <button type="submit" class="btn primary save">${p ? 'Lưu thay đổi' : 'Tạo dự án'}</button>
+  </form>`;
+}
+function viewProjectsEntry() {
+  const list = sortedProjects(), p = S.pjEdit ? S.projects.find(x => x.id === S.pjEdit) : null;
+  if (S.pjEdit && !p) S.pjEdit = null;
+  const refs = q => [[projTxs(q.id).length, 'giao dịch'], [projContracts(q.id).length, 'hợp đồng'], [projAcc(q.id).length, 'biên bản nghiệm thu / quyết toán'], [projLoans(q.id).length, 'khoản vay']].filter(([n]) => n);
+  const why = q => { const r = refs(q); return r.length ? `Dự án còn ${r.map(([n, l]) => n + ' ' + l).join(', ')}: không xóa được` : ''; };
+  const acts = q => `<div class="actions"><button class="btn sm" data-act="edit-project" data-id="${esc(q.id)}">Sửa</button><button class="btn sm danger" ${why(q) ? `disabled title="${why(q)}"` : `data-act="del-project" data-id="${esc(q.id)}"`}>Xóa</button></div>`;
+  const bg = list.reduce((a, q) => a + (+q.budget || 0), 0), nct = list.reduce((a, q) => a + contractGroups(q.id).filter(g => g.base).length, 0);
+  const hasSample = S.projects.some(q => q.sample) || S.txs.some(t => t.sample) || S.contracts.some(c => c.sample) || S.acc.some(a => a.sample) || S.loans.some(l => l.sample);
+  return `<div class="stack">${hintNhap()}
+    <div class="entry-wrap" id="entry-wrap"${S.entryOpen.pj ? '' : ' hidden'}>${projectFormHtml(p)}</div>
+    <section class="panel"><div class="panel-head"><h2>Danh sách dự án</h2><span class="psub">${list.length} dự án</span></div>
+    ${list.length ? `<div class="tbl-wrap desk"><table class="ptbl pjtbl"><thead><tr><th>Mã</th><th>Tên dự án</th><th>Chủ đầu tư</th><th>Trạng thái</th><th class="r" title="Tổng kế hoạch chi phí, trước VAT">Ngân sách</th><th class="r">Số HĐ CĐT</th><th></th></tr></thead>
+      <tbody>${list.map(q => `<tr${q.id === S.pjEdit && S.entryOpen.pj ? ' class="sel"' : ''}><td class="num" style="font-weight:700;white-space:nowrap">${esc(q.code)}</td><td>${esc(q.name)}${q.sample ? ' <span class="chip">Ví dụ</span>' : ''}</td><td>${q.client ? esc(q.client) : '<span class="chip warn">Chưa có</span>'}</td><td>${statusChip(q.status)}</td>
+        <td class="r num">${short(+q.budget || 0)}${q.budget && !q.budgetPlan ? '<div class="psub">chưa phân bổ</div>' : ''}</td><td class="r num">${contractGroups(q.id).filter(g => g.base).length}</td><td>${acts(q)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="4">Tổng cộng (${list.length} dự án)</td><td class="r num">${short(bg)}</td><td class="r num">${nct}</td><td></td></tr></tfoot></table></div>
+    <div class="cards">${list.map(q => `<div class="pcard" style="cursor:default"><span class="top"><span class="num psub" style="font-weight:700">${esc(q.code)}</span>${statusChip(q.status)}</span><span class="pname">${esc(q.name)}</span>
+        <span class="line"><span>Chủ đầu tư</span><b>${q.client ? esc(q.client) : '<span class="chip warn">Chưa có</span>'}</b></span><span class="line"><span>Ngân sách · Số HĐ CĐT</span><b class="num">${short(+q.budget || 0)} · ${contractGroups(q.id).filter(g => g.base).length}</b></span>${acts(q)}</div>`).join('')}
+      <div class="pcard total"><span class="pname" style="color:var(--ink)">Tổng cộng (${list.length} dự án)</span><span class="line"><span>Ngân sách</span><b class="num">${short(bg)}</b></span><span class="line"><span>Số HĐ CĐT</span><b class="num">${nct}</b></span></div></div>`
+      : '<p class="muted" style="margin:0">Chưa có dự án nào. Bấm "+ Dự án" để tạo dự án đầu tiên.</p>'}</section>
+    ${hasSample ? `<section class="panel"><div class="panel-head"><h2>Dữ liệu ví dụ</h2><button class="btn danger" id="btn-clear-sample">Xóa dữ liệu ví dụ</button></div><p class="psub" style="margin:0">Các bản ghi ví dụ (dự án, giao dịch, hợp đồng, vay) nạp sẵn để thử. Bản ghi bạn đã sửa không còn là dữ liệu ví dụ và được giữ lại. Cần mã xóa.</p></section>` : ''}
+  </div>`;
+}
+async function saveProject(f) {
+  const p = S.pjEdit ? S.projects.find(x => x.id === S.pjEdit) : null, v = k => $('#pj-' + k).value.trim(), err = $('#pj-err');
+  const data = {code: v('code'), name: v('name'), client: v('client'), manager: v('manager'), status: $('#pj-status').value, start: $('#pj-start').value, end: $('#pj-end').value};
+  const miss = [['code', 'Nhập mã dự án.'], ['name', 'Nhập tên dự án.'], ['client', 'Nhập chủ đầu tư.']].find(([k]) => !data[k]);
+  if (miss) { err.textContent = miss[1]; $('#pj-' + miss[0]).focus(); return; }
+  if (S.projects.some(q => q.id !== p?.id && String(q.code || '').trim().toLowerCase() === data.code.toLowerCase())) { err.textContent = 'Mã dự án đã tồn tại.'; $('#pj-code').focus(); return; }
+  // Không gửi budgetPlan: máy chủ giữ kế hoạch và người lưu kế hoạch; ngân sách = Σ kế hoạch (hoặc ngân sách cũ)
+  const keep = p ? Object.fromEntries(['budgetPlan', 'budgetPlanBy', 'budgetPlanByName', 'budgetPlanAt'].filter(k => p[k] !== undefined).map(k => [k, p[k]])) : {};
+  if (p) { for (const k of ['contractValue', 'budget']) if (p[k] !== undefined) data[k] = p[k]; }
+  else data.budget = 0;
+  err.textContent = '';
+  const btn = f.querySelector('.save'); btn.disabled = true;
+  try {
+    const id = p?.id || uid();
+    await put('projects', id, data); delete S.entryDraft.pj;
+    const rec = S.projects.find(x => x.id === id); if (rec) Object.assign(rec, keep);
+    S.pjEdit = null; S.entryOpen.pj = false; S.projectId = id; store.set('project', id);
+    toast(p ? `Đã lưu dự án ${data.code}` : `Đã tạo dự án ${data.code}. Tiếp theo: thêm hợp đồng ở Doanh thu › HĐ chủ đầu tư.`); render();
+  } catch (er) { err.textContent = failMsg(er); }
+  finally { btn.disabled = false; }
+}
+function deleteProject(p) {
+  askPasscode({title: 'Xóa dự án', detail: `Dự án ${p.code || ''} · ${p.name}`, confirmLabel: 'Xóa dự án',
+    run: async code => { await del('projects', p.id, code); toast('Đã xóa dự án'); }});
+}
 function viewLedger(type) {
   if (!S.projects.length) return emptyState();
   // Bảng các khoản trong kỳ nằm dưới, rộng hết khung, để không bị tràn ngang khi đứng cạnh ô nhập liệu
@@ -1623,8 +1974,6 @@ function renderLedgerSide() {
   const t0 = new Date(); t0.setHours(0, 0, 0, 0);
   const todays = S.txs.filter(t => t.type === type && (t.createdAt || 0) >= t0.getTime());
   el.innerHTML = `
-    <div class="ledger-bar"><label for="ledger-proj">Dự án</label><select id="ledger-proj"><option value="">Tất cả dự án</option>${sortedProjects().map(p => `<option value="${esc(p.id)}"${p.id === S.ledgerProject ? ' selected' : ''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select>
-      ${S.ledgerProject ? '<button class="link-btn" data-ledger-all>Xem tất cả dự án</button>' : ''}</div>
     <section class="kpis" aria-label="Tổng ${word}">
       ${kpi(`Tổng ${word} · ${periodLabel()} <small class="vw">${vw}</small>`, short(total), `${rows.length} khoản · hôm nay đã ghi ${todays.length} khoản${isIn ? '' : ` · Thực chi (sau VAT) <b class="num" title="${vnd(totalPost)}">${short(totalPost)}</b>`}`, {dot: isIn ? 'bg-rev' : 'bg-exp', cls: isIn ? 'c-rev' : 'c-exp', title: vnd(total), wide: true,
         foot: (pv ? delta(total, prev, pv.label, isIn) : '<span class="sub">Toàn bộ thời gian</span>') + spark(last12(o => isIn ? o.cashIn : o.exp, S.ledgerProject), isIn ? 'var(--rev)' : 'var(--exp)', `color-mix(in srgb,var(${isIn ? '--rev' : '--exp'}) 16%,transparent)`)})}
@@ -1660,7 +2009,10 @@ async function saveEntry(f) {
 
 // Bảng giao dịch: bảng đầy đủ trên máy tính, danh sách gọn trên điện thoại (hoặc khi khung hẹp); tổng ở chân tính trên toàn bộ txs.
 // Mỗi dòng hiện Trước VAT · VAT (Tạm tính nếu chưa có) · Sau VAT. compact: trang Doanh thu / Chi phí (cả bảng cùng một loại).
+// Thao tác trên từng dòng: 'edit' (Nhập liệu: Sửa / Xóa) hoặc 'open' (Sổ giao dịch: Mở trong Nhập liệu); người chỉ xem / báo cáo: không có
+let TXMODE = 'edit';
 function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false) {
+  const mode = S.canWrite ? TXMODE : '', colA = !!mode;
   if (!txs.length) return `<p class="muted" style="margin:0">Không có giao dịch nào khớp bộ lọc.</p>`;
   const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
   // kind: cả bảng cùng một loại (trang Doanh thu / Chi phí, hoặc Sổ giao dịch đang lọc một loại) → một dòng Tổng cộng
@@ -1688,7 +2040,7 @@ function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false
   const head = kind === 'in' ? 'Hợp đồng' : kind === 'out' ? 'Đối tác' : 'Hợp đồng / Đối tác';
   const money = (v, s) => s == null ? sgn(v) : s + n(v);
   return `<div class="txwrap${showProject ? ' wp' : ''}${kind ? '' : ' mix'}"><div class="tbl-wrap desk"><table class="txt">
-    <thead><tr><th>Ngày</th>${showProject ? '<th>Dự án</th>' : ''}<th>${head}</th><th>Hạng mục</th><th class="r">Trước VAT (₫)</th><th class="r">VAT (₫)</th><th class="r">Sau VAT (₫)</th>${S.canWrite ? '<th></th>' : ''}</tr></thead>
+    <thead><tr><th>Ngày</th>${showProject ? '<th>Dự án</th>' : ''}<th>${head}</th><th>Hạng mục</th><th class="r">Trước VAT (₫)</th><th class="r">VAT (₫)</th><th class="r">Sau VAT (₫)</th>${colA ? '<th></th>' : ''}</tr></thead>
     <tbody>${shown.map(t => `<tr>
       <td class="num muted" style="white-space:nowrap">${fmtDate(t.date)}</td>
       ${showProject ? `<td class="num" style="font-weight:700;white-space:nowrap" title="${esc(projectName(t.projectId))}">${code(t)}</td>` : ''}
@@ -1696,14 +2048,14 @@ function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false
       <td class="tcat"><div style="font-weight:600">${esc(t.category)}</div>${t.note ? `<div class="psub tnote" title="${esc(t.note)}">${esc(t.note)}</div>` : ''}${meta(t) ? `<div class="psub" style="font-size:11.5px">${meta(t)}</div>` : ''}</td>
       <td class="r num">${n(txPre(t))}</td><td class="r num">${vatCell(t)}</td>
       <td class="r num ${t.type === 'in' ? 'c-rev' : ''}" style="font-weight:800">${sg(t)}${n(txPost(t))}</td>
-      ${S.canWrite ? `<td><div class="actions"><button class="btn sm" data-act="edit-tx" data-id="${esc(t.id)}">Sửa</button><button class="btn sm danger" data-act="del-tx" data-id="${esc(t.id)}">Xóa</button></div></td>` : ''}
+      ${mode === 'edit' ? `<td><div class="actions"><button class="btn sm" data-act="edit-tx" data-id="${esc(t.id)}">Sửa</button><button class="btn sm danger" data-act="del-tx" data-id="${esc(t.id)}">Xóa</button></div></td>` : mode === 'open' ? `<td><button class="link-btn" data-act="open-tx" data-id="${esc(t.id)}" style="white-space:nowrap">Mở trong Nhập liệu →</button></td>` : ''}
     </tr>`).join('')}</tbody>
-    <tfoot>${totRows.map(([label, v, cls, s], i) => `<tr${i ? ' class="sub-tot"' : ''}><td colspan="${lead}">${label}${provTxt(v.prov)}</td><td class="r num">${money(v.pre, s)}</td><td class="r num">${money(v.vat, s)}</td><td class="r num ${cls}">${money(v.post, s)}</td>${S.canWrite ? '<td></td>' : ''}</tr>`).join('')}</tfoot>
+    <tfoot>${totRows.map(([label, v, cls, s], i) => `<tr${i ? ' class="sub-tot"' : ''}><td colspan="${lead}">${label}${provTxt(v.prov)}</td><td class="r num">${money(v.pre, s)}</td><td class="r num">${money(v.vat, s)}</td><td class="r num ${cls}">${money(v.post, s)}</td>${colA ? '<td></td>' : ''}</tr>`).join('')}</tfoot>
   </table></div>
   <ul class="txlist">${shown.map(t => {
     const inner = `<span class="l"><b>${esc(t.category)}</b><span class="psub">${[fmtDate(t.date), showProject ? code(t) : '', txUnlinked(t) ? '<span class="chip warn" style="padding:1px 7px">Chưa gắn hợp đồng</span>' : esc(party(t)), t.invoiceNo ? 'HĐơn ' + esc(t.invoiceNo) : '', esc(t.note), t.createdByName ? 'Nhập: ' + esc(t.createdByName) : ''].filter(Boolean).join(' · ')}</span></span>
       <span class="amt num ${t.type === 'in' ? 'c-rev' : ''}">${sg(t)}${n(txPost(t))}<small>trước ${n(txPre(t))} · VAT ${txVat(t) == null ? 'tạm tính' : n(txVat(t))}</small></span>`;
-    return `<li>${S.canWrite ? `<button class="txrow" data-act="edit-tx" data-id="${esc(t.id)}">${inner}</button>` : `<div class="txrow">${inner}</div>`}</li>`;
+    return `<li>${mode ? `<button class="txrow" data-act="${mode === 'edit' ? 'edit-tx' : 'open-tx'}" data-id="${esc(t.id)}"${mode === 'open' ? ' title="Mở trong Nhập liệu"' : ''}>${inner}</button>` : `<div class="txrow">${inner}</div>`}</li>`;
   }).join('')}
     ${totRows.map(([label, v, cls, s], i) => `<li class="txtotal${i ? ' more' : ''}"><div class="txrow"><span class="l"><b>${label}</b>${v.prov ? `<span class="psub">${v.prov} dòng VAT tạm tính</span>` : ''}</span>
       <span class="amt num ${cls}">${money(v.post, s)}<small>trước ${money(v.pre, s)} · VAT ${money(v.vat, s)}</small></span></div></li>`).join('')}</ul></div>`;
@@ -1733,7 +2085,8 @@ function renderJournalTable() {
   const rows = journalRows(), pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   S.jpage = Math.min(S.jpage, pages - 1);
   const from = S.jpage * PAGE_SIZE;
-  el.innerHTML = txTable(rows, true, PAGE_SIZE, from) + (rows.length > PAGE_SIZE ? `<div class="pager">
+  TXMODE = 'open'; let html; try { html = txTable(rows, true, PAGE_SIZE, from); } finally { TXMODE = 'edit'; }
+  el.innerHTML = html + (rows.length > PAGE_SIZE ? `<div class="pager">
     <span>Hiển thị <b class="num">${from + 1}–${Math.min(rows.length, from + PAGE_SIZE)}</b> trên <b class="num">${rows.length}</b> giao dịch</span>
     <span class="inline"><button class="btn sm" data-page="${S.jpage - 1}"${S.jpage ? '' : ' disabled'}>← Trước</button><span class="num">Trang ${S.jpage + 1}/${pages}</span><button class="btn sm" data-page="${S.jpage + 1}"${S.jpage < pages - 1 ? '' : ' disabled'}>Sau →</button></span>
   </div>` : '');
@@ -1852,48 +2205,6 @@ function openTx(tx, projectId, type = 'out') {
   };
   dlg.showModal(); (tx ? $('#x-amount') : $('#x-cat')).focus();
 }
-function openProject(p) {
-  const n = S.projects.length + 1, cnt = p ? projTxs(p.id).length : 0, nct = p ? projContracts(p.id).length : 0, ct = p ? contractTotals(p.id) : null;
-  const x = p || {code: 'DA-' + String(n).padStart(2, '0'), name: '', client: '', manager: '', budget: 0, status: 'active', start: today(), end: ''};
-  form.innerHTML = `<h2>${p ? 'Sửa dự án' : 'Tạo dự án mới'}</h2>
-    <div class="form">
-      <label class="field"><span>Mã dự án</span><input type="text" id="p-code" value="${esc(x.code)}"></label>
-      <label class="field"><span>Trạng thái</span><select id="p-status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
-      <label class="field full"><span>Tên dự án</span><input type="text" id="p-name" value="${esc(x.name)}" placeholder="Ví dụ: Thi công nhà xưởng giai đoạn 2"></label>
-      <label class="field"><span>Khách hàng</span><input type="text" id="p-client" value="${esc(x.client)}"></label>
-      <label class="field"><span>Người phụ trách</span><input type="text" id="p-manager" value="${esc(x.manager)}"></label>
-      <div class="field"><span>Giá trị hợp đồng (₫)</span><div class="ro">${p ? `<b class="num">${vnd(ct.pre)}</b> trước VAT · <b class="num">${vnd(ct.post)}</b> sau VAT` : 'Chưa có'}<small>${p ? 'Tính từ bảng Hợp đồng với CĐT ở Chi tiết dự án.' : 'Sau khi tạo dự án, thêm hợp đồng gốc ở Chi tiết dự án.'}</small></div></div>
-      <label class="field"><span>Ngân sách chi phí (₫) <b class="num" data-hint="p-bg" style="text-transform:none;letter-spacing:0">${x.budget ? spoken(x.budget) : ''}</b></span>${moneyInput('p-bg', x.budget)}</label>
-      <label class="field"><span>Ngày bắt đầu</span><input type="date" id="p-start" value="${esc(x.start)}"></label>
-      <label class="field"><span>Ngày kết thúc dự kiến</span><input type="date" id="p-end" value="${esc(x.end)}"></label>
-    </div>
-    <div class="err" id="p-err"></div>
-    ${cnt || nct ? `<p class="muted" style="margin:0;font-size:12.5px">Không xóa được dự án đang có ${[cnt && `<b class="num">${cnt}</b> giao dịch`, nct && `<b class="num">${nct}</b> dòng hợp đồng`].filter(Boolean).join(' và ')}. Xóa ${cnt ? 'hoặc chuyển các giao dịch sang dự án khác' : ''}${cnt && nct ? ', xóa ' : ''}${nct ? 'các dòng hợp đồng' : ''} trước, hoặc đổi trạng thái thành Hoàn thành.</p>` : ''}
-    <div class="dlg-foot">${p ? `<button type="button" class="btn danger" id="p-del"${cnt || nct ? ' disabled title="Dự án còn giao dịch hoặc hợp đồng, không xóa được"' : ''}>Xóa dự án</button>` : '<span></span>'}
-      <div class="inline"><button type="button" class="btn" id="p-cancel">Hủy</button><button type="submit" class="btn primary">${p ? 'Lưu thay đổi' : 'Tạo dự án'}</button></div></div>`;
-  $('#p-status').value = x.status; bindMoney();
-  $('#p-cancel').onclick = () => dlg.close();
-  // Chỉ xóa được dự án không còn giao dịch (máy chủ cũng chặn), để không mất dữ liệu
-  if (p && !cnt && !nct) $('#p-del').onclick = async () => {
-    const ok = await askPasscode({title: 'Xóa dự án', detail: `Dự án ${p.code || ''} · ${p.name}`, confirmLabel: 'Xóa dự án',
-      run: async code => { await del('projects', p.id, code); toast('Đã xóa dự án'); }});
-    if (ok) dlg.close();
-  };
-  form.onsubmit = async e => {
-    e.preventDefault();
-    const data = {code: $('#p-code').value.trim(), name: $('#p-name').value.trim(), client: $('#p-client').value.trim(), manager: $('#p-manager').value.trim(),
-      budget: parseMoney($('#p-bg').value), status: $('#p-status').value, start: $('#p-start').value, end: $('#p-end').value};
-    if (!data.name) return $('#p-err').textContent = 'Nhập tên dự án.';
-    if (!data.code) data.code = 'DA-' + String(n).padStart(2, '0');
-    if (p && p.contractValue != null) data.contractValue = Math.max(0, Math.round(+p.contractValue || 0));   // giữ giá trị cũ (dữ liệu trước khi có bảng hợp đồng)
-    const id = p?.id || uid();
-    dlg.close();
-    try { await put('projects', id, data); S.projectId = id; store.set('project', id); toast(p ? 'Đã lưu dự án' : 'Đã tạo dự án'); if (!p) { S.view = 'project'; render(); } }
-    catch (er) { toast(failMsg(er)); }
-  };
-  dlg.showModal(); $('#p-name').focus();
-}
-
 // Thêm / sửa một dòng hợp đồng. Người nhập do máy chủ tự ghi theo tài khoản đang đăng nhập.
 function openContract(c, projectId, kind, parentId) {
   const k = c ? c.kind : kind, pid = c ? c.projectId : projectId, p = S.projects.find(x => x.id === pid), par = c ? c.parentId : parentId;
@@ -2053,7 +2364,7 @@ async function exportCsv() {
 }
 
 /* ---------- events ---------- */
-document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { S.view = b.dataset.view; store.set('view', S.view); render(); window.scrollTo({top: 0}); });
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { $('#nav-entry').classList.remove('fly'); go(b.dataset.view); });
 // Thanh bên: mặc định thu gọn, nhớ lựa chọn của từng người trên trình duyệt này
 function setSlim(slim) {
   $('.app').classList.toggle('slim', slim);
@@ -2068,38 +2379,66 @@ $('#side-toggle').onclick = () => { const slim = !$('.app').classList.contains('
 const ICON_IN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>';
 const ICON_OUT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7L7 17"/><path d="M16 17H7V8"/></svg>';
 const ICON_PJ = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg>';
-const ADD_ITEMS = [['in', 'Tiền về', 'Tạm ứng, thanh toán, quyết toán…', ICON_IN, 'in', 'bg-rev'], ['out', 'Chi phí', 'Vật tư, nhân công, thầu phụ, lãi vay…', ICON_OUT, 'out', 'bg-exp'], ['project', 'Dự án', 'Tạo dự án mới, thêm hợp đồng sau', ICON_PJ, 'pj', '']];
-const addMenuHtml = () => ADD_ITEMS.map(([k, t, d, ic, cls, dot]) => `<button type="button" role="menuitem" data-add="${k}"${k !== 'project' && !S.projects.length ? ' disabled' : ''}><span class="ai ${cls}">${ic}</span><span><b>${dot ? `<i class="dot ${dot}"></i>` : ''}${t}</b><small>${d}</small></span></button>`).join('');
+const ICON_DOC = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h4"/></svg>';
+const ICON_BANK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M10 10v8M14 10v8M19 10v8"/><path d="M3 21h18"/></svg>';
+// Menu ▾ chia nhóm theo màu: DOANH THU (teal) · CHI PHÍ (cam) · DỰ ÁN (navy)
+const ADD_GROUPS = [
+  ['Doanh thu', 'rev', [['in', 'Tiền về', 'Tạm ứng, thanh toán, quyết toán…', ICON_IN], ['contract', 'Hợp đồng chủ đầu tư', 'HĐ gốc mới; phụ lục, nghiệm thu ở tab HĐ CĐT', ICON_DOC]]],
+  ['Chi phí', 'exp', [['out', 'Khoản chi', 'Vật tư, nhân công, thầu phụ, lãi vay…', ICON_OUT], ['loan', 'Vay / trả gốc', 'Khoản vay, trả nợ gốc của dự án', ICON_BANK]]],
+  ['Dự án', 'pj', [['project', 'Dự án mới', 'Mã, tên, chủ đầu tư', ICON_PJ]]]
+];
+const addMenuHtml = () => { const here = mainAdd()[1];
+  return ADD_GROUPS.map(([h, cls, items]) => `<div class="am-g ${cls}" role="group" aria-label="${h}"><span class="am-h" aria-hidden="true">${h}</span>${items.map(([k, t, d, ic]) =>
+    `<button type="button" role="menuitem" data-add="${k}"${k !== 'project' && !S.projects.length ? ' disabled' : ''}${k === here ? ' aria-current="true"' : ''}><span class="ai ${cls}">${ic}</span><span><b>${t}${k === here ? '<span class="here">Đang ở đây</span>' : ''}</b><small>${d}</small></span></button>`).join('')}</div>`).join(''); };
+// Bảng trượt Nhập liệu trên điện thoại: 3 mục
+const navSheetHtml = () => [['projects-entry', 'Dự án', 'Danh sách, thông tin dự án', ICON_PJ, 'pj'], ['revenue', 'Doanh thu', 'Hợp đồng chủ đầu tư · Tiền về', ICON_IN, 'rev'], ['expense', 'Chi phí', 'Kế hoạch · Thực chi · Vay & trả gốc', ICON_OUT, 'exp']]
+  .map(([v, t, d, ic, cls]) => `<button type="button" role="menuitem" data-gov="${v}"${S.view === v ? ' aria-current="true"' : ''}><span class="ai ${cls}">${ic}</span><span><b>${t}${S.view === v ? '<span class="here">Đang ở đây</span>' : ''}</b><small>${d}</small></span></button>`).join('');
 const ledgerView = type => type === 'in' ? 'revenue' : 'expense';
-// Phần chính của nút theo trang đang xem
+// Phần chính của nút theo trang / tab Nhập liệu: [nhãn, loại, màu]. Báo cáo: không có nút.
 function mainAdd() {
-  if (S.view === 'revenue') return ['Ghi tiền về', 'in'];
-  if (S.view === 'expense') return ['Ghi chi phí', 'out'];
-  if (S.view === 'project' && S.projects.length) return ['Tiền về', 'in'];
-  return ['Thêm mới', null];
+  if (S.view === 'projects-entry') return ['Dự án', 'project', 'pj'];
+  if (S.view === 'revenue') return S.tab.revenue === 'hd' ? ['Hợp đồng CĐT', 'contract', 'rev'] : ['Ghi tiền về', 'in', 'rev'];
+  if (S.view === 'expense') return S.tab.expense === 'thucchi' ? ['Ghi chi phí', 'out', 'exp'] : S.tab.expense === 'vay' ? ['Vay / trả gốc', 'loan', 'exp'] : ['Thêm mới', null, 'exp'];
+  return [null, null, ''];
 }
 function renderAddButton() {
-  const box = $('#addsplit'), [label, kind] = mainAdd();
-  box.hidden = $('#tb-new').hidden = !S.canWrite;
-  $('#as-label').textContent = label;
-  $('#tb-new').disabled = false;
-  const m = $('#as-main');
-  if (kind && isLedger()) m.setAttribute('aria-expanded', String(!!S.entryOpen[kind])); else m.removeAttribute('aria-expanded');
-  if (!kind) { m.setAttribute('aria-haspopup', 'menu'); m.setAttribute('aria-controls', 'add-menu'); } else { m.removeAttribute('aria-haspopup'); m.removeAttribute('aria-controls'); }
+  const box = $('#addsplit'), [label, kind, side] = mainAdd();
+  box.hidden = !S.writer || !isEntryView() || !label;
+  box.className = 'addsplit ' + side;
+  $('#as-label').textContent = label || '';
+  const m = $('#as-main'), ent = kind === 'in' || kind === 'out' ? kind : kind === 'project' ? 'pj' : null;
+  if (ent) m.setAttribute('aria-expanded', String(!!S.entryOpen[ent])); else m.removeAttribute('aria-expanded');
+  if (!kind) { m.setAttribute('aria-haspopup', 'menu'); m.setAttribute('aria-controls', 'add-menu'); m.setAttribute('aria-expanded', String(!$('#add-menu').hidden)); } else { m.removeAttribute('aria-haspopup'); m.removeAttribute('aria-controls'); }
 }
-// Thêm mới: ở trang Tiền về / Chi phí mở khối nhập (chuyển trang nếu cần); trang khác dùng hộp thoại như cũ
+// Dự án đang làm việc cho các tab cần một dự án (HĐ CĐT, Kế hoạch, Vay)
+function workPid() {
+  const pid = S.ledgerProject || (S.view === 'project' && S.projectId) || (sortedProjects().find(p => p.status === 'active') || sortedProjects()[0])?.id || '';
+  S.ledgerProject = pid; store.set('ledgerProject', pid); return pid;
+}
+// Thêm mới: luôn đưa tới đúng chỗ trong Nhập liệu
 function doAdd(kind) {
   closeMenus();
-  if (kind === 'project') return openProject(null);
+  if (kind === 'project') return openProjectEntry(null);
   if (!S.projects.length) return;
-  if (isLedger()) return openEntry(kind);
-  openTx(null, S.view === 'project' ? S.projectId : null, kind);
+  if (kind === 'in' || kind === 'out') return openEntry(kind);
+  const pid = workPid();
+  if (kind === 'contract') { go('revenue', 'hd'); openContract(null, pid, 'base'); }
+  if (kind === 'loan') { go('expense', 'vay'); openLoan(null, pid, 'vay'); }
+}
+function openProjectEntry(id) {
+  if (S.pjEdit !== id) delete S.entryDraft.pj;
+  S.pjEdit = id; S.entryOpen.pj = true;
+  if (S.view !== 'projects-entry') go('projects-entry'); else render();
+  const w = $('#entry-wrap'); if (!w) return;
+  w.scrollIntoView({block: 'start', behavior: 'smooth'});
+  $(id ? '#pj-name' : '#pj-code')?.focus({preventScroll: true});
 }
 function openEntry(type) {
-  S.entryOpen = {in: false, out: false, [type]: true};
-  if (S.view !== ledgerView(type)) {
-    if (S.view === 'project') S.entry[type].projectId = S.projectId;
-    S.view = ledgerView(type); store.set('view', S.view); render();
+  S.entryOpen = {...S.entryOpen, in: false, out: false, [type]: true};
+  const v = ledgerView(type), tab = type === 'in' ? 'tienve' : 'thucchi';
+  if (S.view !== v || S.tab[v] !== tab) {
+    if (S.view === 'project') { S.entry[type].projectId = S.projectId; S.ledgerProject = S.projectId; }
+    go(v, tab);
   } else { const w = $('#entry-wrap'); if (w) w.hidden = false; renderAddButton(); }
   const w = $('#entry-wrap'); if (!w) return;
   w.scrollIntoView({block: 'start', behavior: 'smooth'});
@@ -2107,6 +2446,7 @@ function openEntry(type) {
 }
 function closeEntry(type) {
   S.entryOpen[type] = false;
+  if (type === 'pj') { snapEntries(); }
   const w = $('#entry-wrap'); if (w) w.hidden = true;   // giữ nguyên giá trị đang gõ trong khối (đến khi tải lại trang)
   renderAddButton(); $('#as-main')?.focus();
 }
@@ -2131,11 +2471,12 @@ function restoreEntries() {
 }
 // Menu: mở / đóng, phím mũi tên lên / xuống, Enter, Esc
 let menuTrigger = null;
-function openMenu(menu, trigger) {
+function openMenu(menu, trigger, byKey) {
   closeMenus();
-  menu.innerHTML = addMenuHtml(); menu.hidden = false; menuTrigger = trigger; trigger.setAttribute('aria-expanded', 'true');
+  menu.innerHTML = menu.id === 'fab-menu' ? navSheetHtml() : addMenuHtml(); menu.hidden = false; menuTrigger = trigger; trigger.setAttribute('aria-expanded', 'true');
   if (menu.id === 'fab-menu') $('#fab-backdrop').hidden = false;
-  menu.querySelector('button:not([disabled])')?.focus();
+  // Mở bằng chuột: chưa tô mục nào (focus vào khung menu); mở bằng bàn phím: focus mục đầu
+  if (byKey) menu.querySelector('button:not([disabled])')?.focus(); else { menu.tabIndex = -1; menu.focus({preventScroll: true}); }
 }
 function closeMenus(refocus) {
   for (const m of ['#add-menu', '#fab-menu']) $(m).hidden = true;
@@ -2146,28 +2487,47 @@ function closeMenus(refocus) {
   menuTrigger = null;
 }
 for (const m of ['#add-menu', '#fab-menu']) {
-  $(m).addEventListener('click', e => { const b = e.target.closest('[data-add]'); if (b && !b.disabled) doAdd(b.dataset.add); });
+  $(m).addEventListener('click', e => {
+    const b = e.target.closest('[data-add]'); if (b && !b.disabled) return doAdd(b.dataset.add);
+    const g = e.target.closest('[data-gov]'); if (g) { closeMenus(); go(g.dataset.gov); }
+  });
   $(m).addEventListener('keydown', e => {
     const items = [...$(m).querySelectorAll('button:not([disabled])')], i = items.indexOf(document.activeElement);
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus(); }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[i < 0 ? (e.key === 'ArrowDown' ? 0 : items.length - 1) : (i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus(); }
     if (e.key === 'Home') { e.preventDefault(); items[0]?.focus(); }
     if (e.key === 'End') { e.preventDefault(); items[items.length - 1]?.focus(); }
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenus(true); }
     if (e.key === 'Tab') closeMenus();
   });
 }
-$('#as-more').onclick = e => { e.stopPropagation(); $('#add-menu').hidden ? openMenu($('#add-menu'), e.currentTarget) : closeMenus(); };
-$('#as-main').onclick = e => { e.stopPropagation(); const [, kind] = mainAdd(); if (kind) return doAdd(kind); $('#add-menu').hidden ? openMenu($('#add-menu'), e.currentTarget) : closeMenus(); };
-$('#as-more').onkeydown = $('#as-main').onkeydown = e => { if (e.key === 'ArrowDown' && e.currentTarget.id === 'as-more') { e.preventDefault(); openMenu($('#add-menu'), e.currentTarget); } };
-$('#tb-new').onclick = e => { e.stopPropagation(); $('#fab-menu').hidden ? openMenu($('#fab-menu'), e.currentTarget) : closeMenus(); };
+const byKey = e => e.detail === 0;   // click do Enter / Space
+$('#as-more').onclick = e => { e.stopPropagation(); $('#add-menu').hidden ? openMenu($('#add-menu'), e.currentTarget, byKey(e)) : closeMenus(); };
+$('#as-main').onclick = e => { e.stopPropagation(); const [, kind] = mainAdd(); if (kind) return doAdd(kind); $('#add-menu').hidden ? openMenu($('#add-menu'), e.currentTarget, byKey(e)) : closeMenus(); };
+$('#as-more').onkeydown = $('#as-main').onkeydown = e => { if (e.key === 'ArrowDown' && e.currentTarget.id === 'as-more') { e.preventDefault(); openMenu($('#add-menu'), e.currentTarget, true); } };
+$('#tb-new').onclick = e => { e.stopPropagation(); $('#fab-menu').hidden ? openMenu($('#fab-menu'), e.currentTarget, byKey(e)) : closeMenus(); };
 $('#fab-backdrop').onclick = () => closeMenus(true);
-document.addEventListener('click', e => { if (!e.target.closest('.add-menu,.addsplit,#tb-new')) closeMenus(); });
+document.addEventListener('click', e => { if (!e.target.closest('.add-menu,.addsplit,#tb-new')) closeMenus(); if (!e.target.closest('.nav-grp')) $('#nav-entry').classList.remove('fly'); if (!e.target.closest('details.dd')) document.querySelectorAll('details.dd[open]').forEach(d => d.open = false); });
 // Esc: đóng menu, hoặc đóng khối nhập đang mở (khi không có hộp thoại)
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (!$('#add-menu').hidden || !$('#fab-menu').hidden) return closeMenus(true);
-  if (isLedger() && !dlg.open && !$('#dlg-code').open) { const t = S.view === 'revenue' ? 'in' : 'out'; if (S.entryOpen[t]) closeEntry(t); }
+  if ($('#nav-entry').classList.contains('fly')) { $('#nav-entry').classList.remove('fly'); return $('#nav-entry-btn').focus(); }
+  if (dlg.open || $('#dlg-code').open) return;
+  const t = S.view === 'projects-entry' ? 'pj' : ledgerType();
+  if (t && S.entryOpen[t]) closeEntry(t);
 });
+// Thanh bên: nhóm Nhập liệu mở / đóng (nhớ theo trình duyệt); thanh bên thu gọn thì hiện menu bay ra cạnh thanh bên
+function setNavOpen(open, save = true) {
+  $('#nav-entry').classList.toggle('open', open); $('#nav-entry-btn').setAttribute('aria-expanded', String(open));
+  if (save) store.set('navEntry', open);
+}
+setNavOpen(store.get('navEntry', true), false);
+$('#nav-entry-btn').onclick = e => {
+  e.stopPropagation();
+  if ($('.app').classList.contains('slim') && innerWidth > 760) { const g = $('#nav-entry'), f = !g.classList.contains('fly'); g.classList.toggle('fly', f); $('#nav-entry-btn').setAttribute('aria-expanded', String(f)); if (f) g.querySelector('.nav-sub .nav')?.focus(); return; }
+  setNavOpen(!$('#nav-entry').classList.contains('open'));
+};
+addEventListener('hashchange', () => { if (readHash()) { store.set('view', S.view); store.set('tab', S.tab); render(); } });
 document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => applyPreset(b.dataset.preset));
 document.querySelectorAll('[data-vat]').forEach(b => b.onclick = () => { S.vatMode = b.dataset.vat; store.set('vatMode', S.vatMode); render(); });
 $('#f-year').onchange = e => { S.custom = true; S.year = e.target.value; S.jpage = 0; store.set('year', S.year); render(); };
@@ -2177,10 +2537,10 @@ $('#main').addEventListener('click', e => {
   const open = e.target.closest('[data-open]'), pick = e.target.closest('[data-pick]'), act = e.target.closest('[data-act]');
   if (act) {
     const id = act.dataset.id, a = act.dataset.act;
-    if (a === 'new-project') openProject(null);
-    if (a === 'edit-project') openProject(S.projects.find(p => p.id === id));
-    if (a === 'new-tx') openTx(null, id);
-    if (a === 'new-in' || a === 'new-out') openTx(null, id, a === 'new-in' ? 'in' : 'out');
+    if (a === 'edit-project') openProjectEntry(id);
+    if (a === 'del-project') { const p = S.projects.find(x => x.id === id); if (p) deleteProject(p); }
+    // Sổ giao dịch (chỉ xem): mở đúng giao dịch trong Nhập liệu (Doanh thu › Tiền về hoặc Chi phí › Thực chi), sửa / xóa ở hộp sửa
+    if (a === 'open-tx') { const t = S.txs.find(x => x.id === id); if (t) { S.ledgerProject = t.projectId; store.set('ledgerProject', t.projectId); go(t.type === 'in' ? 'revenue' : 'expense', t.type === 'in' ? 'tienve' : 'thucchi'); openTx(t); } }
     if (a === 'journal-type') { S.jf = {project: '', type: id, q: ''}; S.jpage = 0; S.view = 'journal'; store.set('view', S.view); render(); window.scrollTo({top: 0}); }
     if (a === 'edit-tx') openTx(S.txs.find(t => t.id === id));
     if (a === 'new-contract') openContract(null, id, act.dataset.kind, act.dataset.parent);
@@ -2198,10 +2558,22 @@ $('#main').addEventListener('click', e => {
     if (a === 'del-tx') deleteTx(S.txs.find(t => t.id === id));
     return;
   }
+  const tb = e.target.closest('[data-tab]');
+  if (tb) { closeMenus(); go(S.view, tb.dataset.tab); return; }
+  const sp = e.target.closest('[data-setproj]');
+  if (sp) { S.ledgerProject = sp.dataset.setproj; store.set('ledgerProject', S.ledgerProject); render(); window.scrollTo({top: 0}); return; }
+  const gt = e.target.closest('[data-goto]');
+  if (gt) { const [v, t] = gt.dataset.goto.split(':'); if (gt.dataset.pid) { S.ledgerProject = gt.dataset.pid; store.set('ledgerProject', S.ledgerProject); }
+    if (v === 'projects-entry') return t === 'new' ? openProjectEntry(null) : gt.dataset.pid ? openProjectEntry(gt.dataset.pid) : go(v);
+    return go(v, t || undefined); }
+  if (e.target.closest('[data-hint-close]')) { store.set('hintNhap', true); document.querySelectorAll('.hint-bar').forEach(x => x.remove()); return; }
+  if (e.target.closest('#btn-clear-sample')) return clearSample();
+  const ps = e.target.closest('[data-plan-save]'); if (ps) return savePlan(ps.closest('[data-planpid]'));
+  const pr = e.target.closest('[data-plan-reset]'); if (pr) { delete S.planDraft[pr.closest('[data-planpid]').dataset.planpid]; render(); return; }
   const ec = e.target.closest('[data-entry-close]');
   if (ec) { closeEntry(ec.dataset.entryClose); return; }
   const la = e.target.closest('[data-ledger-all]');
-  if (la) { S.ledgerProject = ''; renderLedgerSide(); return; }
+  if (la) { S.ledgerProject = ''; store.set('ledgerProject', ''); render(); return; }
   const rt = e.target.closest('[data-rtoggle]');
   if (rt) { const [lvl, ...rest] = rt.dataset.rtoggle.split(':'), key = rest.join(':');
     if (lvl === 'p') S.revOpen.p[key + ':closed'] = !S.revOpen.p[key + ':closed']; else S.revOpen.g[key] = !S.revOpen.g[key];
@@ -2225,18 +2597,19 @@ $('#main').addEventListener('click', e => {
   if (pg && !pg.disabled) { S.jpage = +pg.dataset.page; renderJournalTable(); $('#j-table').scrollIntoView({block: 'start'}); return; }
   if (open || pick) { S.projectId = (open || pick).dataset.open || (open || pick).dataset.pick; store.set('project', S.projectId); S.view = 'project'; render(); window.scrollTo({top: 0}); }
 });
-$('#main').addEventListener('submit', e => { const f = e.target.closest('form[data-entry]'); if (f) { e.preventDefault(); saveEntry(f); } });
+$('#main').addEventListener('submit', e => { const f = e.target.closest('form[data-entry]'); if (f) { e.preventDefault(); f.dataset.entry === 'pj' ? saveProject(f) : saveEntry(f); } });
 $('#main').addEventListener('input', e => {
   if (e.target.matches('[data-money]')) {
     const inp = e.target, n = parseMoney(inp.value); inp.value = /\d/.test(inp.value) ? n.toLocaleString('vi-VN') : '';
     const hint = $(`[data-hint="${inp.id}"]`); if (hint) hint.textContent = n ? spoken(n) : '';
   }
   if (e.target.id === 'j-q') { S.jf.q = e.target.value; S.jpage = 0; renderJournalTable(); }
+  if (e.target.matches('[data-plan]')) recalcPlan(e.target.closest('[data-planpid]'));
 });
 $('#main').addEventListener('change', e => {
   if (e.target.id === 'j-project') { S.jf.project = e.target.value; S.jpage = 0; renderJournalTable(); }
   if (e.target.id === 'j-type') { S.jf.type = e.target.value; S.jpage = 0; renderJournalTable(); }
-  if (e.target.id === 'ledger-proj') { S.ledgerProject = e.target.value; renderLedgerSide(); return; }
+  if (e.target.id === 'ledger-proj') { S.ledgerProject = e.target.value; store.set('ledgerProject', S.ledgerProject); render(); return; }
   if (e.target.id === 'p-sort') { S.psort = e.target.value; store.set('psort', S.psort); render(); }
 });
 $('#main').addEventListener('click', e => {
@@ -2284,6 +2657,7 @@ document.addEventListener('input', e => {
 });
 
 /* ---------- boot ---------- */
+if (readHash()) store.set('view', S.view);
 render();
 async function load(first) {
   try {
@@ -2431,7 +2805,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && Da
 (async () => {
   try { S.me = await api('GET', 'me'); } catch { return; }
   if (S.me.idleMinutes) idleMs = S.me.idleMinutes * 60e3;
-  S.canWrite = S.me.role !== 'viewer';
+  S.canWrite = S.writer = S.me.role !== 'viewer';
   renderUser();
   await load(true);
   if (S.me.mustChange) openPassword(true);
@@ -2440,7 +2814,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && Da
 fetch('api/brand').then(r => r.json()).then(b => {
   if (b.logo) { const img = new Image(); img.src = 'brand/logo.png'; img.alt = b.name; $('#logo').replaceChildren(img); }
   $('#b-name').textContent = b.name; $('#b-org').textContent = b.org || 'Quản lý tài chính dự án';
-  document.title = document.title.replace('Sổ Tài Chính Dự Án', b.name);
+  S.brand = b.name; setTitle();
 }).catch(() => {});
 // Hiện dải cảnh báo ở mọi môi trường không phải production
 fetch('api/info').then(r => r.json()).then(({env}) => {
@@ -2448,7 +2822,7 @@ fetch('api/info').then(r => r.json()).then(({env}) => {
   const b = $('#envbar'); b.textContent = `MÔI TRƯỜNG THỬ NGHIỆM (${env}) · dữ liệu ở đây tách biệt với hệ thống chính`; b.hidden = false;
   const envh = () => document.documentElement.style.setProperty('--envh', (innerWidth > 760 ? b.offsetHeight : 0) + 'px');
   envh(); addEventListener('resize', envh);
-  document.title = `[${env}] ` + document.title;
+  S.envTag = `[${env}] `; setTitle();
 }).catch(() => {});
 setInterval(() => { if (!document.hidden) load(false); }, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(false); });

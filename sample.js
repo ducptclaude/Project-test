@@ -45,7 +45,11 @@ function makeRichSample() {
   const at = '2026-10-29T00:00:00.000Z', by = { createdBy: null, createdByName: 'Dữ liệu mẫu', updatedBy: null, updatedByName: 'Dữ liệu mẫu', updatedAt: at };
   const pid = 'mau-p1';
   const projects = [{ id: pid, code: 'DA-M01', name: 'Xây dựng trường mầm non Hoa Sen (mẫu)', client: 'Ban QLDA phường An Phú (ví dụ)', manager: 'Lê Thu Trang',
-    budget: 10800000000, status: 'active', start: '2026-02-01', end: '2027-01-31', sample: true }];
+    budget: 10800000000, status: 'active', start: '2026-02-01', end: '2027-01-31', sample: true,
+    // Kế hoạch chi phí theo hạng mục (trước VAT), tổng = ngân sách 10,8 tỷ. "Tổ chức thi công" cố ý vượt nhẹ (thực chi 198 tr / 180 tr), "Vật tư" gần chạm (94,6%)
+    budgetPlan: { 'direct|Vật tư': 3600000000, 'direct|Thầu phụ': 1900000000, 'direct|Nhân công': 2300000000, 'direct|MMTB': 700000000, 'direct|Tổ chức thi công': 180000000,
+      'indirect|Lương BCH': 1200000000, 'indirect|Điện, nước': 150000000, 'indirect|Ngoại giao': 220000000, 'finance|Phí bảo lãnh': 50000000, 'finance|Lãi vay, phạt': 500000000, unallocated: 0 },
+    budgetPlanBy: null, budgetPlanByName: 'Dữ liệu mẫu', budgetPlanAt: at }];
   const contracts = [
     // Hợp đồng 1 (thi công): HĐ gốc + 2 phụ lục, chưa quyết toán (TĐ2). Hợp đồng 2 (thiết bị bếp): đã quyết toán (TĐ3).
     ['mau-c0', 'base', 1, null, '08/2026/HĐXD', '2026-01-20', 12000000000, 1200000000, 'Thi công trọn gói'],
