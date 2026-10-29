@@ -267,11 +267,12 @@ tbody tr.link:hover{background:var(--sunk)}
 .pcard .line{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted)}
 .pcard.total{cursor:default;background:var(--sunk);border-color:transparent}
 .pcard.total .line b{color:var(--ink)}
-.cnote{min-width:120px;max-width:280px;overflow-wrap:anywhere}
-.ctbl th,.ctbl td{padding-inline:10px}
+.cnote{min-width:100px;max-width:280px;overflow-wrap:anywhere}
+.ctbl th,.ctbl td{padding-inline:8px}
+.ctbl td.num{font-size:13px}
 /* Khối hợp đồng: khung hẹp hơn bảng (máy tính nhỏ, thanh bên mở) thì chuyển sang dạng thẻ xếp lưới */
 .cpanel{container-type:inline-size}
-@container (max-width:760px){.cpanel .desk{display:none}.cpanel .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}}
+@container (max-width:785px){.cpanel .desk{display:none}.cpanel .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}}
 .pcard .actions{justify-content:flex-start}
 .txlist{list-style:none;margin:0;padding:0;display:none;flex-direction:column}
 .txlist li{border-bottom:1px solid var(--line)}
@@ -1166,7 +1167,8 @@ async function saveEntry(f) {
 function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false) {
   if (!txs.length) return `<p class="muted" style="margin:0">Không có giao dịch nào khớp bộ lọc.</p>`;
   const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
-  const shown = sorted.slice(offset, offset + limit), kind = compact ? txs[0].type : null;
+  // kind: cả bảng cùng một loại (trang Doanh thu / Chi phí, hoặc Sổ giao dịch đang lọc một loại) → một dòng Tổng cộng
+  const shown = sorted.slice(offset, offset + limit), kind = compact || txs.every(t => t.type === txs[0].type) ? txs[0].type : null;
   const code = t => esc(S.projects.find(p => p.id === t.projectId)?.code || '—');
   const sg = t => t.type === 'in' ? '+' : '−', n = v => Math.abs(Math.round(v)).toLocaleString('vi-VN');
   const vatCell = t => txVat(t) == null ? '<span class="chip warn" title="Chưa nhập VAT, tạm coi là 0">Tạm tính</span>' : n(txVat(t));

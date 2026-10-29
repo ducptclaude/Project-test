@@ -208,13 +208,34 @@ check('không xóa được dự án còn giao dịch, dữ liệu còn nguyên'
 check('chuyển dữ liệu cũ: mỗi dự án ví dụ có đúng một HĐ gốc VAT tạm tính', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
   const d = (await a('GET', '/api/data')).json;
-  for (const p of d.projects.filter(p => p.sample)) {
+  for (const p of d.projects.filter(p => p.sample && !p.id.startsWith('mau-'))) {
     const cs = d.contracts.filter(c => c.projectId === p.id);
     assert.equal(cs.length, 1, p.id);
     assert.equal(cs[0].kind, 'base'); assert.equal(cs[0].vat, null); assert.equal(cs[0].value, p.contractValue);
     assert.equal(cs[0].createdByName, 'Chuyển từ dữ liệu cũ');
     assert.ok(p.contractValue > 0, 'giữ nguyên contractValue cũ');
   }
+});
+// Kiểm tra nội dung dự án mẫu DA-M01 (dùng cho cả lần chạy đầu và sampleToken)
+function checkRich(d) {
+  const p = d.projects.find(x => x.id === 'mau-p1');
+  assert.ok(p, 'phải có dự án mẫu DA-M01'); assert.equal(p.code, 'DA-M01'); assert.equal(p.sample, true); assert.equal(p.budget, 10800000000);
+  const cs = d.contracts.filter(c => c.projectId === 'mau-p1').sort((a, b) => a.seq - b.seq);
+  assert.deepEqual(cs.map(c => [c.id, c.kind, c.seq, c.value, c.vat]), [['mau-c0', 'base', 0, 12000000000, 1200000000], ['mau-c1', 'appendix', 1, 850000000, 85000000], ['mau-c2', 'appendix', 2, -300000000, null]]);
+  const txs = d.transactions.filter(t => t.projectId === 'mau-p1'), ins = txs.filter(t => t.type === 'in'), outs = txs.filter(t => t.type === 'out');
+  assert.equal(ins.length, 5);
+  assert.equal(ins.filter(t => t.contractId === '').length, 1, 'một khoản thu ngoài hợp đồng');
+  assert.equal(ins.filter(t => t.vat == null).length, 1, 'một khoản thu VAT tạm tính');
+  assert.ok(ins.every(t => t.contractId === '' || cs.some(c => c.id === t.contractId)), 'khoản thu gắn đúng hợp đồng của dự án');
+  assert.ok(outs.length > 20 && outs.every(t => t.partner), 'khoản chi có đối tác');
+  assert.ok(txs.every(t => t.sample && t.id.startsWith('mau-') && Number.isInteger(t.amount) && Number.isInteger(t.pre) && t.amount === t.pre + (t.vat || 0)), 'trước VAT + VAT = sau VAT');
+  const chi = outs.reduce((a, t) => a + t.pre, 0);
+  assert.ok(chi > 7.3e9 && chi < 7.8e9, 'tổng chi trước VAT 7,3–7,8 tỷ');
+  assert.ok(cs.every(c => c.sample) && [...cs, ...txs].every(x => x.createdByName === 'Dữ liệu mẫu'));
+}
+check('lần chạy đầu (môi trường thử) có dự án mẫu đầy đủ DA-M01', async () => {
+  const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+  checkRich((await a('GET', '/api/data')).json);
 });
 check('hợp đồng: HĐ gốc + phụ lục, máy chủ cấp số thứ tự và người nhập', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
@@ -307,6 +328,7 @@ check('xóa dữ liệu ví dụ giữ lại dự án ví dụ đang có giao d�
   for (const p of ['da01', 'da03', 'da04']) assert.equal(d.contracts.filter(c => c.projectId === p).length, 1, 'giữ hợp đồng của dự án còn lại: ' + p);
   assert.ok(!d.contracts.some(c => c.projectId === 'da02'), 'hợp đồng của dự án ví dụ đã xóa cũng bị xóa');
   assert.equal(d.contracts.filter(c => c.projectId === 'hd-p').length, 2, 'hợp đồng thật còn nguyên');
+  assert.ok(![...d.projects, ...d.contracts, ...d.transactions].some(x => x.id.startsWith('mau-')), 'xóa hết dự án mẫu DA-M01 cùng hợp đồng và giao dịch');
 });
 check('đăng xuất', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
@@ -330,6 +352,38 @@ const stop = srv => new Promise(ok => { if (srv.exitCode !== null) return ok(); 
 
 // Kiểm tra cần khởi động lại máy chủ với biến môi trường khác
 const restartChecks = [
+  ['sampleToken: thêm dự án mẫu ở môi trường thử, một lần, không đụng dữ liệu khác; production bỏ qua', async () => {
+    const file = path.join(dataDir, 'sample-token.json'), strip = d => JSON.stringify(['projects', 'contracts', 'transactions'].map(k => d[k].filter(x => !x.id.startsWith('mau-')).sort((a, b) => a.id.localeCompare(b.id))));
+    let srv = await start(), before;
+    try {
+      const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+      before = (await c('GET', '/api/data')).json;
+      assert.ok(!before.projects.some(p => p.id === 'mau-p1'), 'đã xóa ở bước trước');
+    } finally { await stop(srv); }
+    fs.writeFileSync(file, JSON.stringify({ sampleToken: 'mau-test-1' }));
+    srv = await start({ RESET_FILE: file });
+    try {
+      assert.match(srv.log, /sampleToken "mau-test-1": đã thêm dự án mẫu DA-M01/);
+      const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+      const d = (await c('GET', '/api/data')).json;
+      checkRich(d);
+      assert.equal(strip(d), strip(before), 'dữ liệu khác không thay đổi');
+      assert.equal((await c('DELETE', '/api/sample', { passcode: 'Ma2026' })).status, 204);
+      assert.ok(!(await c('GET', '/api/data')).json.projects.some(p => p.id === 'mau-p1'));
+    } finally { await stop(srv); }
+    srv = await start({ RESET_FILE: file });   // cùng token: không nạp lại
+    try {
+      const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+      assert.ok(!(await c('GET', '/api/data')).json.projects.some(p => p.id === 'mau-p1'), 'token đã chạy thì không nạp lại');
+    } finally { await stop(srv); }
+    fs.writeFileSync(file, JSON.stringify({ sampleToken: 'mau-test-2' }));
+    srv = await start({ RESET_FILE: file, APP_ENV: 'production' });
+    try {
+      assert.match(srv.log, /không nạp dự án mẫu ở môi trường production/);
+      const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+      assert.ok(!(await c('GET', '/api/data')).json.projects.some(p => p.id === 'mau-p1'));
+    } finally { await stop(srv); }
+  }],
   ['khởi động lại không chuyển dữ liệu hợp đồng lần nữa', async () => {
     const srv = await start();
     try {

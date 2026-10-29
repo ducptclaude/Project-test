@@ -87,6 +87,8 @@ async function seedOnce() {
     const s = makeSample();
     for (const { id, ...d } of s.projects) items.push(['projects', id, d]);
     for (const { id, ...d } of s.txs) items.push(['transactions', id, { ...d, createdAt: 0 }]);
+    // Môi trường mới (không phải production) nạp luôn dự án mẫu đầy đủ DA-M01
+    if (ENV_NAME !== 'production') items.push(...richItems());
   }
   items.push(['meta', 'seeded', { at: new Date().toISOString() }]);
   await store.putMany(items);
@@ -108,6 +110,28 @@ async function migrateContracts() {
   items.push(['meta', 'contractsMigrated', { at, count: items.length }]);
   await store.putMany(items);
   if (items.length > 1) console.log(`Đã chuyển giá trị hợp đồng của ${items.length - 1} dự án sang bảng hợp đồng (VAT tạm tính).`);
+}
+
+// Dự án mẫu đầy đủ (sample.js → makeRichSample): chỉ các id tiền tố "mau-", mang cờ sample
+function richItems() {
+  const r = makeSample.rich(), items = [];
+  for (const [col, list] of [['projects', r.projects], ['contracts', r.contracts], ['transactions', r.txs]])
+    for (const { id, ...d } of list) items.push([col, id, d]);
+  return items;
+}
+// deploy/reset.json "sampleToken": token mới → THÊM dự án mẫu vào môi trường thử (không xóa, không đụng id khác;
+// ghi lại chính các id "mau-" nếu đã có). Mỗi token chạy một lần (meta sampleSeed). Production: bỏ qua hoàn toàn.
+async function sampleSeed() {
+  const token = String(readResetFile()?.sampleToken || '').trim();
+  if (!token) return;
+  if (ENV_NAME === 'production') return console.log('sampleToken: không nạp dự án mẫu ở môi trường production.');
+  const meta = (await store.get('meta', 'sampleSeed')) || {};
+  if ((meta.tokens || []).includes(token)) return;
+  const items = richItems();
+  if (!items.every(([, id]) => id.startsWith('mau-'))) throw new Error('Dự án mẫu chỉ được dùng id tiền tố mau-');
+  items.push(['meta', 'sampleSeed', { tokens: [...(meta.tokens || []), token], at: new Date().toISOString() }]);
+  await store.putMany(items);
+  console.log(`sampleToken "${token}": đã thêm dự án mẫu DA-M01 (${items.length - 1} bản ghi, id tiền tố mau-).`);
 }
 
 /* ---------- app ---------- */
@@ -309,9 +333,12 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '5m', index: 'i
 //   (bắt buộc đổi mật khẩu khi đăng nhập), để khởi tạo lại môi trường thử nghiệm chỉ bằng một lần đẩy code.
 //   scope "accounts": chỉ xóa tài khoản, giữ nguyên dự án và giao dịch; mặc định "all" xóa tất cả.
 // Các token đã chạy được ghi lại nên để nguyên biến/tệp cũng không xóa lại. Không bao giờ chạy ở production.
+function readResetFile() {
+  try { return JSON.parse(fs.readFileSync(process.env.RESET_FILE || path.join(__dirname, 'deploy', 'reset.json'), 'utf8')); }
+  catch (e) { if (e.code !== 'ENOENT') console.error('deploy/reset.json không đọc được:', e.message); return null; }
+}
 async function factoryReset() {
-  let file = null;
-  try { file = JSON.parse(fs.readFileSync(process.env.RESET_FILE || path.join(__dirname, 'deploy', 'reset.json'), 'utf8')); } catch (e) { if (e.code !== 'ENOENT') console.error('deploy/reset.json không đọc được:', e.message); }
+  const file = readResetFile();
   const tokens = [String(process.env.FACTORY_RESET || '').trim(), String(file?.token || '').trim()].filter(Boolean);
   if (!tokens.length) return;
   if (ENV_NAME === 'production') {
@@ -358,6 +385,7 @@ store.init()
   .then(factoryReset)
   .then(seedOnce)
   .then(migrateContracts)
+  .then(sampleSeed)
   .then(auth.bootstrap)
   .then(() => app.listen(PORT, () => {
     // Railway tự đặt RAILWAY_GIT_BRANCH / RAILWAY_GIT_COMMIT_SHA: cho biết bản code nào đang chạy

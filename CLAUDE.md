@@ -7,7 +7,8 @@
 - `auth.js`: trang `/login`, phiên cookie ký HMAC, vai trò `viewer` < `editor` < `admin`, API quản lý tài khoản.
 - `public/index.html`: toàn bộ giao diện ứng dụng (HTML + CSS + JS thuần trong một file).
 - `public/login.html`: trang đăng nhập hai cột. Logo tùy chọn ở `public/brand/logo.png`.
-- `sample.js`: dữ liệu ví dụ nạp ở lần chạy đầu.
+- `sample.js`: dữ liệu ví dụ nạp ở lần chạy đầu; `makeSample.rich()` dựng dự án mẫu đầy đủ **DA-M01** (HĐ gốc + phụ lục có VAT / tạm tính / âm, khoản thu gắn hợp đồng và ngoài hợp đồng, khoản chi có đối tác, hóa đơn). Mọi id tiền tố `mau-`, cờ `sample` (xóa được bằng "Xóa dữ liệu ví dụ"), người nhập "Dữ liệu mẫu".
+- `deploy/reset.json`: `token` / `scope` / `productionAccountsToken` (khởi tạo lại tài khoản), và `sampleToken`: token mới thì khi khởi động ở môi trường **không phải production** máy chủ **thêm** dự án mẫu DA-M01 đúng một lần (meta `sampleSeed`), không xóa / ghi đè dữ liệu khác. Cơ sở dữ liệu mới (không phải production) cũng tự có DA-M01.
 - `scripts/smoke.js`: bộ kiểm tra chạy bằng `npm test`.
 
 ## Lệnh
