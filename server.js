@@ -117,7 +117,7 @@ async function migrateContracts() {
   for (const p of projects) {
     const v = Math.round(Number(p.contractValue) || 0);
     if (v <= 0 || has.has(p.id)) continue;
-    items.push(['contracts', 'hd' + crypto.randomBytes(6).toString('hex'), { projectId: p.id, kind: 'base', seq: 0, no: '', signDate: '', value: v, vat: null, note: '',
+    items.push(['contracts', 'hd' + crypto.randomBytes(6).toString('hex'), { projectId: p.id, kind: 'base', seq: 1, no: '', signDate: '', value: v, vat: null, note: '',
       createdBy: null, createdByName: 'Chuyển từ dữ liệu cũ', createdAt: at, updatedBy: null, updatedByName: 'Chuyển từ dữ liệu cũ', updatedAt: at, ...(p.sample ? { sample: true } : {}) }]);
   }
   items.push(['meta', 'contractsMigrated', { at, count: items.length }]);
@@ -181,6 +181,31 @@ async function migrateCostGroups() {
   items.push(['meta', 'costGroupsMigrated', { at: new Date().toISOString(), count: items.length }]);
   await store.putMany(items);
   console.log(`Chi phí 3 khối: đã chuyển ${items.length - 1} khoản chi cũ sang khối / hạng mục mới (tên cũ lưu ở oldCategory).`);
+}
+
+// Nhiều hợp đồng trong một dự án (một lần, meta contractGroupsMigrated, mọi môi trường): HĐ gốc seq 0 → 1; phụ lục chưa có
+// parentId gắn vào HĐ gốc duy nhất của dự án; quyết toán / nghiệm thu chưa gắn hợp đồng gắn vào HĐ gốc duy nhất.
+// Chỉ thêm / đổi trường, không xóa; không đổi người sửa, thời điểm sửa hay cờ sample.
+async function migrateContractGroups() {
+  if (await store.get('meta', 'contractGroupsMigrated')) return;
+  const [cts, accs] = await Promise.all([store.all('contracts'), store.all('acceptances')]);
+  const bases = pid => cts.filter(c => c.projectId === pid && c.kind === 'base');
+  const items = []; let skipped = 0;
+  for (const { id, ...c } of cts) {
+    if (c.kind === 'base' && !(+c.seq > 0)) items.push(['contracts', id, { ...c, seq: 1 }]);
+    if (c.kind === 'appendix' && !c.parentId) {
+      const bs = bases(c.projectId);
+      if (bs.length === 1) items.push(['contracts', id, { ...c, parentId: bs[0].id }]); else skipped++;
+    }
+  }
+  for (const { id, ...a } of accs) {
+    if (a.contractId) continue;
+    const bs = bases(a.projectId);
+    if (bs.length === 1) items.push(['acceptances', id, { ...a, contractId: bs[0].id }]); else skipped++;
+  }
+  items.push(['meta', 'contractGroupsMigrated', { at: new Date().toISOString(), count: items.length, skipped }]);
+  await store.putMany(items);
+  if (items.length > 1 || skipped) console.log(`Nhiều hợp đồng: đã cập nhật ${items.length - 1} bản ghi hợp đồng / nghiệm thu / quyết toán cũ${skipped ? `; ${skipped} bản ghi chưa gắn được (dự án không có đúng một HĐ gốc)` : ''}.`);
 }
 
 /* ---------- app ---------- */
@@ -253,11 +278,14 @@ function cleanContract(b, kind) {
   if (kind === 'base' && vat < 0) return { error: 'VAT của hợp đồng gốc không được âm.' };
   return { data: { no: no.trim(), signDate, value: b.value, vat, note: note.trim() } };
 }
+// Một dự án có nhiều hợp đồng: HĐ gốc seq 1..n trong dự án; phụ lục có parentId = HĐ gốc cùng dự án, seq 1..n trong từng HĐ gốc.
 app.put('/api/contracts/:id', canWrite, wrap(async (req, res) => {
   const id = req.params.id;
   if (!ID_RE.test(id)) return res.status(400).json({ error: 'Đường dẫn không hợp lệ' });
   const b = req.body || {}, old = await store.get('contracts', id);
-  // Sửa: giữ nguyên dự án, loại và số thứ tự; tạo mới: lấy từ dữ liệu gửi lên
+  // Sửa: không đổi được dự án, loại, hợp đồng gốc của phụ lục; số thứ tự giữ nguyên
+  if (old && ((b.kind !== undefined && b.kind !== old.kind) || (b.projectId !== undefined && b.projectId !== old.projectId) || (b.parentId !== undefined && b.parentId !== old.parentId)))
+    return res.status(400).json({ error: 'Không đổi được dự án, loại hay hợp đồng gốc của dòng đã ghi. Xóa và nhập lại.' });
   const projectId = old ? old.projectId : b.projectId, kind = old ? old.kind : b.kind;
   if (kind !== 'base' && kind !== 'appendix') return res.status(400).json({ error: 'Loại hợp đồng không hợp lệ.' });
   if (!old && !(typeof projectId === 'string' && ID_RE.test(projectId) && await store.get('projects', projectId)))
@@ -272,10 +300,15 @@ app.put('/api/contracts/:id', canWrite, wrap(async (req, res) => {
     rec = { ...o, ...c.data, ...who };
   } else {
     const list = (await store.all('contracts')).filter(x => x.projectId === projectId);
-    if (kind === 'base' && list.some(x => x.kind === 'base')) return res.status(400).json({ error: 'Dự án đã có hợp đồng gốc. Hãy thêm phụ lục.' });
-    if (kind === 'appendix' && !list.some(x => x.kind === 'base')) return res.status(400).json({ error: 'Thêm hợp đồng gốc trước khi thêm phụ lục.' });
-    const seq = kind === 'base' ? 0 : Math.max(0, ...list.filter(x => x.kind === 'appendix').map(x => +x.seq || 0)) + 1;
-    rec = { projectId, kind, seq, ...c.data, createdBy: req.user.id, createdByName: req.user.name || req.user.id, createdAt: now, ...who };
+    let parentId, seq;
+    if (kind === 'base') seq = Math.max(0, ...list.filter(x => x.kind === 'base').map(x => +x.seq || 0)) + 1;
+    else {
+      parentId = b.parentId;
+      if (!(typeof parentId === 'string' && list.some(x => x.id === parentId && x.kind === 'base')))
+        return res.status(400).json({ error: 'Phụ lục phải gắn với một hợp đồng gốc của dự án này.' });
+      seq = Math.max(0, ...list.filter(x => x.kind === 'appendix' && x.parentId === parentId).map(x => +x.seq || 0)) + 1;
+    }
+    rec = { projectId, kind, ...(parentId ? { parentId } : {}), seq, ...c.data, createdBy: req.user.id, createdByName: req.user.name || req.user.id, createdAt: now, ...who };
   }
   await store.put('contracts', id, rec);
   res.json({ id, ...rec });
@@ -286,14 +319,12 @@ app.delete('/api/contracts/:id', canWrite, wrap(async (req, res) => {
   const c = await store.get('contracts', id);
   if (!c) return res.status(204).end();
   if (c.kind === 'base') {
-    const n = (await store.all('contracts')).filter(x => x.projectId === c.projectId && x.kind === 'appendix').length;
+    const n = (await store.all('contracts')).filter(x => x.kind === 'appendix' && x.parentId === id).length;
     if (n) return res.status(409).json({ error: `Hợp đồng gốc còn ${n} phụ lục. Xóa các phụ lục trước.` });
   }
-  const accs = await store.all('acceptances');
-  const nAcc = accs.filter(a => a.contractId === id).length;
-  if (nAcc) return res.status(409).json({ error: `Hợp đồng còn ${nAcc} đợt nghiệm thu gắn vào. Sửa hoặc xóa các đợt nghiệm thu trước.` });
-  if (c.kind === 'base' && accs.some(a => a.projectId === c.projectId && a.kind === 'quyettoan'))
-    return res.status(409).json({ error: 'Dự án đã quyết toán. Xóa quyết toán trước khi xóa hợp đồng gốc.' });
+  const accs = (await store.all('acceptances')).filter(a => a.contractId === id);
+  if (accs.some(a => a.kind === 'quyettoan')) return res.status(409).json({ error: 'Hợp đồng đã quyết toán. Xóa quyết toán trước khi xóa hợp đồng gốc.' });
+  if (accs.length) return res.status(409).json({ error: `Hợp đồng còn ${accs.length} đợt nghiệm thu gắn vào. Sửa hoặc xóa các đợt nghiệm thu trước.` });
   // Không xóa hợp đồng còn khoản thu gắn vào (kiểm tra trước mã xóa, như các ràng buộc khác)
   const nIn = (await store.all('transactions')).filter(t => t.contractId === id).length;
   if (nIn) return res.status(409).json({ error: `Hợp đồng còn ${nIn} khoản thu gắn vào. Chuyển các khoản thu sang hợp đồng khác trước.` });
@@ -322,6 +353,8 @@ app.put('/api/acceptances/:id', canWrite, wrap(async (req, res) => {
   const b = req.body || {}, old = await store.get('acceptances', id);
   if (old && ((b.kind !== undefined && b.kind !== old.kind) || (b.projectId !== undefined && b.projectId !== old.projectId)))
     return res.status(400).json({ error: 'Không đổi được loại hoặc dự án của biên bản đã ghi. Xóa và nhập lại.' });
+  if (old?.kind === 'quyettoan' && b.contractId !== undefined && b.contractId !== old.contractId)
+    return res.status(400).json({ error: 'Không đổi được hợp đồng của quyết toán đã ghi. Xóa và nhập lại.' });
   const projectId = old ? old.projectId : b.projectId, kind = old ? old.kind : b.kind;
   if (!ACC_KINDS.has(kind)) return res.status(400).json({ error: 'Loại không hợp lệ (nghiệm thu hoặc quyết toán).' });
   if (!old && !(typeof projectId === 'string' && ID_RE.test(projectId) && await store.get('projects', projectId)))
@@ -329,11 +362,19 @@ app.put('/api/acceptances/:id', canWrite, wrap(async (req, res) => {
   const c = cleanAcceptance(b, kind);
   if (c.error) return res.status(400).json({ error: c.error });
   const cts = (await store.all('contracts')).filter(x => x.projectId === projectId);
+  // Nhóm hợp đồng: HĐ gốc và các phụ lục của nó (id HĐ gốc)
+  const groupOf = cid => { const x = cts.find(y => y.id === cid); return x ? (x.kind === 'base' ? x.id : x.parentId) : null; };
   if (kind === 'nghiemthu') {
-    const cid = b.contractId ?? '';
-    if (typeof cid !== 'string' || (cid !== '' && !cts.some(x => x.id === cid))) return res.status(400).json({ error: 'Hợp đồng không thuộc dự án này.' });
+    const cid = b.contractId;
+    if (typeof cid !== 'string' || !cts.some(x => x.id === cid)) return res.status(400).json({ error: cid ? 'Hợp đồng không thuộc dự án này.' : 'Chọn hợp đồng (HĐ gốc hoặc phụ lục) của đợt nghiệm thu.' });
+    if (old && groupOf(old.contractId) && groupOf(cid) !== groupOf(old.contractId)) return res.status(400).json({ error: 'Không chuyển được đợt nghiệm thu sang hợp đồng khác. Xóa và nhập lại.' });
     c.data.contractId = cid;
-  } else if (!cts.some(x => x.kind === 'base')) return res.status(400).json({ error: 'Dự án chưa có hợp đồng gốc, chưa quyết toán được.' });
+  } else {
+    if (!cts.some(x => x.kind === 'base')) return res.status(400).json({ error: 'Dự án chưa có hợp đồng gốc, chưa quyết toán được.' });
+    const cid = old ? old.contractId : b.contractId;
+    if (!cts.some(x => x.id === cid && x.kind === 'base')) return res.status(400).json({ error: 'Quyết toán phải gắn với một hợp đồng gốc của dự án này.' });
+    c.data.contractId = cid;
+  }
   const now = new Date().toISOString();
   const who = { updatedBy: req.user.id, updatedByName: req.user.name || req.user.id, updatedAt: now };
   let rec;
@@ -342,8 +383,10 @@ app.put('/api/acceptances/:id', canWrite, wrap(async (req, res) => {
     rec = { ...o, ...c.data, ...who };
   } else {
     const list = (await store.all('acceptances')).filter(x => x.projectId === projectId);
-    if (kind === 'quyettoan' && list.some(x => x.kind === 'quyettoan')) return res.status(400).json({ error: 'Dự án đã có quyết toán.' });
-    const seq = kind === 'quyettoan' ? 0 : Math.max(0, ...list.filter(x => x.kind === 'nghiemthu').map(x => +x.seq || 0)) + 1;
+    // Mỗi HĐ gốc tối đa một quyết toán; số đợt nghiệm thu đếm theo từng hợp đồng (nhóm HĐ gốc)
+    if (kind === 'quyettoan' && list.some(x => x.kind === 'quyettoan' && x.contractId === c.data.contractId)) return res.status(400).json({ error: 'Hợp đồng này đã có quyết toán.' });
+    const g = groupOf(c.data.contractId);
+    const seq = kind === 'quyettoan' ? 0 : Math.max(0, ...list.filter(x => x.kind === 'nghiemthu' && groupOf(x.contractId) === g).map(x => +x.seq || 0)) + 1;
     rec = { projectId, kind, seq, ...c.data, createdBy: req.user.id, createdByName: req.user.name || req.user.id, createdAt: now, ...who };
   }
   await store.put('acceptances', id, rec);
@@ -552,6 +595,7 @@ store.init()
   .then(seedOnce)
   .then(migrateContracts)
   .then(migrateCostGroups)
+  .then(migrateContractGroups)
   .then(sampleSeed)
   .then(auth.bootstrap)
   .then(() => app.listen(PORT, () => {

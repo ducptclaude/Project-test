@@ -47,15 +47,19 @@ function makeRichSample() {
   const projects = [{ id: pid, code: 'DA-M01', name: 'Xây dựng trường mầm non Hoa Sen (mẫu)', client: 'Ban QLDA phường An Phú (ví dụ)', manager: 'Lê Thu Trang',
     budget: 10800000000, status: 'active', start: '2026-02-01', end: '2027-01-31', sample: true }];
   const contracts = [
-    ['mau-c0', 'base', 0, '08/2026/HĐXD', '2026-01-20', 12000000000, 1200000000, 'Thi công trọn gói'],
-    ['mau-c1', 'appendix', 1, '08/2026/PL01', '2026-05-15', 850000000, 85000000, 'Bổ sung hệ thống PCCC'],
-    ['mau-c2', 'appendix', 2, '08/2026/PL02', '2026-09-10', -300000000, null, 'Giảm khối lượng sân vườn']
-  ].map(([id, kind, seq, no, signDate, value, vat, note]) => ({ id, projectId: pid, kind, seq, no, signDate, value, vat, note, ...by, createdAt: at, sample: true }));
+    // Hợp đồng 1 (thi công): HĐ gốc + 2 phụ lục, chưa quyết toán (TĐ2). Hợp đồng 2 (thiết bị bếp): đã quyết toán (TĐ3).
+    ['mau-c0', 'base', 1, null, '08/2026/HĐXD', '2026-01-20', 12000000000, 1200000000, 'Thi công trọn gói'],
+    ['mau-c1', 'appendix', 1, 'mau-c0', '08/2026/PL01', '2026-05-15', 850000000, 85000000, 'Bổ sung hệ thống PCCC'],
+    ['mau-c2', 'appendix', 2, 'mau-c0', '08/2026/PL02', '2026-09-10', -300000000, null, 'Giảm khối lượng sân vườn'],
+    ['mau-c3', 'base', 2, null, '15/2026/HĐTB', '2026-04-10', 1200000000, 96000000, 'Cung cấp thiết bị bếp']
+  ].map(([id, kind, seq, parentId, no, signDate, value, vat, note]) => ({ id, projectId: pid, kind, ...(parentId ? { parentId } : {}), seq, no, signDate, value, vat, note, ...by, createdAt: at, sample: true }));
   // Nghiệm thu khớp các khoản tiền về theo nghiệm thu; dự án mẫu chưa quyết toán
   const acceptances = [
     ['mau-a1', 1, 'mau-c0', 'BBNT-01/2026', '2026-05-25', 3000000000, 300000000, 'Nghiệm thu đợt 1 phần móng, khung'],
-    ['mau-a2', 2, 'mau-c1', 'BBNT-02/2026', '2026-08-18', 850000000, 85000000, 'Nghiệm thu hạng mục PCCC (PL01)']
-  ].map(([id, seq, contractId, no, date, value, vat, note]) => ({ id, projectId: pid, kind: 'nghiemthu', seq, contractId, no, date, value, vat, note, ...by, createdAt: at, sample: true }));
+    ['mau-a2', 2, 'mau-c1', 'BBNT-02/2026', '2026-08-18', 850000000, 85000000, 'Nghiệm thu hạng mục PCCC (PL01)'],
+    ['mau-a3', 1, 'mau-c3', 'BBNT-TB-01/2026', '2026-09-15', 1180000000, 94400000, 'Nghiệm thu bàn giao thiết bị bếp'],
+    ['mau-q1', 0, 'mau-c3', 'QT-TB-01/2026', '2026-10-20', 1180000000, 94400000, 'Quyết toán hợp đồng thiết bị bếp', 'quyettoan']
+  ].map(([id, seq, contractId, no, date, value, vat, note, kind = 'nghiemthu']) => ({ id, projectId: pid, kind, seq, contractId, no, date, value, vat, note, ...by, createdAt: at, sample: true }));
   const txs = [];
   const tx = (id, o) => txs.push({ id, projectId: pid, note: '', invoiceNo: '', invoiceDate: '', ...o, amount: o.pre + (o.vat || 0), ...by, createdAt: Date.parse(o.date + 'T09:00:00Z'), sample: true });
   // Khoản thu
@@ -63,7 +67,8 @@ function makeRichSample() {
    ['2026-05-28', 'mau-c0', 'Thanh toán theo nghiệm thu', '0000188', '2026-05-25', 3000000000, 300000000, 'Nghiệm thu đợt 1 phần móng, khung'],
    ['2026-08-20', 'mau-c1', 'Thanh toán theo nghiệm thu', '0000231', '2026-08-18', 850000000, 85000000, 'Nghiệm thu hạng mục PCCC (PL01)'],
    ['2026-09-30', '', 'Phát sinh ngoài hợp đồng', '0000247', '2026-09-28', 120000000, 12000000, 'Sửa chữa cổng phụ theo yêu cầu CĐT'],
-   ['2026-10-15', 'mau-c0', 'Thanh toán theo nghiệm thu', '', '', 1650000000, null, 'Thanh toán đợt 3, chờ hóa đơn']
+   ['2026-10-15', 'mau-c0', 'Thanh toán theo nghiệm thu', '', '', 1650000000, null, 'Thanh toán đợt 3, chờ hóa đơn'],
+   ['2026-10-25', 'mau-c3', 'Quyết toán', '0000268', '2026-10-24', 1000000000, 80000000, 'Thanh toán theo quyết toán']
   ].forEach(([date, contractId, category, invoiceNo, invoiceDate, pre, vat, note], i) =>
     tx('mau-t' + (i + 1), { type: 'in', date, contractId, category, invoiceNo, invoiceDate, pre, vat, note }));
   // Khoản chi theo tháng 02–10/2026; số tiền tính theo đơn vị 100.000 đồng

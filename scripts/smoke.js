@@ -128,7 +128,8 @@ check('mã xóa áp dụng cho mọi thao tác xóa: giao dịch, dự án, dữ
   const e = client(); await e('POST', '/api/login', { username: 'nhap', password: 'Nhap12345' });
   assert.equal((await a('PUT', '/api/projects/mx-p', { name: 'Dự án để xóa' })).status, 204);
   assert.equal((await a('POST', '/api/users', { username: 'tam', name: 'Tạm', role: 'editor', password: 'Tam123456' })).status, 201);
-  assert.equal((await a('PUT', '/api/acceptances/mx-a', { projectId: 'da01', kind: 'nghiemthu', date: '2026-10-01', value: 1000000, vat: null })).status, 200);
+  const base01 = (await a('GET', '/api/data')).json.contracts.find(c => c.projectId === 'da01' && c.kind === 'base').id;
+  assert.equal((await a('PUT', '/api/acceptances/mx-a', { projectId: 'da01', kind: 'nghiemthu', contractId: base01, date: '2026-10-01', value: 1000000, vat: null })).status, 200);
   assert.equal((await a('PUT', '/api/loans/mx-l', { projectId: 'da01', kind: 'vay', date: '2026-10-01', amount: 1000000 })).status, 200);
   const before = (await a('GET', '/api/data')).json;
   // chưa đặt mã: mọi đường xóa trả 409, không xóa gì
@@ -226,10 +227,12 @@ check('chuyển dữ liệu cũ: mỗi dự án ví dụ có đúng một HĐ g�
 function checkRich(d) {
   const p = d.projects.find(x => x.id === 'mau-p1');
   assert.ok(p, 'phải có dự án mẫu DA-M01'); assert.equal(p.code, 'DA-M01'); assert.equal(p.sample, true); assert.equal(p.budget, 10800000000);
-  const cs = d.contracts.filter(c => c.projectId === 'mau-p1').sort((a, b) => a.seq - b.seq);
-  assert.deepEqual(cs.map(c => [c.id, c.kind, c.seq, c.value, c.vat]), [['mau-c0', 'base', 0, 12000000000, 1200000000], ['mau-c1', 'appendix', 1, 850000000, 85000000], ['mau-c2', 'appendix', 2, -300000000, null]]);
+  const cs = d.contracts.filter(c => c.projectId === 'mau-p1').sort((a, b) => a.id.localeCompare(b.id));
+  assert.deepEqual(cs.map(c => [c.id, c.kind, c.seq, c.parentId, c.value, c.vat]), [['mau-c0', 'base', 1, undefined, 12000000000, 1200000000], ['mau-c1', 'appendix', 1, 'mau-c0', 850000000, 85000000],
+    ['mau-c2', 'appendix', 2, 'mau-c0', -300000000, null], ['mau-c3', 'base', 2, undefined, 1200000000, 96000000]]);
   const txs = d.transactions.filter(t => t.projectId === 'mau-p1'), ins = txs.filter(t => t.type === 'in'), outs = txs.filter(t => t.type === 'out');
-  assert.equal(ins.length, 5);
+  assert.equal(ins.length, 6);
+  assert.ok(ins.some(t => t.id === 'mau-t6' && t.contractId === 'mau-c3' && t.amount === 1080000000), 'khoản thu theo quyết toán HĐ 2');
   assert.equal(ins.filter(t => t.contractId === '').length, 1, 'một khoản thu ngoài hợp đồng');
   assert.equal(ins.filter(t => t.vat == null).length, 1, 'một khoản thu VAT tạm tính');
   assert.ok(ins.every(t => t.contractId === '' || cs.some(c => c.id === t.contractId)), 'khoản thu gắn đúng hợp đồng của dự án');
@@ -242,10 +245,10 @@ function checkRich(d) {
   assert.ok(outs.some(t => t.group === 'finance' && t.category === 'Lãi vay, phạt'), 'có lãi vay');
   const loans = d.loans.filter(l => l.projectId === 'mau-p1').sort((x, y) => x.id.localeCompare(y.id));
   assert.deepEqual(loans.map(l => [l.id, l.kind, l.date, l.amount, l.sample]), [['mau-l1', 'vay', '2026-03-05', 2000000000, true], ['mau-l2', 'tragoc', '2026-09-05', 500000000, true]]);
-  const acc = d.acceptances.filter(x => x.projectId === 'mau-p1').sort((x, y) => x.seq - y.seq);
+  const acc = d.acceptances.filter(x => x.projectId === 'mau-p1').sort((x, y) => x.id.localeCompare(y.id));
   assert.deepEqual(acc.map(x => [x.id, x.kind, x.seq, x.contractId, x.date, x.value, x.vat]),
-    [['mau-a1', 'nghiemthu', 1, 'mau-c0', '2026-05-25', 3000000000, 300000000], ['mau-a2', 'nghiemthu', 2, 'mau-c1', '2026-08-18', 850000000, 85000000]]);
-  assert.ok(!acc.some(x => x.kind === 'quyettoan'), 'dự án mẫu chưa quyết toán');
+    [['mau-a1', 'nghiemthu', 1, 'mau-c0', '2026-05-25', 3000000000, 300000000], ['mau-a2', 'nghiemthu', 2, 'mau-c1', '2026-08-18', 850000000, 85000000],
+     ['mau-a3', 'nghiemthu', 1, 'mau-c3', '2026-09-15', 1180000000, 94400000], ['mau-q1', 'quyettoan', 0, 'mau-c3', '2026-10-20', 1180000000, 94400000]]);
   assert.ok(cs.every(c => c.sample) && acc.every(x => x.sample) && [...cs, ...acc, ...txs].every(x => x.createdByName === 'Dữ liệu mẫu'));
 }
 check('lần chạy đầu (môi trường thử) có dự án mẫu đầy đủ DA-M01', async () => {
@@ -257,13 +260,15 @@ check('hợp đồng: HĐ gốc + phụ lục, máy chủ cấp số thứ tự 
   const e = client(); await e('POST', '/api/login', { username: 'nhap', password: 'Nhap12345' });
   assert.equal((await a('PUT', '/api/projects/hd-p', { name: 'Dự án có hợp đồng', code: 'HD-01', budget: 0 })).status, 204);
   let r = await a('PUT', '/api/contracts/hd1', { projectId: 'hd-p', kind: 'base', no: '01/2026/HĐ', signDate: '2026-01-05', value: 1000000000, vat: 100000000, note: '', seq: 9, createdBy: 'ke-gian', createdByName: 'Giả mạo' });
-  assert.equal(r.status, 200); assert.equal(r.json.seq, 0); assert.equal(r.json.createdBy, 'admin'); assert.equal(r.json.createdByName, 'Quản trị viên');
-  r = await e('PUT', '/api/contracts/hd2', { projectId: 'hd-p', kind: 'appendix', no: 'PL01', value: 200000000, vat: null });
+  assert.equal(r.status, 200); assert.equal(r.json.seq, 1); assert.equal(r.json.createdBy, 'admin'); assert.equal(r.json.createdByName, 'Quản trị viên');
+  r = await e('PUT', '/api/contracts/hd2', { projectId: 'hd-p', kind: 'appendix', parentId: 'hd1', no: 'PL01', value: 200000000, vat: null });
   assert.equal(r.status, 200); assert.equal(r.json.seq, 1); assert.equal(r.json.createdByName, 'Nhập'); assert.equal(r.json.vat, null);
-  r = await e('PUT', '/api/contracts/hd3', { projectId: 'hd-p', kind: 'appendix', no: 'PL02', value: -50000000, vat: -5000000, note: 'giảm khối lượng' });
+  r = await e('PUT', '/api/contracts/hd3', { projectId: 'hd-p', kind: 'appendix', parentId: 'hd1', no: 'PL02', value: -50000000, vat: -5000000, note: 'giảm khối lượng' });
   assert.equal(r.status, 200); assert.equal(r.json.seq, 2);
-  // sửa: giữ dự án, loại, số thứ tự, người tạo; cập nhật người sửa
-  r = await a('PUT', '/api/contracts/hd2', { projectId: 'da01', kind: 'base', value: 250000000, vat: 25000000 });
+  // sửa: không đổi được dự án / loại / hợp đồng gốc; giữ số thứ tự, người tạo; cập nhật người sửa
+  assert.equal((await a('PUT', '/api/contracts/hd2', { projectId: 'da01', value: 250000000 })).status, 400, 'đổi dự án');
+  assert.equal((await a('PUT', '/api/contracts/hd2', { kind: 'base', value: 250000000 })).status, 400, 'đổi loại');
+  r = await a('PUT', '/api/contracts/hd2', { value: 250000000, vat: 25000000 });
   assert.equal(r.status, 200);
   assert.deepEqual([r.json.projectId, r.json.kind, r.json.seq, r.json.createdByName, r.json.updatedByName], ['hd-p', 'appendix', 1, 'Nhập', 'Quản trị viên']);
   const cs = (await a('GET', '/api/data')).json.contracts.filter(c => c.projectId === 'hd-p');
@@ -274,11 +279,11 @@ check('hợp đồng: HĐ gốc + phụ lục, máy chủ cấp số thứ tự 
 check('hợp đồng: máy chủ chặn dữ liệu sai', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
   const put = (id, b) => a('PUT', '/api/contracts/' + id, b);
-  assert.equal((await put('x1', { projectId: 'hd-p', kind: 'base', value: 5000000 })).status, 400, 'HĐ gốc thứ hai');
+  assert.equal((await put('x1', { projectId: 'hd-p', kind: 'appendix', value: 5000000 })).status, 400, 'phụ lục thiếu hợp đồng gốc');
   assert.equal((await put('x2', { projectId: 'khong-co', kind: 'base', value: 5000000 })).json.error, 'Dự án không tồn tại.');
-  assert.equal((await put('x3', { projectId: 'hd-p', kind: 'appendix', value: 12.5 })).status, 400, 'giá trị lẻ');
-  assert.equal((await put('x4', { projectId: 'hd-p', kind: 'appendix', value: 0 })).status, 400, 'phụ lục bằng 0');
-  assert.equal((await put('x5', { projectId: 'hd-p', kind: 'appendix', value: 1000, vat: 1.5 })).status, 400, 'VAT lẻ');
+  assert.equal((await put('x3', { projectId: 'hd-p', kind: 'appendix', parentId: 'hd1', value: 12.5 })).status, 400, 'giá trị lẻ');
+  assert.equal((await put('x4', { projectId: 'hd-p', kind: 'appendix', parentId: 'hd1', value: 0 })).status, 400, 'phụ lục bằng 0');
+  assert.equal((await put('x5', { projectId: 'hd-p', kind: 'appendix', parentId: 'hd1', value: 1000, vat: 1.5 })).status, 400, 'VAT lẻ');
   assert.equal((await put('x6', { projectId: 'hd-p', kind: 'khac', value: 1000 })).status, 400, 'loại sai');
   assert.equal((await a('PUT', '/api/projects/hd-q', { name: 'Chưa có HĐ gốc' })).status, 204);
   assert.equal((await put('x7', { projectId: 'hd-q', kind: 'base', value: -1000 })).status, 400, 'HĐ gốc âm');
@@ -329,16 +334,18 @@ check('nghiệm thu, quyết toán: máy chủ cấp đợt, chặn sai, ràng b
   assert.equal((await put('x3', { ...nt, value: 0 })).status, 400, 'giá trị 0');
   assert.equal((await put('x4', { ...nt, date: '' })).status, 400, 'thiếu ngày');
   assert.equal((await put('x5', { ...nt, vat: -1 })).status, 400, 'VAT âm');
+  assert.equal((await put('x8', { ...nt, contractId: '' })).status, 400, 'nghiệm thu phải chọn hợp đồng');
   assert.equal((await put('x6', { ...nt, kind: 'khac' })).status, 400, 'loại sai');
   assert.equal((await put('x7', { ...nt, projectId: 'khong-co' })).status, 400, 'dự án không tồn tại');
   // quyết toán: cần HĐ gốc; tối đa một quyết toán mỗi dự án; không đổi loại khi sửa
   assert.equal((await a('PUT', '/api/projects/qt-x', { name: 'Chưa có hợp đồng' })).status, 204);
   r = await put('q0', { projectId: 'qt-x', kind: 'quyettoan', date: '2026-10-01', value: 1000 });
   assert.equal(r.status, 400); assert.match(r.json.error, /chưa có hợp đồng gốc/);
-  r = await put('q1', { projectId: 'hd-p', kind: 'quyettoan', no: 'QT-01', date: '2026-10-20', value: 1150000000, vat: 115000000 });
+  r = await put('q1', { projectId: 'hd-p', kind: 'quyettoan', contractId: 'hd1', no: 'QT-01', date: '2026-10-20', value: 1150000000, vat: 115000000 });
   assert.equal(r.status, 200); assert.equal(r.json.seq, 0);
-  r = await put('q2', { projectId: 'hd-p', kind: 'quyettoan', date: '2026-10-21', value: 1000 });
-  assert.equal(r.status, 400); assert.equal(r.json.error, 'Dự án đã có quyết toán.');
+  r = await put('q2', { projectId: 'hd-p', kind: 'quyettoan', contractId: 'hd1', date: '2026-10-21', value: 1000 });
+  assert.equal(r.status, 400); assert.equal(r.json.error, 'Hợp đồng này đã có quyết toán.');
+  assert.equal((await put('q2', { projectId: 'hd-p', kind: 'quyettoan', contractId: 'hd2', date: '2026-10-21', value: 1000 })).status, 400, 'quyết toán phải gắn HĐ gốc');
   assert.equal((await put('q1', { kind: 'nghiemthu', date: '2026-10-20', value: 1000 })).status, 400, 'đổi loại khi sửa');
   assert.equal((await put('nt1', { ...nt, projectId: 'da01' })).status, 400, 'đổi dự án khi sửa');
   const ids = (await a('GET', '/api/data')).json.acceptances.map(x => x.id);
@@ -349,7 +356,7 @@ check('nghiệm thu, quyết toán: máy chủ cấp đợt, chặn sai, ràng b
   assert.equal((await a('DELETE', '/api/projects/hd-p', MA)).status, 409, 'dự án còn nghiệm thu / quyết toán');
   assert.equal((await a('DELETE', '/api/projects/qt-x', MA)).status, 204);
   const base04 = (await a('GET', '/api/data')).json.contracts.find(c => c.projectId === 'da04' && c.kind === 'base').id;
-  assert.equal((await put('q4', { projectId: 'da04', kind: 'quyettoan', date: '2026-10-01', value: 3000000000, vat: null })).status, 200);
+  assert.equal((await put('q4', { projectId: 'da04', kind: 'quyettoan', contractId: base04, date: '2026-10-01', value: 3000000000, vat: null })).status, 200);
   r = await a('DELETE', '/api/contracts/' + base04, MA);
   assert.equal(r.status, 409); assert.match(r.json.error, /đã quyết toán/);
   // xóa biên bản: Chỉ xem 403, sai mã 403, đúng mã 204
@@ -358,6 +365,41 @@ check('nghiệm thu, quyết toán: máy chủ cấp đợt, chặn sai, ràng b
   assert.equal((await a('DELETE', '/api/acceptances/q4', MA)).status, 204);
   // tiền về vượt hợp đồng: chỉ cảnh báo ở giao diện, máy chủ vẫn nhận
   assert.equal((await a('PUT', '/api/transactions/vuot1', { projectId: 'hd-p', type: 'in', date: '2026-10-25', category: 'Quyết toán', amount: 9000000000, vat: null, contractId: 'hd1' })).status, 200);
+});
+check('nhiều hợp đồng trong một dự án: số thứ tự, phụ lục, quyết toán riêng từng hợp đồng', async () => {
+  const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+  const C = (id, b) => a('PUT', '/api/contracts/' + id, { projectId: 'mc-p', signDate: '2026-02-01', vat: null, ...b });
+  const A = (id, b) => a('PUT', '/api/acceptances/' + id, { projectId: 'mc-p', date: '2026-09-01', vat: null, ...b });
+  assert.equal((await a('PUT', '/api/projects/mc-p', { name: 'Nhiều hợp đồng' })).status, 204);
+  let r = await C('mA', { kind: 'base', value: 1000000000 }); assert.equal(r.json.seq, 1);
+  r = await C('mB', { kind: 'base', value: 500000000 }); assert.equal(r.status, 200); assert.equal(r.json.seq, 2, 'HĐ gốc thứ hai được phép, seq 2');
+  assert.equal((await C('mA1', { kind: 'appendix', parentId: 'mA', value: 100000000 })).json.seq, 1);
+  assert.equal((await C('mB1', { kind: 'appendix', parentId: 'mB', value: -50000000 })).json.seq, 1, 'seq phụ lục đếm riêng theo HĐ gốc');
+  assert.equal((await C('mA2', { kind: 'appendix', parentId: 'mA', value: 20000000 })).json.seq, 2);
+  r = await C('mx', { kind: 'appendix', parentId: 'hd1', value: 1000 });
+  assert.equal(r.status, 400); assert.equal(r.json.error, 'Phụ lục phải gắn với một hợp đồng gốc của dự án này.');
+  assert.equal((await C('mx', { kind: 'appendix', parentId: 'mA1', value: 1000 })).status, 400, 'parentId phải là HĐ gốc');
+  assert.equal((await C('mA1', { parentId: 'mB', value: 100000000 })).status, 400, 'không đổi hợp đồng gốc khi sửa');
+  // nghiệm thu: đợt đếm theo hợp đồng
+  assert.equal((await A('n1', { kind: 'nghiemthu', contractId: 'mA1', value: 1000 })).json.seq, 1);
+  assert.equal((await A('n2', { kind: 'nghiemthu', contractId: 'mB', value: 1000 })).json.seq, 1, 'đợt nghiệm thu HĐ 2 bắt đầu từ 1');
+  assert.equal((await A('n3', { kind: 'nghiemthu', contractId: 'mA', value: 1000 })).json.seq, 2);
+  assert.equal((await A('n1', { kind: 'nghiemthu', contractId: 'mB', value: 1000 })).status, 400, 'không chuyển nghiệm thu sang hợp đồng khác');
+  // quyết toán riêng từng HĐ gốc
+  assert.equal((await A('qA', { kind: 'quyettoan', contractId: 'mA', value: 1150000000 })).status, 200);
+  assert.equal((await A('qB', { kind: 'quyettoan', contractId: 'mB', value: 440000000 })).status, 200);
+  r = await A('qA2', { kind: 'quyettoan', contractId: 'mA', value: 1 });
+  assert.equal(r.status, 400); assert.equal(r.json.error, 'Hợp đồng này đã có quyết toán.');
+  assert.equal((await A('qA', { contractId: 'mB', value: 1150000000 })).status, 400, 'không đổi hợp đồng của quyết toán');
+  // không xóa HĐ gốc còn phụ lục / nghiệm thu / quyết toán (409 dù đúng mã)
+  assert.match((await a('DELETE', '/api/contracts/mA', MA)).json.error, /phụ lục/);
+  assert.equal((await a('DELETE', '/api/contracts/mB1', MA)).status, 204, 'phụ lục không có ràng buộc thì xóa được');
+  assert.match((await a('DELETE', '/api/contracts/mB', MA)).json.error, /đã quyết toán/);
+  assert.equal((await a('DELETE', '/api/acceptances/qB', MA)).status, 204);
+  r = await a('DELETE', '/api/contracts/mB', MA);
+  assert.equal(r.status, 409); assert.match(r.json.error, /nghiệm thu/);
+  const d = (await a('GET', '/api/data')).json;
+  assert.deepEqual(d.contracts.filter(c => c.projectId === 'mc-p').map(c => c.id).sort(), ['mA', 'mA1', 'mA2', 'mB']);
 });
 check('chi phí 3 khối: hạng mục phải thuộc đúng khối', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
@@ -467,6 +509,33 @@ const stop = srv => new Promise(ok => { if (srv.exitCode !== null) return ok(); 
 
 // Kiểm tra cần khởi động lại máy chủ với biến môi trường khác
 const restartChecks = [
+  ['chuyển dữ liệu hợp đồng cũ sang nhiều hợp đồng: seq, parentId, contractId; chỉ một lần', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stc-hd-')), at = '2025-01-02T03:04:05.000Z';
+    fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({ projects: { p1: { name: 'Dự án cũ' }, p2: { name: 'Chưa có HĐ gốc' } }, transactions: {},
+      meta: { seeded: { at: 'x' }, contractsMigrated: { at: 'x' } },
+      contracts: { b: { projectId: 'p1', kind: 'base', seq: 0, value: 1000, vat: null, updatedAt: at, sample: true }, ap: { projectId: 'p1', kind: 'appendix', seq: 1, value: 200, vat: null, updatedAt: at },
+        orphan: { projectId: 'p2', kind: 'appendix', seq: 1, value: 5, vat: null } },
+      acceptances: { q: { projectId: 'p1', kind: 'quyettoan', seq: 0, date: '2026-10-01', value: 1100, vat: null, updatedAt: at }, n: { projectId: 'p1', kind: 'nghiemthu', seq: 1, contractId: '', date: '2026-05-01', value: 500, vat: null } } }));
+    const env2 = { DATA_DIR: dir, DATABASE_URL: '' };
+    let srv = await start(env2), first;
+    try {
+      assert.match(srv.log, /Nhiều hợp đồng: đã cập nhật 4 bản ghi.*1 bản ghi chưa gắn được/);
+      const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+      first = (await c('GET', '/api/data')).json;
+      const ct = id => first.contracts.find(x => x.id === id), ac = id => first.acceptances.find(x => x.id === id);
+      assert.equal(ct('b').seq, 1); assert.equal(ct('b').sample, true); assert.equal(ct('b').updatedAt, at);
+      assert.equal(ct('ap').parentId, 'b'); assert.equal(ct('ap').updatedAt, at);
+      assert.equal(ct('orphan').parentId, undefined, 'dự án không có HĐ gốc: để nguyên');
+      assert.equal(ac('q').contractId, 'b'); assert.equal(ac('n').contractId, 'b');
+    } finally { await stop(srv); }
+    srv = await start(env2);
+    try {
+      assert.doesNotMatch(srv.log, /Nhiều hợp đồng: đã cập nhật/, 'không chạy lần hai');
+      const c = client(); await c('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+      const d = (await c('GET', '/api/data')).json;
+      assert.deepEqual([d.contracts, d.acceptances], [first.contracts, first.acceptances]);
+    } finally { await stop(srv); fs.rmSync(dir, { recursive: true, force: true }); }
+  }],
   ['chuyển khoản chi cũ sang 3 khối: đúng bảng, giữ tên cũ, cờ ví dụ, người sửa; chỉ một lần', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stc-cost-')), at = '2025-01-02T03:04:05.000Z';
     const t = (id, category, extra = {}) => ({ projectId: 'p1', type: 'out', date: '2026-01-10', amount: 1000, category, updatedAt: at, updatedByName: 'Người cũ', ...extra });

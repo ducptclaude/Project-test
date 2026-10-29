@@ -1,7 +1,7 @@
 {
   "_ghi_chu": "Token mới chạy đúng một lần khi máy chủ khởi động. Staging (token, scope \"accounts\"): xóa mọi tài khoản, giữ dự án và giao dịch, tạo quản trị viên dưới đây. Production (productionAccountsToken): cũng chỉ xóa tài khoản, KHÔNG BAO GIỜ xóa dữ liệu. Quản trị viên mới phải đổi mật khẩu ở lần đăng nhập đầu.",
   "_ghi_chu_mau": "sampleToken mới: khi máy chủ khởi động ở môi trường KHÔNG phải production, THÊM / cập nhật dự án mẫu DA-M01 (id tiền tố mau-, cờ ví dụ) đúng một lần; bản ghi mau- người dùng đã sửa (không còn cờ ví dụ) được giữ nguyên; không xóa, không đụng dữ liệu khác. Production bỏ qua.",
-  "sampleToken": "mau-2026-10-29c",
+  "sampleToken": "mau-2026-10-29d",
   "token": "tk-staging-2026-10-28",
   "scope": "accounts",
   "productionAccountsToken": "tk-production-2026-10-28",

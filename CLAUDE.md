@@ -26,14 +26,16 @@
    - **Liên kết dữ liệu phải logic**: giao dịch và hợp đồng luôn thuộc một dự án đang tồn tại; máy chủ phải chặn dữ liệu sai liên kết, không chỉ giao diện.
 
 ### Hợp đồng với CĐT (người dùng đã chốt)
-- Mỗi dự án có **đúng một HĐ gốc** (giá trị > 0) và các **phụ lục** 1..n (giá trị khác 0, **được âm** khi giảm khối lượng). Số thứ tự phụ lục do máy chủ cấp.
+- Một dự án có **nhiều hợp đồng với CĐT**. Mỗi hợp đồng = **HĐ gốc** (giá trị > 0, `seq` 1..n trong dự án) + các **phụ lục** (`parentId` = HĐ gốc cùng dự án, `seq` 1..n trong từng HĐ gốc, giá trị khác 0, **được âm**) + tối đa **một quyết toán** (`acceptances` kind `quyettoan`, `contractId` = HĐ gốc). Nghiệm thu bắt buộc chọn hợp đồng (HĐ gốc hoặc phụ lục), số đợt đếm theo từng hợp đồng. Số thứ tự do máy chủ cấp; sửa không đổi được dự án / loại / HĐ gốc.
+- Dữ liệu cũ chuyển một lần (meta `contractGroupsMigrated`): HĐ gốc `seq` 0 → 1; phụ lục / quyết toán / nghiệm thu chưa gắn thì gắn vào HĐ gốc duy nhất của dự án (dự án không có đúng một HĐ gốc thì để nguyên, giao diện hiện "Phụ lục chưa gắn hợp đồng").
 - Giá trị nhập là **trước VAT**. **VAT nhập tay** theo hợp đồng (không tự tính theo %); để trống = **Tạm tính** (VAT coi là 0, sau VAT = trước VAT), nhập bổ sung sau. Sau VAT = trước VAT + VAT.
+- **Ghi nhận doanh thu theo từng hợp đồng** (TĐ1/TĐ2/TĐ3, người dùng đã chốt): **TĐ1** giá trị HĐ gốc vào ngày ký HĐ gốc; **TĐ2** từng phụ lục vào ngày ký phụ lục; **TĐ3** phần chênh (QT − HĐ gốc − phụ lục) vào ngày quyết toán. Lũy kế đến bất kỳ ngày nào = giá trị ở giai đoạn mới nhất của hợp đồng; doanh thu dự án = tổng các hợp đồng. Còn phải thu và cảnh báo tiền về vượt tính **theo từng hợp đồng** (giữ thêm cảnh báo cấp dự án); tiền về của hợp đồng = khoản thu gắn HĐ gốc hoặc phụ lục của nó.
 - Giá trị hợp đồng của dự án **tự cộng từ bảng hợp đồng** (dự án chưa có dòng nào thì dùng `contractValue` cũ). Dữ liệu cũ được chuyển một lần thành HĐ gốc tạm tính (meta `contractsMigrated`), giữ nguyên `contractValue`.
 - Tiền thu theo hồ sơ quyết toán là **sau VAT** → "Tiền về / hợp đồng", "Còn phải thu" luôn so với giá trị hợp đồng (hoặc quyết toán) **sau VAT**. Lợi nhuận kế hoạch / dự báo = giá trị **trước VAT** − ngân sách.
 - Nút **Trước VAT | Sau VAT** trên đầu trang (nhớ theo trình duyệt) đổi cách hiện giá trị hợp đồng và báo cáo thu/chi (xem mục VAT giao dịch).
 - Người nhập / người sửa do máy chủ tự ghi theo tài khoản đăng nhập.
 - **Mã xóa**: Quản trị viên đặt trong Quản lý tài khoản (4–12 ký tự, lưu băm). Mã xóa **áp dụng cho mọi thao tác xóa (giao dịch, dự án, hợp đồng, dữ liệu ví dụ, tài khoản)**: máy chủ kiểm tra mã ở mọi đường xóa, sau khi kiểm quyền và các ràng buộc dữ liệu (chưa đặt mã → 409, sai mã → 403, sai 5 lần / 15 phút theo tài khoản → 429). Khóa/mở khóa tài khoản, cấp lại mật khẩu không phải xóa nên không cần mã. Giao diện dùng chung hộp nhập mã `askPasscode` (thay cho bước bấm hai lần).
-- Không xóa HĐ gốc khi còn phụ lục; không xóa dự án còn hợp đồng hoặc giao dịch.
+- Không xóa HĐ gốc khi còn phụ lục, nghiệm thu hoặc quyết toán; không xóa hợp đồng còn khoản thu / nghiệm thu gắn vào; không xóa dự án còn hợp đồng hoặc giao dịch.
 - Làm sau: đính kèm file scan, hợp đồng phía chi (thầu phụ, nhà cung cấp).
 
 ### VAT giao dịch thu/chi (người dùng đã chốt)
@@ -47,16 +49,16 @@
 - Thêm **Số hóa đơn / chứng từ** (≤ 60) và **Ngày hóa đơn**; `date` là ngày thu / chi tiền.
 
 ### Doanh thu và Tiền về (người dùng đã chốt)
-1. **Doanh thu ghi nhận** = giá trị kinh tế của hợp đồng: đã quyết toán thì = **giá trị quyết toán**; chưa thì = **HĐ gốc + phụ lục** (chưa có dòng hợp đồng thì dùng `contractValue` cũ). Theo nút Trước/Sau VAT (mặc định trước VAT). Dự án chưa có hợp đồng thì doanh thu = 0.
-2. **Thời điểm ghi nhận** (*giả định, chờ chốt TĐ1/TĐ2/TĐ3*): mỗi dòng hợp đồng ghi vào **ngày ký** (HĐ gốc = TĐ1, phụ lục = TĐ2; thiếu ngày ký thì ngày bắt đầu dự án, rồi ngày tạo); quyết toán ghi **phần chênh** (QT − HĐ − PL) vào **ngày quyết toán** (TĐ3). Giao diện: `revEvents()` là nguồn duy nhất cho doanh thu theo kỳ / tháng.
+1. **Doanh thu ghi nhận** = tổng giá trị hiện hành các hợp đồng: hợp đồng đã quyết toán thì = **giá trị quyết toán**; chưa thì = **HĐ gốc + phụ lục** (chưa có dòng hợp đồng thì dùng `contractValue` cũ). Theo nút Trước/Sau VAT (mặc định trước VAT). Dự án chưa có hợp đồng thì doanh thu = 0.
+2. **Thời điểm ghi nhận** (đã chốt, xem mục Hợp đồng): theo từng hợp đồng, HĐ gốc = TĐ1 vào ngày ký, phụ lục = TĐ2 vào ngày ký (thiếu ngày ký thì ngày bắt đầu dự án, rồi ngày tạo); quyết toán ghi **phần chênh** vào **ngày quyết toán** (TĐ3). Giao diện: `revEvents()` là nguồn duy nhất cho doanh thu theo kỳ / tháng.
 3. **Nghiệm thu** (`acceptances`, kind `nghiemthu`, đợt 1..n do máy chủ cấp, gắn HĐ gốc / Phụ lục n hoặc không): chỉ theo dõi khối lượng, **không đổi doanh thu**; hiện "Đã nghiệm thu x% giá trị HĐ" và "Nghiệm thu chưa thu tiền".
-4. **Quyết toán** (kind `quyettoan`): *giả định* **tối đa một quyết toán mỗi dự án**, áp cho cả hợp đồng; chỉ nhập khi dự án đã có HĐ gốc. Không đổi được loại / dự án khi sửa.
+4. **Quyết toán** (kind `quyettoan`): **tối đa một quyết toán mỗi hợp đồng** (HĐ gốc), áp cho cả hợp đồng đó (HĐ gốc + phụ lục). Không đổi được loại / dự án / hợp đồng khi sửa.
 5. **Tiền về** = các khoản thu (tạm ứng, thanh toán theo nghiệm thu, quyết toán…), là tiền thực **đã gồm VAT**: luôn **sau VAT**, không đổi theo nút, **không cộng vào doanh thu**. **Thực chi** = khoản chi sau VAT. **Còn lại = Tiền về − Thực chi** (sau VAT). Chi phí trong lợi nhuận theo nút; ngân sách so chi phí trước VAT.
 6. **Lợi nhuận** = Doanh thu ghi nhận − Chi phí (cùng theo nút). Lợi nhuận kế hoạch / dự báo = HĐ (đã QT thì QT) trước VAT − ngân sách.
 7. **Tiền về vượt hợp đồng**: tiền về (sau VAT) > giá trị HĐ (hoặc QT) sau VAT → dòng "TIỀN VỀ VƯỢT HỢP ĐỒNG" trong Cần chú ý, chip ở dự án; khi lưu chỉ **cảnh báo, không chặn**. Còn phải thu = max(0, HĐ hoặc QT sau VAT − Tiền về).
 - Ràng buộc xóa (kiểm trước mã xóa): hợp đồng còn nghiệm thu gắn vào, HĐ gốc khi đã quyết toán, dự án còn nghiệm thu / quyết toán → 409. Xóa nghiệm thu / quyết toán cần quyền Nhập liệu trở lên và mã xóa.
 - Menu "Doanh thu" đổi thành **"Tiền về"** (view vẫn tên `revenue`).
-- Làm sau: phân 3 thời điểm TĐ1/TĐ2/TĐ3; gắn khoản tiền về vào từng đợt nghiệm thu.
+- Làm sau: gắn khoản tiền về vào từng đợt nghiệm thu.
 
 ### Chi phí 3 khối và tiền vay (người dùng đã chốt)
 - Khoản chi có `group` + `category` (danh mục cố định, máy chủ kiểm tra hạng mục thuộc đúng khối, sai → 400):
