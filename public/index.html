@@ -618,7 +618,7 @@ function contractTotals(id) {
 }
 const cvPre = p => contractTotals(p.id).pre;     // lợi nhuận kế hoạch, dự báo: theo trước VAT
 const cvPost = p => contractTotals(p.id).post;   // đã thu / còn phải thu: theo sau VAT (tiền thu theo quyết toán là sau VAT)
-const cvShow = p => S.vatMode === 'post' ? cvPost(p) : cvPre(p);   // giá trị hợp đồng hiển thị theo nút Trước VAT | Sau VAT
+// Nút Trước VAT | Sau VAT chỉ đổi các chỗ hiện giá trị hợp đồng thuần (tổng giá trị HĐ); mọi phép so Đã thu / Còn phải thu luôn dùng sau VAT
 const vatWord = () => S.vatMode === 'post' ? 'sau VAT' : 'trước VAT';
 // Số tiền đầy đủ theo đồng, giữ dấu âm (phụ lục giảm)
 const dong = v => (v < 0 ? '−' : '') + Math.abs(Math.round(v || 0)).toLocaleString('vi-VN');
@@ -850,7 +850,7 @@ function viewOverview() {
         <span class="top"><span class="num psub" style="font-weight:700">${esc(p.code)}</span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${statusChip(p.status)}${flagChips(h)}</span></span>
         <span class="pname" style="line-height:1.35">${esc(p.name)}</span>
         <span class="line"><span>Lợi nhuận${S.year === 'all' ? '' : ' kỳ này'}</span><b class="num ${s.profit < 0 ? 'c-bad' : ''}">${short(s.profit)}</b></span>
-        <span class="line"><span>Đã thu ${pct(c)} hợp đồng</span><span>Đã chi ${pct(h.used)} ngân sách</span></span>
+        <span class="line"><span title="Theo giá trị hợp đồng sau VAT">Đã thu ${pct(c)} hợp đồng</span><span>Đã chi ${pct(h.used)} ngân sách</span></span>
         <span class="meter ${meterCls(h.used)}"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></span>
       </button>`).join('')}
         <div class="pcard total"><span class="pname" style="color:var(--ink)">Tổng cộng</span>
@@ -869,7 +869,7 @@ function viewProject() {
   let p = list.find(x => x.id === S.projectId); if (!p) { p = list[0]; S.projectId = p.id; }
   const all = projTxs(p.id), txs = all.filter(inRange), st = sum(txs), h = health(p);
   chartData.project = monthly(txs);
-  const ct = contractTotals(p.id), cv = S.vatMode === 'post' ? ct.post : ct.pre, bg = +p.budget || 0;
+  const ct = contractTotals(p.id), bg = +p.budget || 0;
   const collected = ct.post ? h.all.rev / ct.post : 0;
   const forecast = ct.pre - Math.max(bg, h.all.exp);
   const left = bg - h.all.exp;
@@ -891,10 +891,10 @@ function viewProject() {
       </section>
       ${contractPanel(p)}
       <section class="plan" aria-label="Kế hoạch và thực tế">
-        <div class="kpi"><span class="lab">Đã thu / giá trị hợp đồng (${vatWord()})</span>
-          <span class="pair"><span class="val num c-rev" title="${vnd(h.all.rev)}">${short(h.all.rev)}</span><span class="num muted" style="font-weight:600" title="${vnd(cv)}">/ ${short(cv)}</span></span>
+        <div class="kpi"><span class="lab">Đã thu / giá trị hợp đồng (sau VAT)</span>
+          <span class="pair"><span class="val num c-rev" title="${vnd(h.all.rev)}">${short(h.all.rev)}</span><span class="num muted" style="font-weight:600" title="${vnd(ct.post)}">/ ${short(ct.post)}</span></span>
           <div class="meter rev"><i style="width:${Math.min(100, collected * 100).toFixed(1)}%"></i></div>
-          <span class="sub"><b class="num">${pct(collected)}</b> · còn ${short(Math.max(0, ct.post - h.all.rev))} chưa thu <span class="muted">(theo sau VAT)</span></span></div>
+          <span class="sub"><b class="num">${pct(collected)}</b> · còn ${short(Math.max(0, ct.post - h.all.rev))} chưa thu</span></div>
         <div class="kpi"><span class="lab">Đã chi / ngân sách chi phí</span>
           <span class="pair"><span class="val num c-exp" title="${vnd(h.all.exp)}">${short(h.all.exp)}</span><span class="num muted" style="font-weight:600">/ ${short(bg)}</span></span>
           <div class="meter ${h.used > 1 ? 'bad' : h.used > .9 ? 'warn' : 'exp'}"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></div>
