@@ -7,7 +7,10 @@ const express = require('express');
 const makeSample = require('./sample');
 
 const PORT = process.env.PORT || 3000;
+// Collection ghi qua đường dẫn chung /api/:col/:id. Hợp đồng (contracts) có đường dẫn riêng bên dưới
+// vì máy chủ tự gán người nhập, số thứ tự phụ lục và yêu cầu mã xóa.
 const COLS = new Set(['projects', 'transactions']);
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[A-Za-z0-9_.~:@+-]{1,100}$/;
 
 /* ---------- storage ---------- */
@@ -90,6 +93,23 @@ async function seedOnce() {
   if (items.length > 1) console.log(`Đã nạp ${items.length - 1} bản ghi dữ liệu ví dụ.`);
 }
 
+// Chuyển dữ liệu cũ (một lần): dự án có contractValue > 0 mà chưa có hợp đồng → tạo một dòng HĐ gốc,
+// VAT để trống (tạm tính). Giữ nguyên trường contractValue cũ để không mất dữ liệu.
+async function migrateContracts() {
+  if (await store.get('meta', 'contractsMigrated')) return;
+  const [projects, contracts] = await Promise.all([store.all('projects'), store.all('contracts')]);
+  const has = new Set(contracts.map(c => c.projectId)), at = new Date().toISOString(), items = [];
+  for (const p of projects) {
+    const v = Math.round(Number(p.contractValue) || 0);
+    if (v <= 0 || has.has(p.id)) continue;
+    items.push(['contracts', 'hd' + crypto.randomBytes(6).toString('hex'), { projectId: p.id, kind: 'base', seq: 0, no: '', signDate: '', value: v, vat: null, note: '',
+      createdBy: null, createdByName: 'Chuyển từ dữ liệu cũ', createdAt: at, updatedBy: null, updatedByName: 'Chuyển từ dữ liệu cũ', updatedAt: at, ...(p.sample ? { sample: true } : {}) }]);
+  }
+  items.push(['meta', 'contractsMigrated', { at, count: items.length }]);
+  await store.putMany(items);
+  if (items.length > 1) console.log(`Đã chuyển giá trị hợp đồng của ${items.length - 1} dự án sang bảng hợp đồng (VAT tạm tính).`);
+}
+
 /* ---------- app ---------- */
 const app = express();
 app.disable('x-powered-by');
@@ -112,21 +132,84 @@ app.use(auth.requireLogin);
 const canWrite = auth.requireRole('editor');
 
 app.get('/api/data', wrap(async (req, res) => {
-  const [projects, transactions] = await Promise.all([store.all('projects'), store.all('transactions')]);
-  res.set('Cache-Control', 'no-store').json({ projects, transactions });
+  const [projects, transactions, contracts] = await Promise.all([store.all('projects'), store.all('transactions'), store.all('contracts')]);
+  res.set('Cache-Control', 'no-store').json({ projects, transactions, contracts });
 }));
 
-// Xóa dữ liệu ví dụ: xóa giao dịch ví dụ; dự án ví dụ chỉ xóa khi không còn giao dịch nào.
-// Dự án ví dụ đã có giao dịch thật người dùng nhập vào thì giữ lại (bỏ cờ ví dụ) để không mất dữ liệu.
+// Xóa dữ liệu ví dụ: xóa giao dịch ví dụ; dự án ví dụ chỉ xóa khi không còn giao dịch hay hợp đồng thật nào.
+// Dự án ví dụ đã có giao dịch / hợp đồng thật người dùng nhập vào (hoặc đã sửa) thì giữ lại cùng hợp đồng của nó, bỏ cờ ví dụ.
 app.delete('/api/sample', canWrite, wrap(async (req, res) => {
-  const [projects, txs] = await Promise.all([store.all('projects'), store.all('transactions')]);
+  const [projects, txs, contracts] = await Promise.all([store.all('projects'), store.all('transactions'), store.all('contracts')]);
   for (const t of txs) if (t.sample) await store.del('transactions', t.id);
-  const used = new Set(txs.filter(t => !t.sample).map(t => t.projectId));
+  const used = new Set([...txs, ...contracts].filter(x => !x.sample).map(x => x.projectId));
+  for (const p of projects) if (!p.sample) used.add(p.id);
+  for (const { id, sample, ...d } of contracts) {
+    if (!sample) continue;
+    if (used.has(d.projectId)) await store.put('contracts', id, d);
+    else await store.del('contracts', id);
+  }
   for (const { id, sample, ...d } of projects) {
     if (!sample) continue;
     if (used.has(id)) await store.put('projects', id, d);
     else await store.del('projects', id);
   }
+  res.status(204).end();
+}));
+
+/* ---------- hợp đồng với chủ đầu tư ---------- */
+// {projectId, kind: base|appendix, seq, no, signDate, value (trước VAT), vat (null = tạm tính), note, người tạo / sửa}
+function cleanContract(b, kind) {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return { error: 'Dữ liệu không hợp lệ' };
+  const no = b.no ?? '', signDate = b.signDate ?? '', note = b.note ?? '', vat = b.vat ?? null;
+  if (typeof no !== 'string' || no.length > 60) return { error: 'Số hợp đồng tối đa 60 ký tự.' };
+  if (typeof signDate !== 'string' || (signDate && !DATE_RE.test(signDate))) return { error: 'Ngày ký không hợp lệ.' };
+  if (typeof note !== 'string' || note.length > 500) return { error: 'Ghi chú tối đa 500 ký tự.' };
+  if (!Number.isInteger(b.value)) return { error: 'Giá trị hợp đồng phải là số nguyên đồng.' };
+  if (kind === 'base' && b.value <= 0) return { error: 'Giá trị hợp đồng gốc phải lớn hơn 0.' };
+  if (kind === 'appendix' && b.value === 0) return { error: 'Giá trị phụ lục phải khác 0.' };
+  if (vat !== null && !Number.isInteger(vat)) return { error: 'VAT phải là số nguyên đồng, hoặc để trống nếu chưa có (tạm tính).' };
+  if (kind === 'base' && vat < 0) return { error: 'VAT của hợp đồng gốc không được âm.' };
+  return { data: { no: no.trim(), signDate, value: b.value, vat, note: note.trim() } };
+}
+app.put('/api/contracts/:id', canWrite, wrap(async (req, res) => {
+  const id = req.params.id;
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'Đường dẫn không hợp lệ' });
+  const b = req.body || {}, old = await store.get('contracts', id);
+  // Sửa: giữ nguyên dự án, loại và số thứ tự; tạo mới: lấy từ dữ liệu gửi lên
+  const projectId = old ? old.projectId : b.projectId, kind = old ? old.kind : b.kind;
+  if (kind !== 'base' && kind !== 'appendix') return res.status(400).json({ error: 'Loại hợp đồng không hợp lệ.' });
+  if (!old && !(typeof projectId === 'string' && ID_RE.test(projectId) && await store.get('projects', projectId)))
+    return res.status(400).json({ error: 'Dự án không tồn tại.' });
+  const c = cleanContract(b, kind);
+  if (c.error) return res.status(400).json({ error: c.error });
+  const now = new Date().toISOString();
+  const who = { updatedBy: req.user.id, updatedByName: req.user.name || req.user.id, updatedAt: now };
+  let rec;
+  if (old) {
+    const { id: _, sample, ...o } = old;
+    rec = { ...o, ...c.data, ...who };
+  } else {
+    const list = (await store.all('contracts')).filter(x => x.projectId === projectId);
+    if (kind === 'base' && list.some(x => x.kind === 'base')) return res.status(400).json({ error: 'Dự án đã có hợp đồng gốc. Hãy thêm phụ lục.' });
+    if (kind === 'appendix' && !list.some(x => x.kind === 'base')) return res.status(400).json({ error: 'Thêm hợp đồng gốc trước khi thêm phụ lục.' });
+    const seq = kind === 'base' ? 0 : Math.max(0, ...list.filter(x => x.kind === 'appendix').map(x => +x.seq || 0)) + 1;
+    rec = { projectId, kind, seq, ...c.data, createdBy: req.user.id, createdByName: req.user.name || req.user.id, createdAt: now, ...who };
+  }
+  await store.put('contracts', id, rec);
+  res.json({ id, ...rec });
+}));
+app.delete('/api/contracts/:id', canWrite, wrap(async (req, res) => {
+  const id = req.params.id;
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'Đường dẫn không hợp lệ' });
+  const c = await store.get('contracts', id);
+  if (!c) return res.status(204).end();
+  if (c.kind === 'base') {
+    const n = (await store.all('contracts')).filter(x => x.projectId === c.projectId && x.kind === 'appendix').length;
+    if (n) return res.status(409).json({ error: `Hợp đồng gốc còn ${n} phụ lục. Xóa các phụ lục trước.` });
+  }
+  const bad = await auth.checkDeletePasscode(req, req.body?.passcode);
+  if (bad) return res.status(bad.status).json({ error: bad.error });
+  await store.del('contracts', id);
   res.status(204).end();
 }));
 
@@ -147,10 +230,12 @@ function valid(col, d) {
 app.put('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (!check(req, res)) return;
   if (!valid(req.params.col, req.body)) return res.status(400).json({ error: 'Dữ liệu không hợp lệ' });
+  // Bản ghi người dùng ghi (tạo mới hoặc sửa) không còn là dữ liệu ví dụ: Xóa dữ liệu ví dụ sẽ không xóa nó
+  const { sample, ...data } = req.body;
   // Giao dịch luôn thuộc một dự án đang tồn tại
   if (req.params.col === 'transactions' && !(ID_RE.test(req.body.projectId) && await store.get('projects', req.body.projectId)))
     return res.status(400).json({ error: 'Dự án không tồn tại.' });
-  await store.put(req.params.col, req.params.id, req.body);
+  await store.put(req.params.col, req.params.id, data);
   res.status(204).end();
 }));
 
@@ -158,8 +243,10 @@ app.delete('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (!check(req, res)) return;
   // Không xóa dự án còn giao dịch tham chiếu, tránh mất dữ liệu
   if (req.params.col === 'projects') {
-    const n = (await store.all('transactions')).filter(t => t.projectId === req.params.id).length;
-    if (n) return res.status(409).json({ error: `Dự án còn ${n} giao dịch. Xóa hoặc chuyển các giao dịch sang dự án khác trước, hoặc đổi trạng thái thành Hoàn thành.` });
+    const [txs, cts] = await Promise.all([store.all('transactions'), store.all('contracts')]);
+    const n = txs.filter(t => t.projectId === req.params.id).length, m = cts.filter(c => c.projectId === req.params.id).length;
+    if (n && !m) return res.status(409).json({ error: `Dự án còn ${n} giao dịch. Xóa hoặc chuyển các giao dịch sang dự án khác trước, hoặc đổi trạng thái thành Hoàn thành.` });
+    if (m) return res.status(409).json({ error: `Dự án còn ${[n && `${n} giao dịch`, `${m} dòng hợp đồng`].filter(Boolean).join(' và ')}. Xóa các giao dịch và hợp đồng của dự án trước, hoặc đổi trạng thái thành Hoàn thành.` });
   }
   await store.del(req.params.col, req.params.id);
   res.status(204).end();
@@ -221,6 +308,7 @@ async function factoryReset() {
 store.init()
   .then(factoryReset)
   .then(seedOnce)
+  .then(migrateContracts)
   .then(auth.bootstrap)
   .then(() => app.listen(PORT, () => {
     // Railway tự đặt RAILWAY_GIT_BRANCH / RAILWAY_GIT_COMMIT_SHA: cho biết bản code nào đang chạy

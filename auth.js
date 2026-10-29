@@ -59,7 +59,7 @@ function setSession(req, res, user) {
 // Chặn dò mật khẩu: tối đa 8 lần sai trong 15 phút cho mỗi địa chỉ IP + tên đăng nhập
 const fails = new Map();
 const failKey = (req, u) => req.ip + '|' + u;
-function tooMany(key) { const f = fails.get(key); return f && f.n >= 8 && f.until > Date.now(); }
+function tooMany(key, max = 8) { const f = fails.get(key); return f && f.n >= max && f.until > Date.now(); }
 function addFail(key) {
   const f = fails.get(key); const now = Date.now();
   fails.set(key, f && f.until > now ? { n: f.n + 1, until: f.until } : { n: 1, until: now + 15 * 60e3 });
@@ -223,6 +223,31 @@ module.exports = function (store, wrap) {
     res.status(204).end();
   }));
 
+  /* ---------- mã xóa dữ liệu ---------- */
+  // Quản trị viên đặt mã xóa (4–12 ký tự); lưu băm scrypt trong meta deletePasscode, không bao giờ trả mã ra ngoài.
+  // Hiện dùng khi xóa dòng hợp đồng với CĐT (Nhập liệu và Quản trị đều phải nhập mã).
+  const PASSCODE_MAX_FAILS = 5;
+  authed.get('/api/delete-passcode', admin, wrap(async (req, res) => {
+    const m = await store.get('meta', 'deletePasscode');
+    res.set('Cache-Control', 'no-store').json({ set: !!m?.hash, updatedAt: m?.updatedAt || null, updatedByName: m?.updatedByName || null });
+  }));
+  authed.put('/api/delete-passcode', admin, wrap(async (req, res) => {
+    const code = req.body?.passcode;
+    if (typeof code !== 'string' || code.length < 4 || code.length > 12) return res.status(400).json({ error: 'Mã xóa gồm 4–12 ký tự.' });
+    await store.put('meta', 'deletePasscode', { hash: await hashPassword(code), updatedAt: new Date().toISOString(), updatedBy: req.user.id, updatedByName: req.user.name || req.user.id });
+    res.status(204).end();
+  }));
+  // Trả null nếu mã đúng; nếu không, trả {status, error}. Sai 5 lần trong 15 phút (theo tài khoản) thì tạm khóa.
+  async function checkDeletePasscode(req, code) {
+    const m = await store.get('meta', 'deletePasscode');
+    if (!m?.hash) return { status: 409, error: 'Quản trị viên chưa đặt mã xóa.' };
+    const key = '#xoa|' + req.user.id;
+    if (tooMany(key, PASSCODE_MAX_FAILS)) return { status: 429, error: 'Nhập sai mã xóa quá nhiều lần. Hãy thử lại sau 15 phút.' };
+    if (typeof code !== 'string' || !code || !(await checkPassword(code, m.hash))) { addFail(key); return { status: 403, error: 'Mã xóa không đúng.' }; }
+    fails.delete(key);
+    return null;
+  }
+
   // Khởi tạo và khôi phục tài khoản quản trị khi máy chủ khởi động (giá trị biến được cắt khoảng trắng):
   // - chưa có tài khoản nào: tạo ADMIN_USERNAME (mặc định admin) với ADMIN_PASSWORD, hoặc mật khẩu tạm in ra log;
   // - ADMIN_RESET=true: đặt lại (hoặc tạo) tài khoản ADMIN_USERNAME với ADMIN_PASSWORD, quyền Quản trị, đăng xuất phiên cũ;
@@ -276,5 +301,5 @@ module.exports = function (store, wrap) {
     console.log(`Tài khoản: ${users.length} · quản trị viên đang hoạt động: ${admins.join(', ') || '(không có)'}`);
   }
 
-  return { router, requireLogin: [requireLogin, authed], requireRole, bootstrap };
+  return { router, requireLogin: [requireLogin, authed], requireRole, bootstrap, checkDeletePasscode };
 };

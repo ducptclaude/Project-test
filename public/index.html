@@ -259,6 +259,12 @@ tbody tr.link:hover{background:var(--sunk)}
 .pcard .line{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted)}
 .pcard.total{cursor:default;background:var(--sunk);border-color:transparent}
 .pcard.total .line b{color:var(--ink)}
+.cnote{min-width:120px;max-width:280px;overflow-wrap:anywhere}
+.ctbl th,.ctbl td{padding-inline:10px}
+/* Khối hợp đồng: khung hẹp hơn bảng (máy tính nhỏ, thanh bên mở) thì chuyển sang dạng thẻ xếp lưới */
+.cpanel{container-type:inline-size}
+@container (max-width:760px){.cpanel .desk{display:none}.cpanel .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}}
+.pcard .actions{justify-content:flex-start}
 .txlist{list-style:none;margin:0;padding:0;display:none;flex-direction:column}
 .txlist li{border-bottom:1px solid var(--line)}
 .txlist li:last-child{border-bottom:0}
@@ -331,6 +337,8 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
 .dlg-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
 .dlg-foot .inline{margin-left:auto}
 .err{color:var(--bad);font-size:12.5px;font-weight:600;min-height:1em}
+.ro{display:flex;flex-direction:column;gap:2px;min-height:40px;justify-content:center;font-size:13.5px}
+.ro small{font-size:11.5px;color:var(--muted)}
 .secret{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--rev-soft);border-radius:10px;padding:12px 14px;font-size:13px}
 .secret code{font-size:15px;font-weight:700;background:var(--surface);padding:3px 8px;border-radius:6px;user-select:all}
 
@@ -433,6 +441,7 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
         <div class="presets" role="group" aria-label="Kỳ báo cáo">
           <button class="pp" data-preset="month">Tháng này</button><button class="pp" data-preset="quarter">Quý này</button><button class="pp" data-preset="year">Năm nay</button><button class="pp" data-preset="all">Tất cả</button><button class="pp" data-preset="custom">Tùy chọn</button>
         </div>
+        <div class="seg-mini" role="group" aria-label="Giá trị hợp đồng hiện theo" title="Giá trị hợp đồng hiện theo trước hay sau VAT"><button data-vat="pre">Trước VAT</button><button data-vat="post">Sau VAT</button></div>
         <div class="period" id="custom-period" hidden><label for="f-year">Năm</label><select id="f-year"></select><label for="f-period">Kỳ</label><select id="f-period"></select></div>
         <button class="btn" id="btn-new-project">+ Dự án</button>
         <button class="btn tin" id="btn-new-in">+ Thu</button>
@@ -500,7 +509,7 @@ const MONTHS = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
 /* ---------- state ---------- */
 const S = {
-  mode: 'loading', projects: [], txs: [], canWrite: false, me: null,
+  mode: 'loading', projects: [], txs: [], contracts: [], canWrite: false, me: null, vatMode: store.get('vatMode', 'pre'),
   view: store.get('view', 'overview'), projectId: store.get('project', null),
   year: store.get('year', String(new Date().getFullYear())), period: store.get('period', 'all'),
   jf: {project: '', type: '', q: ''}, jpage: 0, psort: store.get('psort', 'code'),
@@ -596,6 +605,23 @@ function monthly(txs) {
   return out;
 }
 const projTxs = id => S.txs.filter(t => t.projectId === id);
+/* ---------- hợp đồng với CĐT ---------- */
+// Giá trị hợp đồng của dự án tính từ bảng hợp đồng; dự án chưa có dòng nào thì dùng contractValue cũ.
+// pre: trước VAT · vat: tổng VAT đã nhập · post: sau VAT · provisional: số dòng VAT tạm tính (chưa nhập, coi là 0)
+const projContracts = id => S.contracts.filter(c => c.projectId === id).sort((a, b) => (a.seq || 0) - (b.seq || 0));
+function contractTotals(id) {
+  const list = projContracts(id);
+  if (!list.length) { const v = +S.projects.find(p => p.id === id)?.contractValue || 0; return {pre: v, vat: 0, post: v, provisional: v ? 1 : 0, count: 0}; }
+  let pre = 0, vat = 0, provisional = 0;
+  for (const c of list) { pre += +c.value || 0; if (c.vat == null) provisional++; else vat += +c.vat || 0; }
+  return {pre, vat, post: pre + vat, provisional, count: list.length};
+}
+const cvPre = p => contractTotals(p.id).pre;     // lợi nhuận kế hoạch, dự báo: theo trước VAT
+const cvPost = p => contractTotals(p.id).post;   // đã thu / còn phải thu: theo sau VAT (tiền thu theo quyết toán là sau VAT)
+const cvShow = p => S.vatMode === 'post' ? cvPost(p) : cvPre(p);   // giá trị hợp đồng hiển thị theo nút Trước VAT | Sau VAT
+const vatWord = () => S.vatMode === 'post' ? 'sau VAT' : 'trước VAT';
+// Số tiền đầy đủ theo đồng, giữ dấu âm (phụ lục giảm)
+const dong = v => (v < 0 ? '−' : '') + Math.abs(Math.round(v || 0)).toLocaleString('vi-VN');
 function health(p) {
   const all = sum(projTxs(p.id)), used = p.budget ? all.exp / p.budget : 0, flags = [];
   if (all.profit < 0 && all.exp > 0) flags.push(['bad', 'Đang lỗ']);
@@ -624,6 +650,7 @@ function render() {
   $('#ph-eyebrow').textContent = (S.view === 'overview' ? 'Danh mục dự án · ' : isLedger() ? (S.view === 'revenue' ? 'Khoản thu · ' : 'Khoản chi · ') : '') + periodLabel();
   $('#ph-title').textContent = VIEW_TITLES[S.view];
   renderNotice(); renderFilters();
+  document.querySelectorAll('[data-vat]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.vat === S.vatMode)));
   $('#btn-new-project').hidden = $('#btn-new-in').hidden = $('#btn-new-out').hidden = $('#tb-new').hidden = !S.canWrite;
   $('#btn-new-in').disabled = $('#btn-new-out').disabled = $('#tb-new').disabled = !S.projects.length;
   if (S.mode === 'loading') return;
@@ -635,7 +662,7 @@ function render() {
 }
 // Dữ liệu ví dụ: một nhãn nhỏ cạnh tiêu đề thay cho dải thông báo
 function renderNotice() {
-  const el = $('#ph-badge'), has = S.mode === 'db' && (S.projects.some(p => p.sample) || S.txs.some(t => t.sample));
+  const el = $('#ph-badge'), has = S.mode === 'db' && (S.projects.some(p => p.sample) || S.txs.some(t => t.sample) || S.contracts.some(c => c.sample));
   el.innerHTML = has ? `<span class="sample-badge">Dữ liệu ví dụ${S.canWrite ? '<button id="btn-clear-sample" title="Xóa toàn bộ dữ liệu ví dụ">Xóa</button>' : ''}</span>` : '';
   const b = $('#btn-clear-sample'); if (b) b.onclick = () => armButton(b, 'Chắc chắn xóa?', clearSample);
 }
@@ -765,8 +792,8 @@ const marginCell = s => s.rev || s.exp ? (s.profit < 0 ? '<span class="chip bad"
 function alerts() {
   const out = [];
   for (const p of sortedProjects()) {
-    const h = health(p), cv = +p.contractValue || 0, bg = +p.budget || 0;
-    if (h.all.profit < 0 && h.all.exp > 0) out.push({p, sev: 0, tag: 'ĐANG LỖ', detail: `Lỗ lũy kế ${short(-h.all.profit)}.${cv ? ` Mới thu ${pct(h.all.rev / cv)} giá trị hợp đồng.` : ''}`});
+    const h = health(p), cv = cvPost(p), bg = +p.budget || 0;
+    if (h.all.profit < 0 && h.all.exp > 0) out.push({p, sev: 0, tag: 'ĐANG LỖ', detail: `Lỗ lũy kế ${short(-h.all.profit)}.${cv ? ` Mới thu ${pct(h.all.rev / cv)} giá trị hợp đồng (sau VAT).` : ''}`});
     if (h.used > 1) out.push({p, sev: 0, tag: 'VƯỢT NGÂN SÁCH', detail: `Đã chi ${pct(h.used)} ngân sách (vượt ${short(h.all.exp - bg)}).`});
     else if (h.used > 0.9) out.push({p, sev: 1, tag: 'SẮP HẾT NGÂN SÁCH', detail: `Đã dùng ${pct(h.used)} ngân sách, còn ${short(bg - h.all.exp)}.`});
   }
@@ -785,29 +812,30 @@ function viewOverview() {
   if (!S.projects.length) return emptyState();
   const txs = S.txs.filter(inRange), st = sum(txs), all = sum(S.txs);
   chartData.overview = monthly(txs);
-  const cv = S.projects.reduce((a, p) => a + (+p.contractValue || 0), 0), bg = S.projects.reduce((a, p) => a + (+p.budget || 0), 0);
-  const recv = S.projects.reduce((a, p) => a + Math.max(0, (+p.contractValue || 0) - sum(projTxs(p.id)).rev), 0);
+  const bg = S.projects.reduce((a, p) => a + (+p.budget || 0), 0);
+  const cvP = S.projects.reduce((a, p) => a + cvPre(p), 0), cvT = S.projects.reduce((a, p) => a + cvPost(p), 0), cv = S.vatMode === 'post' ? cvT : cvP;
+  const recv = S.projects.reduce((a, p) => a + Math.max(0, cvPost(p) - sum(projTxs(p.id)).rev), 0);
   const pv = prevPeriod(), ps = pv ? sum(S.txs.filter(within(pv.range))) : null;
   const cmp = (k, good) => pv ? delta(st[k], ps[k], pv.label, good) : '<span class="sub">Toàn bộ thời gian</span>';
-  const rows = sortedProjects().map(p => { const h = health(p), cvp = +p.contractValue || 0; return {p, s: sum(projTxs(p.id).filter(inRange)), h, c: cvp ? h.all.rev / cvp : 0}; });
+  const rows = sortedProjects().map(p => { const h = health(p), cvp = cvPost(p); return {p, s: sum(projTxs(p.id).filter(inRange)), h, c: cvp ? h.all.rev / cvp : 0}; });
   rows.sort((PSORTS[S.psort] || PSORTS.code)[1]);
   return `<div class="stack">
     <section class="kpis" aria-label="Chỉ số chính">
-      ${kpi('Lợi nhuận', short(st.profit), `Biên ${pct(st.margin)} · kế hoạch danh mục ${short(cv - bg)}`, {hero: true, title: vnd(st.profit),
+      ${kpi('Lợi nhuận', short(st.profit), `Biên ${pct(st.margin)} · kế hoạch danh mục ${short(cvP - bg)}`, {hero: true, title: vnd(st.profit),
         foot: cmp('profit', true) + spark(last12(o => o.rev - o.exp), '#FFFFFF', 'rgba(255,255,255,.16)')})}
       ${kpi('Doanh thu', short(st.rev), `${txs.filter(t => t.type === 'in').length} khoản thu trong kỳ`, {dot: 'bg-rev', title: vnd(st.rev),
         foot: cmp('rev', true) + spark(last12(o => o.rev), 'var(--rev)', 'color-mix(in srgb,var(--rev) 16%,transparent)')})}
       ${kpi('Chi phí', short(st.exp), `${txs.filter(t => t.type === 'out').length} khoản chi trong kỳ`, {dot: 'bg-exp', title: vnd(st.exp),
         foot: cmp('exp', false) + spark(last12(o => o.exp), 'var(--exp)', 'color-mix(in srgb,var(--exp) 16%,transparent)')})}
-      ${kpi('Còn phải thu', short(recv), `Đã thu <b class="num c-rev">${cv ? pct(all.rev / cv) : '—'}</b> trên tổng hợp đồng ${short(cv)}`, {title: vnd(recv), wide: true,
-        foot: `<div class="meter rev" style="flex:1"><i style="width:${cv ? Math.min(100, all.rev / cv * 100).toFixed(1) : 0}%"></i></div>`})}
+      ${kpi('Còn phải thu', short(recv), `Đã thu <b class="num c-rev">${cvT ? pct(all.rev / cvT) : '—'}</b> hợp đồng (theo sau VAT) · tổng giá trị hợp đồng ${vatWord()} <b class="num" title="${vnd(cv)}">${short(cv)}</b>`, {title: vnd(recv), wide: true,
+        foot: `<div class="meter rev" style="flex:1"><i style="width:${cvT ? Math.min(100, all.rev / cvT * 100).toFixed(1) : 0}%"></i></div>`})}
     </section>
     <div class="row">${chartPanel('overview', 'Dòng tiền theo tháng')}${alertPanel(alerts())}</div>
     <section class="panel">
       <div class="panel-head"><h2>Kết quả theo dự án</h2>
         <label class="inline" style="font-size:13px;font-weight:600;color:var(--muted)">Sắp xếp <select id="p-sort">${Object.entries(PSORTS).map(([k, [l]]) => `<option value="${k}"${k === S.psort ? ' selected' : ''}>${l}</option>`).join('')}</select></label></div>
       <div class="tbl-wrap desk"><table>
-        <thead><tr><th>Dự án</th><th>Trạng thái</th><th class="r">Doanh thu</th><th class="r">Chi phí</th><th class="r">Lợi nhuận</th><th class="r">Biên</th><th>Đã thu / hợp đồng</th><th>Đã chi / ngân sách</th></tr></thead>
+        <thead><tr><th>Dự án</th><th>Trạng thái</th><th class="r">Doanh thu</th><th class="r">Chi phí</th><th class="r">Lợi nhuận</th><th class="r">Biên</th><th title="Theo giá trị hợp đồng sau VAT">Đã thu / hợp đồng</th><th>Đã chi / ngân sách</th></tr></thead>
         <tbody>${rows.map(({p, s, h, c}) => `<tr class="link" data-open="${esc(p.id)}">
           <td><div class="pname"><span class="num">${esc(p.code)}</span> · ${esc(p.name)}</div><div class="psub">${esc(p.client)}</div></td>
           <td><div style="display:flex;flex-wrap:wrap;gap:4px">${statusChip(p.status)}${flagChips(h)}</div></td>
@@ -841,9 +869,9 @@ function viewProject() {
   let p = list.find(x => x.id === S.projectId); if (!p) { p = list[0]; S.projectId = p.id; }
   const all = projTxs(p.id), txs = all.filter(inRange), st = sum(txs), h = health(p);
   chartData.project = monthly(txs);
-  const cv = +p.contractValue || 0, bg = +p.budget || 0;
-  const collected = cv ? h.all.rev / cv : 0;
-  const forecast = cv - Math.max(bg, h.all.exp);
+  const ct = contractTotals(p.id), cv = S.vatMode === 'post' ? ct.post : ct.pre, bg = +p.budget || 0;
+  const collected = ct.post ? h.all.rev / ct.post : 0;
+  const forecast = ct.pre - Math.max(bg, h.all.exp);
   const left = bg - h.all.exp;
   return `<div class="pv">
     <nav class="plist" aria-label="Danh sách dự án">${list.map(x => {
@@ -861,18 +889,19 @@ function viewProject() {
           ${S.canWrite ? `<div class="inline" style="flex-wrap:wrap"><button class="btn" data-act="edit-project" data-id="${esc(p.id)}">Sửa dự án</button><button class="btn tin" data-act="new-in" data-id="${esc(p.id)}">+ Thu</button><button class="btn tout" data-act="new-out" data-id="${esc(p.id)}">+ Chi</button></div>` : ''}
         </div>
       </section>
+      ${contractPanel(p)}
       <section class="plan" aria-label="Kế hoạch và thực tế">
-        <div class="kpi"><span class="lab">Đã thu / giá trị hợp đồng</span>
-          <span class="pair"><span class="val num c-rev" title="${vnd(h.all.rev)}">${short(h.all.rev)}</span><span class="num muted" style="font-weight:600">/ ${short(cv)}</span></span>
+        <div class="kpi"><span class="lab">Đã thu / giá trị hợp đồng (${vatWord()})</span>
+          <span class="pair"><span class="val num c-rev" title="${vnd(h.all.rev)}">${short(h.all.rev)}</span><span class="num muted" style="font-weight:600" title="${vnd(cv)}">/ ${short(cv)}</span></span>
           <div class="meter rev"><i style="width:${Math.min(100, collected * 100).toFixed(1)}%"></i></div>
-          <span class="sub"><b class="num">${pct(collected)}</b> · còn ${short(Math.max(0, cv - h.all.rev))} chưa thu</span></div>
+          <span class="sub"><b class="num">${pct(collected)}</b> · còn ${short(Math.max(0, ct.post - h.all.rev))} chưa thu <span class="muted">(theo sau VAT)</span></span></div>
         <div class="kpi"><span class="lab">Đã chi / ngân sách chi phí</span>
           <span class="pair"><span class="val num c-exp" title="${vnd(h.all.exp)}">${short(h.all.exp)}</span><span class="num muted" style="font-weight:600">/ ${short(bg)}</span></span>
           <div class="meter ${h.used > 1 ? 'bad' : h.used > .9 ? 'warn' : 'exp'}"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></div>
           <span class="sub"><b class="num ${h.used > 1 ? 'c-bad' : ''}">${pct(h.used)}</b> · ${left >= 0 ? `còn ${short(left)}` : `<span class="c-bad">vượt ${short(-left)}</span>`}</span></div>
         <div class="kpi hero"><span class="lab">Lợi nhuận dự báo khi hoàn thành</span>
           <span class="val num" title="${vnd(forecast)}">${short(forecast)}</span>
-          <div class="split"><span>Kế hoạch<b class="num">${short(cv - bg)} · ${pct(cv ? (cv - bg) / cv : NaN)}</b></span><span>Lũy kế đến nay<b class="num">${short(h.all.profit)} · ${pct(h.all.margin)}</b></span></div></div>
+          <div class="split"><span>Kế hoạch<b class="num">${short(ct.pre - bg)} · ${pct(ct.pre ? (ct.pre - bg) / ct.pre : NaN)}</b></span><span>Lũy kế đến nay<b class="num">${short(h.all.profit)} · ${pct(h.all.margin)}</b></span></div></div>
       </section>
       <h2 class="sec-title">Kết quả ${periodLabel().toLowerCase()}</h2>
       <section class="kpis" aria-label="Kết quả trong kỳ">
@@ -886,6 +915,49 @@ function viewProject() {
       <section class="panel"><div class="panel-head"><h2>Giao dịch gần đây</h2>${txs.length > 10 ? `<button class="link-btn" data-act="journal-of" data-id="${esc(p.id)}">Xem cả ${txs.length} giao dịch trong sổ →</button>` : ''}</div>${txTable(txs, false, 10)}</section>
     </div>
   </div>`;
+}
+
+// Khối Hợp đồng với CĐT ở Chi tiết dự án: bảng trên máy tính, thẻ trên điện thoại; số tiền đầy đủ theo đồng
+function contractPanel(p) {
+  const list = projContracts(p.id), t = contractTotals(p.id), hasBase = list.some(c => c.kind === 'base');
+  const nApp = list.filter(c => c.kind === 'appendix').length;
+  const label = c => c.kind === 'base' ? 'HĐ gốc' : `Phụ lục ${c.seq}`;
+  const vatCell = c => c.vat == null ? '<span class="chip warn" title="Chưa nhập VAT, tạm coi là 0">Tạm tính</span>' : dong(c.vat);
+  const lastEdit = c => c.updatedAt ? `Sửa lần cuối: ${c.updatedByName || '—'} · ${new Date(c.updatedAt).toLocaleString('vi-VN')}` : '';
+  const delBtn = c => c.kind === 'base' && nApp
+    ? `<button class="btn sm danger" disabled title="Xóa các phụ lục trước khi xóa hợp đồng gốc">Xóa</button>`
+    : `<button class="btn sm danger" data-act="del-contract" data-id="${esc(c.id)}">Xóa</button>`;
+  const acts = c => S.canWrite ? `<div class="actions"><button class="btn sm" data-act="edit-contract" data-id="${esc(c.id)}">Sửa</button>${delBtn(c)}</div>` : '';
+  const add = !S.canWrite ? '' : hasBase ? `<button class="btn sm" data-act="new-contract" data-kind="appendix" data-id="${esc(p.id)}">+ Phụ lục</button>`
+    : `<button class="btn sm primary" data-act="new-contract" data-kind="base" data-id="${esc(p.id)}">+ HĐ gốc</button>`;
+  const provNote = t.provisional ? `<span class="chip warn">${t.provisional} dòng VAT tạm tính</span>` : '';
+  const head = `<div class="panel-head"><h2>Hợp đồng với CĐT</h2><div class="inline" style="flex-wrap:wrap">${add}</div></div>`;
+  if (!list.length) return `<section class="panel cpanel">${head}<p class="muted" style="margin:0">Chưa có hợp đồng nào.${t.pre ? ` Đang dùng giá trị hợp đồng nhập trước đây: <b class="num">${vnd(t.pre)}</b>.` : ''}${S.canWrite ? ' Thêm hợp đồng gốc (giá trị trước VAT, VAT theo hợp đồng), sau đó thêm các phụ lục.' : ''}</p></section>`;
+  return `<section class="panel cpanel">${head}
+    <div class="tbl-wrap desk"><table class="ctbl">
+      <thead><tr><th>Hợp đồng</th><th class="r">Trước VAT (₫)</th><th class="r">VAT (₫)</th><th class="r">Sau VAT (₫)</th><th>Ghi chú</th>${S.canWrite ? '<th></th>' : ''}</tr></thead>
+      <tbody>${list.map(c => `<tr>
+        <td><div style="font-weight:700;white-space:nowrap">${label(c)}</div><div class="psub num">${esc(c.no) || 'Chưa có số'}</div><div class="psub num">${c.signDate ? 'Ký ' + fmtDate(c.signDate) : 'Chưa có ngày ký'}</div></td>
+        <td class="r num ${c.value < 0 ? 'c-bad' : ''}" style="font-weight:700">${dong(c.value)}</td><td class="r num">${vatCell(c)}</td>
+        <td class="r num" style="font-weight:800">${dong((+c.value || 0) + (+c.vat || 0))}</td>
+        <td class="cnote">${c.note ? `<div style="font-size:13px">${esc(c.note)}</div>` : ''}<div class="psub" title="${esc(lastEdit(c))}">Nhập: ${esc(c.createdByName) || '—'}</div></td>${S.canWrite ? `<td>${acts(c)}</td>` : ''}
+      </tr>`).join('')}</tbody>
+      <tfoot><tr><td>Tổng cộng ${provNote}</td><td class="r num">${dong(t.pre)}</td><td class="r num">${dong(t.vat)}</td><td class="r num">${dong(t.post)}</td><td colspan="${S.canWrite ? 2 : 1}"></td></tr></tfoot>
+    </table></div>
+    <div class="cards">${list.map(c => `<div class="pcard" style="cursor:default">
+      <span class="top"><b>${label(c)}</b><span class="num psub">${esc(c.no)}${c.signDate ? ` · ${fmtDate(c.signDate)}` : ''}</span></span>
+      <span class="line"><span>Trước VAT</span><b class="num ${c.value < 0 ? 'c-bad' : ''}">${dong(c.value)} ₫</b></span>
+      <span class="line"><span>VAT</span><b class="num">${c.vat == null ? vatCell(c) : dong(c.vat) + ' ₫'}</b></span>
+      <span class="line"><span>Sau VAT</span><b class="num" style="color:var(--ink)">${dong((+c.value || 0) + (+c.vat || 0))} ₫</b></span>
+      <span class="line"><span title="${esc(lastEdit(c))}">Người nhập: ${esc(c.createdByName) || '—'}</span></span>
+      ${c.note ? `<span class="psub">${esc(c.note)}</span>` : ''}${acts(c)}
+    </div>`).join('')}
+      <div class="pcard total"><span class="pname" style="color:var(--ink)">Tổng cộng</span>${provNote ? `<span>${provNote}</span>` : ''}
+        <span class="line"><span>Trước VAT</span><b class="num">${dong(t.pre)} ₫</b></span>
+        <span class="line"><span>VAT</span><b class="num">${dong(t.vat)} ₫</b></span>
+        <span class="line"><span>Sau VAT</span><b class="num">${dong(t.post)} ₫</b></span>
+      </div></div>
+  </section>`;
 }
 
 /* ---------- trang Doanh thu / Chi phí: ô nhập liệu + số liệu của loại đó ---------- */
@@ -916,7 +988,8 @@ function entryForm(type) {
 }
 function viewLedger(type) {
   if (!S.projects.length) return emptyState();
-  return `<div class="ledger${S.canWrite ? '' : ' full'}">${S.canWrite ? entryForm(type) : ''}<div class="stack" id="ledger-side" data-type="${type}"></div></div>`;
+  // Bảng các khoản trong kỳ nằm dưới, rộng hết khung, để không bị tràn ngang khi đứng cạnh ô nhập liệu
+  return `<div class="stack"><div class="ledger${S.canWrite ? '' : ' full'}">${S.canWrite ? entryForm(type) : ''}<div class="stack" id="ledger-side" data-type="${type}"></div></div><div id="ledger-table"></div></div>`;
 }
 // Phần bên phải vẽ lại riêng, để lưu xong hay dữ liệu đổi cũng không xóa những gì đang gõ trong ô nhập
 function renderLedgerSide() {
@@ -941,9 +1014,10 @@ function renderLedgerSide() {
     ${rows.length ? `<div class="grid2">
       <section class="panel"><h2>Theo dự án</h2>${bars(byP, k => { const p = S.projects.find(x => x.id === k); return p ? `<span class="ell" title="${esc(p.name)}"><span class="num" style="font-weight:700">${esc(p.code)}</span> <span class="psub">${esc(p.name)}</span></span>` : 'Dự án đã xóa'; }, 'dự án')}</section>
       <section class="panel"><h2>Theo hạng mục</h2>${bars(byC, esc, 'hạng mục')}</section>
-    </div>` : ''}
+    </div>` : ''}`;
+  $('#ledger-table').innerHTML = `
     <section class="panel"><div class="panel-head"><h2>Các khoản ${word} trong kỳ</h2>${rows.length > 15 ? `<button class="link-btn" data-act="journal-type" data-id="${type}">Xem cả ${rows.length} khoản trong sổ →</button>` : ''}</div>
-      ${rows.length ? txTable(rows, true, 15) : `<p class="muted" style="margin:0">Chưa có khoản ${word} nào trong ${periodLabel().toLowerCase()}.</p>`}</section>`;
+      ${rows.length ? txTable(rows, true, 15, 0, true) : `<p class="muted" style="margin:0">Chưa có khoản ${word} nào trong ${periodLabel().toLowerCase()}.</p>`}</section>`;
 }
 async function saveEntry(f) {
   const type = f.dataset.entry, v = k => $(`#e-${type}-${k}`).value.trim(), err = $(`#e-${type}-err`);
@@ -966,7 +1040,8 @@ async function saveEntry(f) {
 }
 
 // Bảng giao dịch: bảng đầy đủ trên máy tính, danh sách gọn trên điện thoại; tổng ở chân tính trên toàn bộ txs
-function txTable(txs, showProject, limit = Infinity, offset = 0) {
+// compact: trang Doanh thu / Chi phí (cả bảng cùng một loại) nên bỏ cột Loại cho gọn
+function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false) {
   if (!txs.length) return `<p class="muted" style="margin:0">Không có giao dịch nào khớp bộ lọc.</p>`;
   const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
   const shown = sorted.slice(offset, offset + limit), st = sum(txs);
@@ -974,16 +1049,16 @@ function txTable(txs, showProject, limit = Infinity, offset = 0) {
   const amt = t => `${t.type === 'in' ? '+' : '−'}${Math.round(t.amount).toLocaleString('vi-VN')}`;
   const total = `${st.profit < 0 ? '−' : ''}${Math.abs(Math.round(st.profit)).toLocaleString('vi-VN')}`;
   return `<div class="tbl-wrap desk"><table>
-    <thead><tr><th>Ngày</th>${showProject ? '<th>Dự án</th>' : ''}<th>Loại</th><th>Hạng mục</th><th>Diễn giải</th><th class="r">Số tiền (₫)</th>${S.canWrite ? '<th></th>' : ''}</tr></thead>
+    <thead><tr><th>Ngày</th>${showProject ? '<th>Dự án</th>' : ''}${compact ? '' : '<th>Loại</th>'}<th>Hạng mục</th><th>Diễn giải</th><th class="r">Số tiền (₫)</th>${S.canWrite ? '<th></th>' : ''}</tr></thead>
     <tbody>${shown.map(t => `<tr>
-      <td class="num muted">${fmtDate(t.date)}</td>
+      <td class="num muted" style="white-space:nowrap">${fmtDate(t.date)}</td>
       ${showProject ? `<td><span class="txp" title="${esc(projectName(t.projectId))}"><span class="num" style="font-weight:700">${code(t)}</span> <span class="psub">${esc(projectName(t.projectId))}</span></span></td>` : ''}
-      <td><span class="chip ${t.type}">${t.type === 'in' ? 'Thu' : 'Chi'}</span></td>
-      <td style="font-weight:600">${esc(t.category)}</td><td class="psub" style="max-width:300px">${esc(t.note)}</td>
+      ${compact ? '' : `<td><span class="chip ${t.type}">${t.type === 'in' ? 'Thu' : 'Chi'}</span></td>`}
+      <td style="font-weight:600">${esc(t.category)}</td><td class="psub" style="max-width:300px;overflow-wrap:anywhere">${esc(t.note)}</td>
       <td class="r num ${t.type === 'in' ? 'c-rev' : ''}" style="font-weight:800">${amt(t)}</td>
       ${S.canWrite ? `<td><div class="actions"><button class="btn sm" data-act="edit-tx" data-id="${esc(t.id)}">Sửa</button><button class="btn sm danger" data-act="del-tx" data-id="${esc(t.id)}">Xóa</button></div></td>` : ''}
     </tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="${showProject ? 5 : 4}">Tổng cộng: thu <span class="num c-rev">${vnd(st.rev)}</span> · chi <span class="num c-exp">${vnd(st.exp)}</span></td><td class="r num ${st.profit < 0 ? 'c-bad' : ''}">${total}</td>${S.canWrite ? '<td></td>' : ''}</tr></tfoot>
+    <tfoot><tr><td colspan="${(showProject ? 5 : 4) - (compact ? 1 : 0)}">Tổng cộng: thu <span class="num c-rev">${vnd(st.rev)}</span> · chi <span class="num c-exp">${vnd(st.exp)}</span></td><td class="r num ${st.profit < 0 ? 'c-bad' : ''}">${total}</td>${S.canWrite ? '<td></td>' : ''}</tr></tfoot>
   </table></div>
   <ul class="txlist">${shown.map(t => {
     const inner = `<span class="l"><b>${esc(t.category)}</b><span class="psub">${fmtDate(t.date)}${showProject ? ` · ${code(t)}` : ''}${t.note ? ` · ${esc(t.note)}` : ''}</span></span><span class="amt num ${t.type === 'in' ? 'c-rev' : ''}">${amt(t)}</span>`;
@@ -1092,10 +1167,13 @@ const dlg = $('#dlg'), form = $('#dlg-form');
 function moneyInput(id, val) {
   return `<input type="text" inputmode="numeric" id="${id}" value="${val ? Math.round(val).toLocaleString('vi-VN') : ''}" placeholder="0" autocomplete="off">`;
 }
+// Ô tiền có data-signed cho phép dấu − ở đầu (phụ lục giảm giá trị)
+const parseSigned = s => { const n = parseMoney(s); return /^\s*[-−]/.test(s) ? -n : n; };
 function bindMoney() {
-  form.querySelectorAll('input[inputmode=numeric]').forEach(inp => inp.addEventListener('input', () => {
-    const n = parseMoney(inp.value); inp.value = n ? n.toLocaleString('vi-VN') : '';
-    const hint = form.querySelector(`[data-hint="${inp.id}"]`); if (hint) hint.textContent = n ? spoken(n) : '';
+  form.querySelectorAll('input[inputmode=numeric], input[data-signed]').forEach(inp => inp.addEventListener('input', () => {
+    const neg = !!inp.dataset.signed && /^\s*[-−]/.test(inp.value), n = parseMoney(inp.value);
+    inp.value = (neg ? '-' : '') + (n ? n.toLocaleString('vi-VN') : '');
+    const hint = form.querySelector(`[data-hint="${inp.id}"]`); if (hint) hint.textContent = n ? (neg ? '−' : '') + spoken(n) : '';
   }));
 }
 function openTx(tx, projectId, type = 'out') {
@@ -1125,15 +1203,14 @@ function openTx(tx, projectId, type = 'out') {
       createdAt: tx?.createdAt || Date.now()};
     if (!data.date) return $('#x-err').textContent = 'Chọn ngày phát sinh giao dịch.';
     if (!data.amount) return $('#x-err').textContent = 'Nhập số tiền lớn hơn 0.';
-    if (tx?.sample) data.sample = true;
     dlg.close();
     try { await put('transactions', tx?.id || uid(), data); toast(tx ? 'Đã cập nhật giao dịch' : 'Đã ghi giao dịch'); } catch (er) { toast(failMsg(er)); }
   };
   dlg.showModal(); (tx ? $('#x-amount') : $('#x-cat')).focus();
 }
 function openProject(p) {
-  const n = S.projects.length + 1, cnt = p ? projTxs(p.id).length : 0;
-  const x = p || {code: 'DA-' + String(n).padStart(2, '0'), name: '', client: '', manager: '', contractValue: 0, budget: 0, status: 'active', start: today(), end: ''};
+  const n = S.projects.length + 1, cnt = p ? projTxs(p.id).length : 0, nct = p ? projContracts(p.id).length : 0, ct = p ? contractTotals(p.id) : null;
+  const x = p || {code: 'DA-' + String(n).padStart(2, '0'), name: '', client: '', manager: '', budget: 0, status: 'active', start: today(), end: ''};
   form.innerHTML = `<h2>${p ? 'Sửa dự án' : 'Tạo dự án mới'}</h2>
     <div class="form">
       <label class="field"><span>Mã dự án</span><input type="text" id="p-code" value="${esc(x.code)}"></label>
@@ -1141,19 +1218,19 @@ function openProject(p) {
       <label class="field full"><span>Tên dự án</span><input type="text" id="p-name" value="${esc(x.name)}" placeholder="Ví dụ: Thi công nhà xưởng giai đoạn 2"></label>
       <label class="field"><span>Khách hàng</span><input type="text" id="p-client" value="${esc(x.client)}"></label>
       <label class="field"><span>Người phụ trách</span><input type="text" id="p-manager" value="${esc(x.manager)}"></label>
-      <label class="field"><span>Giá trị hợp đồng (₫) <b class="num" data-hint="p-cv" style="text-transform:none;letter-spacing:0">${x.contractValue ? spoken(x.contractValue) : ''}</b></span>${moneyInput('p-cv', x.contractValue)}</label>
+      <div class="field"><span>Giá trị hợp đồng (₫)</span><div class="ro">${p ? `<b class="num">${vnd(ct.pre)}</b> trước VAT · <b class="num">${vnd(ct.post)}</b> sau VAT` : 'Chưa có'}<small>${p ? 'Tính từ bảng Hợp đồng với CĐT ở Chi tiết dự án.' : 'Sau khi tạo dự án, thêm hợp đồng gốc ở Chi tiết dự án.'}</small></div></div>
       <label class="field"><span>Ngân sách chi phí (₫) <b class="num" data-hint="p-bg" style="text-transform:none;letter-spacing:0">${x.budget ? spoken(x.budget) : ''}</b></span>${moneyInput('p-bg', x.budget)}</label>
       <label class="field"><span>Ngày bắt đầu</span><input type="date" id="p-start" value="${esc(x.start)}"></label>
       <label class="field"><span>Ngày kết thúc dự kiến</span><input type="date" id="p-end" value="${esc(x.end)}"></label>
     </div>
     <div class="err" id="p-err"></div>
-    ${cnt ? `<p class="muted" style="margin:0;font-size:12.5px">Không xóa được dự án đang có <b class="num">${cnt}</b> giao dịch. Xóa hoặc chuyển các giao dịch sang dự án khác trước, hoặc đổi trạng thái thành Hoàn thành.</p>` : ''}
-    <div class="dlg-foot">${p ? `<button type="button" class="btn danger" id="p-del"${cnt ? ' disabled title="Dự án còn giao dịch, không xóa được"' : ''}>Xóa dự án</button>` : '<span></span>'}
+    ${cnt || nct ? `<p class="muted" style="margin:0;font-size:12.5px">Không xóa được dự án đang có ${[cnt && `<b class="num">${cnt}</b> giao dịch`, nct && `<b class="num">${nct}</b> dòng hợp đồng`].filter(Boolean).join(' và ')}. Xóa ${cnt ? 'hoặc chuyển các giao dịch sang dự án khác' : ''}${cnt && nct ? ', xóa ' : ''}${nct ? 'các dòng hợp đồng' : ''} trước, hoặc đổi trạng thái thành Hoàn thành.</p>` : ''}
+    <div class="dlg-foot">${p ? `<button type="button" class="btn danger" id="p-del"${cnt || nct ? ' disabled title="Dự án còn giao dịch hoặc hợp đồng, không xóa được"' : ''}>Xóa dự án</button>` : '<span></span>'}
       <div class="inline"><button type="button" class="btn" id="p-cancel">Hủy</button><button type="submit" class="btn primary">${p ? 'Lưu thay đổi' : 'Tạo dự án'}</button></div></div>`;
   $('#p-status').value = x.status; bindMoney();
   $('#p-cancel').onclick = () => dlg.close();
   // Chỉ xóa được dự án không còn giao dịch (máy chủ cũng chặn), để không mất dữ liệu
-  if (p && !cnt) $('#p-del').onclick = e => armButton(e.target, 'Bấm lần nữa để xóa', async () => {
+  if (p && !cnt && !nct) $('#p-del').onclick = e => armButton(e.target, 'Bấm lần nữa để xóa', async () => {
     dlg.close();
     try { await del('projects', p.id); toast('Đã xóa dự án'); }
     catch (er) { toast(failMsg(er)); }
@@ -1161,16 +1238,84 @@ function openProject(p) {
   form.onsubmit = async e => {
     e.preventDefault();
     const data = {code: $('#p-code').value.trim(), name: $('#p-name').value.trim(), client: $('#p-client').value.trim(), manager: $('#p-manager').value.trim(),
-      contractValue: parseMoney($('#p-cv').value), budget: parseMoney($('#p-bg').value), status: $('#p-status').value, start: $('#p-start').value, end: $('#p-end').value};
+      budget: parseMoney($('#p-bg').value), status: $('#p-status').value, start: $('#p-start').value, end: $('#p-end').value};
     if (!data.name) return $('#p-err').textContent = 'Nhập tên dự án.';
     if (!data.code) data.code = 'DA-' + String(n).padStart(2, '0');
-    if (p?.sample) data.sample = true;
+    if (p && p.contractValue != null) data.contractValue = Math.max(0, Math.round(+p.contractValue || 0));   // giữ giá trị cũ (dữ liệu trước khi có bảng hợp đồng)
     const id = p?.id || uid();
     dlg.close();
     try { await put('projects', id, data); S.projectId = id; store.set('project', id); toast(p ? 'Đã lưu dự án' : 'Đã tạo dự án'); if (!p) { S.view = 'project'; render(); } }
     catch (er) { toast(failMsg(er)); }
   };
   dlg.showModal(); $('#p-name').focus();
+}
+
+// Thêm / sửa một dòng hợp đồng. Người nhập do máy chủ tự ghi theo tài khoản đang đăng nhập.
+function openContract(c, projectId, kind) {
+  const k = c ? c.kind : kind, pid = c ? c.projectId : projectId, p = S.projects.find(x => x.id === pid);
+  const seqNext = Math.max(0, ...projContracts(pid).filter(x => x.kind === 'appendix').map(x => +x.seq || 0)) + 1;
+  const title = c ? `Sửa ${k === 'base' ? 'hợp đồng gốc' : 'phụ lục ' + c.seq}` : k === 'base' ? 'Thêm hợp đồng gốc' : `Thêm phụ lục ${seqNext}`;
+  const signed = k === 'appendix';
+  const mInput = (id, v) => `<input type="text" inputmode="${signed ? 'text' : 'numeric'}" ${signed ? 'data-signed="1"' : ''} id="${id}" value="${v == null ? '' : (v < 0 ? '-' : '') + Math.abs(v).toLocaleString('vi-VN')}" placeholder="${id === 'c-vat' ? 'Để trống nếu chưa có' : '0'}" autocomplete="off">`;
+  form.innerHTML = `<h2>${title}</h2>
+    <p class="muted" style="margin:-6px 0 0;font-size:13px">${p ? `${esc(p.code)} · ${esc(p.name)}` : ''}</p>
+    <div class="form">
+      <label class="field"><span>Số hợp đồng</span><input type="text" id="c-no" maxlength="60" value="${esc(c?.no)}" placeholder="${k === 'base' ? 'Ví dụ: 12/2026/HĐXD' : 'Ví dụ: PL01-12/2026'}"></label>
+      <label class="field"><span>Ngày ký</span><input type="date" id="c-date" value="${esc(c?.signDate)}"></label>
+      <label class="field"><span>Giá trị trước VAT (₫) <b class="num" data-hint="c-value" style="text-transform:none;letter-spacing:0">${c ? (c.value < 0 ? '−' : '') + spoken(Math.abs(c.value)) : ''}</b></span>${mInput('c-value', c?.value)}</label>
+      <label class="field"><span>VAT (₫) <b class="num" data-hint="c-vat" style="text-transform:none;letter-spacing:0">${c?.vat ? spoken(c.vat) : ''}</b></span>${mInput('c-vat', c?.vat)}</label>
+      <div class="field full"><span>Sau VAT</span><div class="ro"><b class="num" id="c-post"></b><small id="c-post-note"></small></div></div>
+      <label class="field full"><span>Ghi chú</span><input type="text" id="c-note" maxlength="500" value="${esc(c?.note)}" placeholder="${signed ? 'Ví dụ: Bổ sung hạng mục sân đường; ghi số âm nếu giảm khối lượng' : ''}"></label>
+    </div>
+    ${signed ? '<p class="psub" style="margin:0">Phụ lục giảm khối lượng: gõ dấu − trước số tiền (ví dụ −250.000.000).</p>' : ''}
+    <div class="err" id="c-err"></div>
+    <div class="dlg-foot"><span></span><div class="inline"><button type="button" class="btn" id="c-cancel">Hủy</button><button type="submit" class="btn primary">${c ? 'Lưu thay đổi' : 'Thêm'}</button></div></div>`;
+  bindMoney();
+  const vatVal = () => $('#c-vat').value.replace(/[\s\-−]/g, '') === '' ? null : parseSigned($('#c-vat').value);
+  const showPost = () => {
+    const v = parseSigned($('#c-value').value), vat = vatVal();
+    $('#c-post').textContent = vnd(v + (vat || 0)).replace(/^-/, '−');
+    $('#c-post-note').textContent = vat == null ? 'VAT để trống: dòng này được đánh dấu Tạm tính (VAT coi là 0), nhập bổ sung sau.' : '';
+  };
+  ['c-value', 'c-vat'].forEach(id => $('#' + id).addEventListener('input', showPost)); showPost();
+  $('#c-cancel').onclick = () => dlg.close();
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const body = {no: $('#c-no').value.trim(), signDate: $('#c-date').value, value: parseSigned($('#c-value').value), vat: vatVal(), note: $('#c-note').value.trim()};
+    if (k === 'base' && body.value <= 0) return $('#c-err').textContent = 'Nhập giá trị hợp đồng gốc (trước VAT) lớn hơn 0.';
+    if (k === 'appendix' && !body.value) return $('#c-err').textContent = 'Nhập giá trị phụ lục (trước VAT), khác 0.';
+    if (!c) Object.assign(body, {projectId: pid, kind: k});
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+    try {
+      const rec = await retry(() => api('PUT', 'contracts/' + encodeURIComponent(c?.id || uid()), body));
+      const i = S.contracts.findIndex(x => x.id === rec.id); if (i >= 0) S.contracts[i] = rec; else S.contracts.push(rec);
+      dlg.close(); toast(c ? 'Đã lưu hợp đồng' : 'Đã thêm ' + (k === 'base' ? 'hợp đồng gốc' : 'phụ lục')); refresh();
+    } catch (er) { $('#c-err').textContent = failMsg(er); }
+    finally { btn.disabled = false; }
+  };
+  dlg.showModal(); $(c ? '#c-value' : '#c-no').focus();
+}
+// Xóa dòng hợp đồng: phải nhập mã xóa do quản trị viên đặt; sai thì báo ngay trong hộp
+function openDeleteContract(c) {
+  const name = c.kind === 'base' ? 'hợp đồng gốc' : 'phụ lục ' + c.seq;
+  form.innerHTML = `<h2>Xóa ${name}</h2>
+    <p class="muted" style="margin:0;font-size:13.5px">${c.no ? `Số <b class="num">${esc(c.no)}</b> · ` : ''}giá trị trước VAT <b class="num">${dong(c.value)} ₫</b>. Nhập mã xóa do quản trị viên đặt để xác nhận.</p>
+    <label class="field"><span>Mã xóa</span><input type="password" id="dp-code" autocomplete="off" maxlength="12"></label>
+    <div class="err" id="dp-err"></div>
+    <div class="dlg-foot"><span></span><div class="inline"><button type="button" class="btn" id="dp-cancel">Hủy</button><button type="submit" class="btn danger">Xóa ${name}</button></div></div>`;
+  $('#dp-cancel').onclick = () => dlg.close();
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const code = $('#dp-code').value;
+    if (!code) return $('#dp-err').textContent = 'Nhập mã xóa.';
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+    try {
+      await api('DELETE', 'contracts/' + encodeURIComponent(c.id), {passcode: code});
+      S.contracts = S.contracts.filter(x => x.id !== c.id); dlg.close(); toast(`Đã xóa ${name}`); refresh();
+    } catch (er) { $('#dp-err').textContent = failMsg(er); $('#dp-code').select(); }
+    finally { btn.disabled = false; }
+  };
+  dlg.showModal(); $('#dp-code').focus();
 }
 
 async function clearSample() {
@@ -1216,6 +1361,7 @@ fab.querySelectorAll('[data-fab]').forEach(b => b.onclick = () => {
 });
 document.addEventListener('click', e => { if (!fab.hidden && !fab.contains(e.target)) toggleFab(false); });
 document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => applyPreset(b.dataset.preset));
+document.querySelectorAll('[data-vat]').forEach(b => b.onclick = () => { S.vatMode = b.dataset.vat; store.set('vatMode', S.vatMode); render(); });
 $('#f-year').onchange = e => { S.custom = true; S.year = e.target.value; S.jpage = 0; store.set('year', S.year); render(); };
 $('#f-period').onchange = e => { S.custom = true; S.period = e.target.value; S.jpage = 0; store.set('period', S.period); render(); };
 $('#btn-new-project').onclick = () => openProject(null);
@@ -1231,6 +1377,9 @@ $('#main').addEventListener('click', e => {
     if (a === 'new-in' || a === 'new-out') openTx(null, id, a === 'new-in' ? 'in' : 'out');
     if (a === 'journal-type') { S.jf = {project: '', type: id, q: ''}; S.jpage = 0; S.view = 'journal'; store.set('view', S.view); render(); window.scrollTo({top: 0}); }
     if (a === 'edit-tx') openTx(S.txs.find(t => t.id === id));
+    if (a === 'new-contract') openContract(null, id, act.dataset.kind);
+    if (a === 'edit-contract') openContract(S.contracts.find(c => c.id === id));
+    if (a === 'del-contract') openDeleteContract(S.contracts.find(c => c.id === id));
     if (a === 'journal-of') { S.jf = {project: id, type: '', q: ''}; S.jpage = 0; S.view = 'journal'; store.set('view', S.view); render(); window.scrollTo({top: 0}); }
     if (a === 'del-tx') armButton(act, 'Xóa?', async () => { try { await del('transactions', id); toast('Đã xóa giao dịch'); } catch (er) { toast(failMsg(er)); } });
     return;
@@ -1276,8 +1425,9 @@ render();
 async function load(first) {
   try {
     const d = await api('GET', 'data', null, !first);
-    const same = JSON.stringify(d.projects) === JSON.stringify(S.projects) && JSON.stringify(d.transactions) === JSON.stringify(S.txs);
-    S.projects = d.projects; S.txs = d.transactions.filter(t => t.date); S.mode = 'db';
+    const cts = d.contracts || [];
+    const same = JSON.stringify(d.projects) === JSON.stringify(S.projects) && JSON.stringify(d.transactions) === JSON.stringify(S.txs) && JSON.stringify(cts) === JSON.stringify(S.contracts);
+    S.projects = d.projects; S.txs = d.transactions.filter(t => t.date); S.contracts = cts; S.mode = 'db';
     if (first || !same) { if (dlg.open) return; refresh(); }
   } catch (e) {
     if (first) $('#main').innerHTML = `<div class="panel empty">Không kết nối được máy chủ. Tải lại trang để thử lại.</div>`;
@@ -1332,8 +1482,8 @@ function openPassword(forced) {
 
 async function openUsers(note) {
   dlg.classList.add('wide'); dlg.oncancel = null;
-  let users = [];
-  try { users = await api('GET', 'users'); } catch (er) { toast(failMsg(er)); return; }
+  let users = [], dp = {};
+  try { [users, dp] = await Promise.all([api('GET', 'users'), api('GET', 'delete-passcode')]); } catch (er) { toast(failMsg(er)); return; }
   const roleSel = (id, v, dis) => `<select data-role="${esc(id)}" ${dis ? 'disabled' : ''} aria-label="Vai trò">${Object.entries(ROLE_NAMES).map(([k, n]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
   form.innerHTML = `<div class="panel-head"><h2>Quản lý tài khoản</h2><button type="button" class="btn sm" id="us-close">Đóng</button></div>
     ${note ? `<div class="secret">${note}</div>` : ''}
@@ -1358,7 +1508,11 @@ async function openUsers(note) {
     </div>
     <p class="psub" style="margin:0">Chỉ xem: xem số liệu. Nhập liệu: thêm, sửa, xóa dự án và giao dịch. Quản trị: như Nhập liệu và quản lý tài khoản. Người mới phải đổi mật khẩu tạm ở lần đăng nhập đầu.</p>
     <div class="err" id="us-err"></div>
-    <div class="dlg-foot"><span></span><button type="submit" class="btn primary">Tạo tài khoản</button></div>`;
+    <div class="dlg-foot"><span></span><button type="submit" class="btn primary">Tạo tài khoản</button></div>
+    <h3>Mã xóa dữ liệu</h3>
+    <p class="psub" style="margin:0">Nhập liệu và Quản trị phải nhập mã này khi xóa một dòng hợp đồng với CĐT. ${dp.set ? `<span class="chip done">Đã đặt</span> lần cuối ${esc(dp.updatedByName || '')} · ${dp.updatedAt ? new Date(dp.updatedAt).toLocaleString('vi-VN') : ''}` : '<span class="chip warn">Chưa đặt</span> chưa ai xóa được dòng hợp đồng.'}</p>
+    <div class="inline" style="flex-wrap:wrap"><input type="password" id="dp-new" maxlength="12" autocomplete="new-password" placeholder="4–12 ký tự" style="flex:1 1 180px"><button type="button" class="btn" id="dp-save">${dp.set ? 'Đổi mã xóa' : 'Đặt mã xóa'}</button></div>
+    <div class="err" id="dp-err2"></div>`;
   const fail = er => $('#us-err').textContent = failMsg(er);
   $('#us-close').onclick = () => dlg.close();
   form.querySelectorAll('[data-role]').forEach(sel => sel.onchange = async () => {
@@ -1376,6 +1530,13 @@ async function openUsers(note) {
     try { await api('DELETE', 'users/' + encodeURIComponent(b.dataset.del)); toast('Đã xóa tài khoản'); openUsers(); } catch (er) { fail(er); }
   }));
   form.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyText(b.dataset.copy, b));
+  const saveDp = async () => {
+    const v = $('#dp-new').value;
+    if (v.length < 4 || v.length > 12) return $('#dp-err2').textContent = 'Mã xóa gồm 4–12 ký tự.';
+    try { await api('PUT', 'delete-passcode', {passcode: v}); toast('Đã lưu mã xóa'); openUsers(); } catch (er) { $('#dp-err2').textContent = failMsg(er); }
+  };
+  $('#dp-save').onclick = saveDp;
+  $('#dp-new').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); saveDp(); } };
   form.onsubmit = async e => {
     e.preventDefault();
     const body = {username: $('#nu-user').value.trim().toLowerCase(), name: $('#nu-name').value.trim(), role: $('#nu-role').value, password: $('#nu-pass').value};
