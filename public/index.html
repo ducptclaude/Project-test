@@ -1021,7 +1021,16 @@ function catOptions(type, cur) {
   return `<option value=""${cur ? '' : ' selected'}>— Chọn hạng mục —</option>${old}` + CATS[type].map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`).join('');
 }
 const contractLabel = c => `${c.kind === 'base' ? 'HĐ gốc' : 'Phụ lục ' + c.seq}${c.no ? ' · ' + c.no : ''}`;
-const txContractLabel = t => { if (t.type !== 'in') return ''; const c = S.contracts.find(x => x.id === t.contractId); return c ? contractLabel(c) : t.contractId === '' ? 'Ngoài hợp đồng' : ''; };
+// Khoản thu chưa gắn hợp đồng: không có contractId (dữ liệu cũ) trên dự án đã có hợp đồng → cần bổ sung
+const txUnlinked = t => t.type === 'in' && t.contractId !== '' && !S.contracts.some(x => x.id === t.contractId) && projContracts(t.projectId).length > 0;
+// Nhãn hợp đồng của khoản thu: tên hợp đồng / "Ngoài hợp đồng" / "Chưa gắn hợp đồng" / '' (dự án chưa có hợp đồng, hoặc khoản chi)
+const txContractLabel = t => {
+  if (t.type !== 'in') return '';
+  const c = S.contracts.find(x => x.id === t.contractId);
+  if (c) return contractLabel(c);
+  if (!projContracts(t.projectId).length) return '';   // dự án chưa có hợp đồng: hiện "—"
+  return t.contractId === '' ? 'Ngoài hợp đồng' : 'Chưa gắn hợp đồng';
+};
 // '__' = chưa chọn (bắt buộc chọn khi dự án đã có hợp đồng)
 function contractOptions(pid, cur) {
   const list = projContracts(pid), known = cur === '' || list.some(c => c.id === cur);
@@ -1161,7 +1170,8 @@ function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false
   const code = t => esc(S.projects.find(p => p.id === t.projectId)?.code || '—');
   const sg = t => t.type === 'in' ? '+' : '−', n = v => Math.abs(Math.round(v)).toLocaleString('vi-VN');
   const vatCell = t => txVat(t) == null ? '<span class="chip warn" title="Chưa nhập VAT, tạm coi là 0">Tạm tính</span>' : n(txVat(t));
-  const party = t => t.type === 'in' ? (txContractLabel(t) || (projContracts(t.projectId).length ? 'Chưa gắn hợp đồng' : '')) : (t.partner || '');
+  const party = t => t.type === 'in' ? txContractLabel(t) : (t.partner || '');
+  const partyCell = t => txUnlinked(t) ? '<span class="chip warn" title="Khoản thu chưa gắn hợp đồng: bấm Sửa để chọn hợp đồng hoặc Ngoài hợp đồng">Chưa gắn hợp đồng</span>' : esc(party(t)) || '<span class="muted">—</span>';
   // Người nhập (máy chủ ghi); giao dịch cũ chưa có thì để trống. Rê chuột: người sửa lần cuối
   const edited = t => t.updatedByName && t.updatedAt ? `Sửa lần cuối: ${t.updatedByName} · ${new Date(t.updatedAt).toLocaleString('vi-VN')}` : '';
   const meta = t => [kind ? '' : `<span class="chip ${t.type}" style="padding:1px 7px">${t.type === 'in' ? 'Thu' : 'Chi'}</span>`, t.invoiceNo ? `HĐơn ${esc(t.invoiceNo)}` : '',
@@ -1182,7 +1192,7 @@ function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false
     <tbody>${shown.map(t => `<tr>
       <td class="num muted" style="white-space:nowrap">${fmtDate(t.date)}</td>
       ${showProject ? `<td class="num" style="font-weight:700;white-space:nowrap" title="${esc(projectName(t.projectId))}">${code(t)}</td>` : ''}
-      <td class="tparty">${esc(party(t)) || '<span class="muted">—</span>'}</td>
+      <td class="tparty">${partyCell(t)}</td>
       <td class="tcat"><div style="font-weight:600">${esc(t.category)}</div>${t.note ? `<div class="psub tnote" title="${esc(t.note)}">${esc(t.note)}</div>` : ''}${meta(t) ? `<div class="psub" style="font-size:11.5px">${meta(t)}</div>` : ''}</td>
       <td class="r num">${n(txPre(t))}</td><td class="r num">${vatCell(t)}</td>
       <td class="r num ${t.type === 'in' ? 'c-rev' : ''}" style="font-weight:800">${sg(t)}${n(txPost(t))}</td>
@@ -1191,7 +1201,7 @@ function txTable(txs, showProject, limit = Infinity, offset = 0, compact = false
     <tfoot>${totRows.map(([label, v, cls, s], i) => `<tr${i ? ' class="sub-tot"' : ''}><td colspan="${lead}">${label}${provTxt(v.prov)}</td><td class="r num">${money(v.pre, s)}</td><td class="r num">${money(v.vat, s)}</td><td class="r num ${cls}">${money(v.post, s)}</td>${S.canWrite ? '<td></td>' : ''}</tr>`).join('')}</tfoot>
   </table></div>
   <ul class="txlist">${shown.map(t => {
-    const inner = `<span class="l"><b>${esc(t.category)}</b><span class="psub">${[fmtDate(t.date), showProject ? code(t) : '', esc(party(t)), t.invoiceNo ? 'HĐơn ' + esc(t.invoiceNo) : '', esc(t.note), t.createdByName ? 'Nhập: ' + esc(t.createdByName) : ''].filter(Boolean).join(' · ')}</span></span>
+    const inner = `<span class="l"><b>${esc(t.category)}</b><span class="psub">${[fmtDate(t.date), showProject ? code(t) : '', txUnlinked(t) ? '<span class="chip warn" style="padding:1px 7px">Chưa gắn hợp đồng</span>' : esc(party(t)), t.invoiceNo ? 'HĐơn ' + esc(t.invoiceNo) : '', esc(t.note), t.createdByName ? 'Nhập: ' + esc(t.createdByName) : ''].filter(Boolean).join(' · ')}</span></span>
       <span class="amt num ${t.type === 'in' ? 'c-rev' : ''}">${sg(t)}${n(txPost(t))}<small>trước ${n(txPre(t))} · VAT ${txVat(t) == null ? 'tạm tính' : n(txVat(t))}</small></span>`;
     return `<li>${S.canWrite ? `<button class="txrow" data-act="edit-tx" data-id="${esc(t.id)}">${inner}</button>` : `<div class="txrow">${inner}</div>`}</li>`;
   }).join('')}
@@ -1204,7 +1214,7 @@ function viewJournal() {
   return `<section class="panel">
     <div class="controls">
       <select id="j-project" aria-label="Lọc theo dự án" style="flex:1 1 200px"><option value="">Tất cả dự án</option>${sortedProjects().map(p => `<option value="${esc(p.id)}">${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select>
-      <select id="j-type" aria-label="Lọc theo loại" style="flex:1 1 140px"><option value="">Thu và chi</option><option value="in">Chỉ khoản thu</option><option value="out">Chỉ khoản chi</option></select>
+      <select id="j-type" aria-label="Lọc theo loại" style="flex:1 1 140px"><option value="">Thu và chi</option><option value="in">Chỉ khoản thu</option><option value="out">Chỉ khoản chi</option><option value="unlinked">Khoản thu chưa gắn hợp đồng</option></select>
       <input type="search" id="j-q" placeholder="Tìm hạng mục, diễn giải…" style="flex:2 1 200px">
       <button class="btn" id="j-export">Xuất CSV</button>
     </div>
@@ -1213,7 +1223,7 @@ function viewJournal() {
 }
 function journalRows() {
   const q = S.jf.q.trim().toLowerCase();
-  return S.txs.filter(t => inRange(t) && (!S.jf.project || t.projectId === S.jf.project) && (!S.jf.type || t.type === S.jf.type)
+  return S.txs.filter(t => inRange(t) && (!S.jf.project || t.projectId === S.jf.project) && (!S.jf.type || (S.jf.type === 'unlinked' ? txUnlinked(t) : t.type === S.jf.type))
     && (!q || `${t.category} ${t.note} ${projectName(t.projectId)} ${t.partner || ''} ${t.invoiceNo || ''} ${txContractLabel(t)}`.toLowerCase().includes(q)));
 }
 function renderJournalTable() {
