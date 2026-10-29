@@ -44,7 +44,6 @@ function postgresStore(url) {
       } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
     },
     async del(col, id) { await pool.query('DELETE FROM records WHERE col = $1 AND id = $2', [col, id]); },
-    async delSample() { await pool.query(`DELETE FROM records WHERE col IN ('projects','transactions') AND data->>'sample' = 'true'`); },
     async wipe() { await pool.query('DELETE FROM records'); }
   };
 }
@@ -69,11 +68,7 @@ function fileStore(dir) {
     async put(col, id, data) { (db[col] ||= {})[id] = data; await save(); },
     async putMany(items) { for (const [col, id, data] of items) (db[col] ||= {})[id] = data; await save(); },
     async del(col, id) { delete (db[col] || {})[id]; await save(); },
-    async wipe() { db = { projects: {}, transactions: {}, meta: {} }; await save(); },
-    async delSample() {
-      for (const col of COLS) for (const [id, d] of Object.entries(db[col])) if (d.sample) delete db[col][id];
-      await save();
-    }
+    async wipe() { db = { projects: {}, transactions: {}, meta: {} }; await save(); }
   };
 }
 
@@ -121,29 +116,51 @@ app.get('/api/data', wrap(async (req, res) => {
   res.set('Cache-Control', 'no-store').json({ projects, transactions });
 }));
 
-app.delete('/api/sample', canWrite, wrap(async (req, res) => { await store.delSample(); res.status(204).end(); }));
+// Xóa dữ liệu ví dụ: xóa giao dịch ví dụ; dự án ví dụ chỉ xóa khi không còn giao dịch nào.
+// Dự án ví dụ đã có giao dịch thật người dùng nhập vào thì giữ lại (bỏ cờ ví dụ) để không mất dữ liệu.
+app.delete('/api/sample', canWrite, wrap(async (req, res) => {
+  const [projects, txs] = await Promise.all([store.all('projects'), store.all('transactions')]);
+  for (const t of txs) if (t.sample) await store.del('transactions', t.id);
+  const used = new Set(txs.filter(t => !t.sample).map(t => t.projectId));
+  for (const { id, sample, ...d } of projects) {
+    if (!sample) continue;
+    if (used.has(id)) await store.put('projects', id, d);
+    else await store.del('projects', id);
+  }
+  res.status(204).end();
+}));
 
 function check(req, res) {
   const { col, id } = req.params;
   if (!COLS.has(col) || !ID_RE.test(id)) { res.status(400).json({ error: 'Đường dẫn không hợp lệ' }); return false; }
   return true;
 }
+// Tiền lưu theo số nguyên đồng (không số lẻ). Giá trị hợp đồng / ngân sách có thể bỏ trống (coi là 0).
+const wholeMoney = v => v == null || (Number.isInteger(v) && v >= 0);
 function valid(col, d) {
   if (!d || typeof d !== 'object' || Array.isArray(d)) return false;
-  if (col === 'projects') return typeof d.name === 'string' && d.name.trim() !== '';
+  if (col === 'projects') return typeof d.name === 'string' && d.name.trim() !== '' && wholeMoney(d.contractValue) && wholeMoney(d.budget);
   return typeof d.projectId === 'string' && (d.type === 'in' || d.type === 'out')
-    && /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') && Number.isFinite(d.amount) && d.amount > 0;
+    && /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') && Number.isInteger(d.amount) && d.amount > 0;
 }
 
 app.put('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (!check(req, res)) return;
   if (!valid(req.params.col, req.body)) return res.status(400).json({ error: 'Dữ liệu không hợp lệ' });
+  // Giao dịch luôn thuộc một dự án đang tồn tại
+  if (req.params.col === 'transactions' && !(ID_RE.test(req.body.projectId) && await store.get('projects', req.body.projectId)))
+    return res.status(400).json({ error: 'Dự án không tồn tại.' });
   await store.put(req.params.col, req.params.id, req.body);
   res.status(204).end();
 }));
 
 app.delete('/api/:col/:id', canWrite, wrap(async (req, res) => {
   if (!check(req, res)) return;
+  // Không xóa dự án còn giao dịch tham chiếu, tránh mất dữ liệu
+  if (req.params.col === 'projects') {
+    const n = (await store.all('transactions')).filter(t => t.projectId === req.params.id).length;
+    if (n) return res.status(409).json({ error: `Dự án còn ${n} giao dịch. Xóa hoặc chuyển các giao dịch sang dự án khác trước, hoặc đổi trạng thái thành Hoàn thành.` });
+  }
   await store.del(req.params.col, req.params.id);
   res.status(204).end();
 }));

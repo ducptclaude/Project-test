@@ -74,6 +74,47 @@ check('không thể bỏ quản trị viên cuối cùng', async () => {
   assert.equal((await a('PATCH', '/api/users/admin', { role: 'viewer' })).status, 400);
   assert.equal((await a('DELETE', '/api/users/admin')).status, 400);
 });
+check('tiền phải là số nguyên đồng: số lẻ bị từ chối', async () => {
+  const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+  const tx = { projectId: 'da01', type: 'in', date: '2026-10-01', amount: 12.5, category: 'Thu khác', note: 'lẻ' };
+  assert.equal((await a('PUT', '/api/transactions/le1', tx)).status, 400);
+  assert.equal((await a('PUT', '/api/transactions/le1', { ...tx, amount: '1000' })).status, 400);
+  assert.equal((await a('PUT', '/api/projects/le-p', { name: 'Lẻ', contractValue: 1.5 })).status, 400);
+  assert.equal((await a('PUT', '/api/projects/le-p', { name: 'Lẻ', budget: -1 })).status, 400);
+  assert.equal((await a('PUT', '/api/projects/trong', { name: 'Chưa có giá trị hợp đồng' })).status, 204);
+  assert.ok(!(await a('GET', '/api/data')).json.transactions.some(t => t.id === 'le1'));
+});
+check('giao dịch phải thuộc dự án đang tồn tại', async () => {
+  const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+  const r = await a('PUT', '/api/transactions/mo-coi', { projectId: 'khong-co', type: 'out', date: '2026-10-01', amount: 1000, category: 'Khác', note: '' });
+  assert.equal(r.status, 400); assert.equal(r.json.error, 'Dự án không tồn tại.');
+  assert.ok(!(await a('GET', '/api/data')).json.transactions.some(t => t.id === 'mo-coi'));
+});
+check('không xóa được dự án còn giao dịch, dữ liệu còn nguyên', async () => {
+  const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+  const before = (await a('GET', '/api/data')).json, n = before.transactions.filter(t => t.projectId === 'da02').length;
+  assert.ok(n > 0);
+  const r = await a('DELETE', '/api/projects/da02');
+  assert.equal(r.status, 409); assert.match(r.json.error, new RegExp(`Dự án còn ${n} giao dịch`));
+  const after = (await a('GET', '/api/data')).json;
+  assert.ok(after.projects.some(p => p.id === 'da02'));
+  assert.equal(after.transactions.length, before.transactions.length);
+  assert.equal((await a('DELETE', '/api/projects/trong')).status, 204, 'dự án không có giao dịch thì xóa được');
+});
+check('xóa dữ liệu ví dụ giữ lại dự án ví dụ đang có giao dịch thật', async () => {
+  const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
+  assert.equal((await a('PUT', '/api/transactions/that1', { projectId: 'da01', type: 'out', date: '2026-10-03', amount: 2500000, category: 'Vật tư', note: 'giao dịch thật' })).status, 204);
+  assert.equal((await a('PUT', '/api/projects/rieng', { name: 'Dự án riêng', code: 'R-01', contractValue: 0, budget: 0 })).status, 204);
+  assert.equal((await a('DELETE', '/api/sample')).status, 204);
+  const d = (await a('GET', '/api/data')).json;
+  assert.ok(!d.transactions.some(t => t.sample), 'giao dịch ví dụ phải bị xóa');
+  assert.ok(!d.projects.some(p => p.sample), 'không còn dự án mang cờ ví dụ');
+  const da01 = d.projects.find(p => p.id === 'da01');
+  assert.ok(da01, 'dự án ví dụ có giao dịch thật phải được giữ'); assert.equal(da01.name, 'Thi công nhà xưởng KCN Bình Dương');
+  assert.ok(d.transactions.some(t => t.id === 'that1' && t.amount === 2500000), 'giao dịch thật phải còn');
+  assert.ok(!d.projects.some(p => p.id === 'da02'), 'dự án ví dụ không còn giao dịch thì bị xóa');
+  assert.ok(d.projects.some(p => p.id === 'rieng'), 'dự án thật không bị đụng tới');
+});
 check('đăng xuất', async () => {
   const a = client(); await a('POST', '/api/login', { username: 'admin', password: 'Admin12345' });
   assert.equal((await a('POST', '/api/logout')).status, 204);

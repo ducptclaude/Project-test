@@ -55,13 +55,18 @@ button,select,input{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 
 /* khung */
-.app{display:flex;min-height:100vh}
-.side{flex:none;width:252px;position:sticky;top:0;z-index:7;height:100vh;display:flex;flex-direction:column;gap:28px;padding:26px 16px;background:var(--grad-side);color:#FFFFFF}
+/* --envh: chiều cao dải môi trường thử nghiệm (đặt bằng JS khi dải hiện), để khung vừa khít màn hình */
+:root{--envh:0px}
+.app{display:flex;min-height:calc(100vh - var(--envh))}
+/* Thanh bên kéo hết chiều cao .app (nền phủ đến đáy dù trang ngắn hay dài); phần nội dung bên trong bám màn hình khi cuộn */
+.side{flex:none;width:252px;align-self:stretch;position:relative;z-index:7;background:var(--grad-side);color:#FFFFFF}
+.side-in{position:sticky;top:var(--envh);height:calc(100vh - var(--envh));display:flex;flex-direction:column;gap:28px;padding:26px 16px;background:var(--grad-side)}
 .side-toggle{position:absolute;top:36px;right:-13px;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--accent);display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,31,58,.18);padding:0}
 .side-toggle:hover{color:var(--teal)}
 /* Thanh bên thu gọn: chỉ còn biểu tượng (máy tính, máy tính bảng); trên điện thoại dùng thanh tab */
 @media (min-width:761px){
-  .app.slim .side{width:76px;padding-inline:12px}
+  .app.slim .side{width:76px}
+  .app.slim .side-in{padding-inline:12px}
   .app.slim .side-title,.app.slim .nav .lbl,.app.slim .userbtn .who{display:none}
   .app.slim .side-brand{justify-content:center;padding:0}
   .app.slim .nav{justify-content:center;padding-inline:0}
@@ -208,6 +213,8 @@ tbody tr.link:hover{background:var(--sunk)}
 .pb-track .fill{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--grad)}
 .pb-track .fill.neg{background:var(--bad-fill)}
 .pb-val{text-align:right;font-weight:800;white-space:nowrap}
+.pbar.total{cursor:default;padding-top:10px;border-top:2px solid var(--line)}
+.pbar.total .pb-name{color:var(--ink)}
 .ledger{display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:20px;align-items:start}
 .ledger.full{grid-template-columns:minmax(0,1fr)}
 @media (max-width:1100px){.ledger{grid-template-columns:minmax(0,1fr)}}
@@ -250,6 +257,8 @@ tbody tr.link:hover{background:var(--sunk)}
 .pcard{display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);text-align:left;cursor:pointer;width:100%}
 .pcard .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .pcard .line{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted)}
+.pcard.total{cursor:default;background:var(--sunk);border-color:transparent}
+.pcard.total .line b{color:var(--ink)}
 .txlist{list-style:none;margin:0;padding:0;display:none;flex-direction:column}
 .txlist li{border-bottom:1px solid var(--line)}
 .txlist li:last-child{border-bottom:0}
@@ -258,6 +267,9 @@ button.txrow{cursor:pointer}
 .txrow .l{display:flex;flex-direction:column;gap:2px;min-width:0}
 .txrow .l b{font-weight:700}
 .txrow .amt{font-weight:800;white-space:nowrap}
+.txlist li.txtotal{border-top:2px solid var(--line);border-bottom:0}
+.txtotal .txrow{align-items:center}
+.txtotal .amt small{display:block;text-align:right;font-size:11px;font-weight:600;color:var(--muted)}
 
 /* biểu đồ */
 .chart{position:relative;width:100%;min-height:280px}
@@ -275,6 +287,8 @@ button.txrow{cursor:pointer}
 .cat .meter{height:10px;min-width:0}
 .cat .v{font-size:13px;font-weight:700;text-align:right;white-space:nowrap}
 .cat .v small{color:var(--muted);font-weight:600;margin-left:6px}
+.cat.total{padding-top:10px;border-top:2px solid var(--line)}
+.cat.total>span:first-child,.cat.total .v{font-weight:800}
 
 /* màn dự án */
 .pv{display:grid;grid-template-columns:250px minmax(0,1fr);gap:20px;align-items:start}
@@ -321,6 +335,8 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
 .secret code{font-size:15px;font-weight:700;background:var(--surface);padding:3px 8px;border-radius:6px;user-select:all}
 
 .envbar{position:relative;z-index:6;background:repeating-linear-gradient(-45deg,#A86A10 0 14px,#8a560c 14px 28px);color:#fff;font-weight:700;font-size:12.5px;letter-spacing:.04em;text-align:center;padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+/* máy tính: dải môi trường luôn ở trên cùng khi cuộn, thanh bên bám ngay dưới dải (xem --envh) */
+@media (min-width:761px){.envbar{position:sticky;top:0}}
 
 /* tài khoản */
 .userbox{position:relative;margin-top:auto}
@@ -342,7 +358,9 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
 @media (max-width:1100px){.pv{grid-template-columns:minmax(0,1fr)}.plist{flex-direction:row;overflow-x:auto;padding-bottom:4px}.plist .pitem{min-width:210px}}
 @media (max-width:760px){
   .app{flex-direction:column}
-  .side{position:static;width:auto;height:auto;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .app{min-height:100vh}
+  .side{width:auto}
+  .side-in{position:static;height:auto;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
   .side-nav,.side-toggle{display:none}
   .userbox{margin-top:0}
   .userbtn{padding:4px;background:transparent;width:auto}
@@ -369,6 +387,7 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
   .cards,.txlist{display:flex}
   .cat{grid-template-columns:minmax(0,1fr) 110px}
   .cat .meter{grid-column:1/-1;grid-row:2}
+  .cat .gap{display:none}
   .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--surface);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
   .tb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:none;font-size:11px;font-weight:700;color:var(--muted);min-height:50px;cursor:pointer}
   .tb[aria-current="page"]{color:var(--accent)}
@@ -376,14 +395,14 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
   .tb-new:disabled{opacity:.5}
   .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
 }
-@media (prefers-reduced-motion:no-preference){.nav,.btn,.pitem,.pcard,.tb{transition:background .15s,border-color .15s,box-shadow .15s,color .15s}.side{transition:width .2s ease,padding .2s ease}.side-toggle svg{transition:transform .2s}}
+@media (prefers-reduced-motion:no-preference){.nav,.btn,.pitem,.pcard,.tb{transition:background .15s,border-color .15s,box-shadow .15s,color .15s}.side{transition:width .2s ease}.side-in{transition:padding .2s ease}.side-toggle svg{transition:transform .2s}}
 </style>
 </head>
 <body>
 
 <div id="envbar" class="envbar" hidden></div>
 <div class="app">
-  <aside class="side">
+  <aside class="side"><div class="side-in">
     <button class="side-toggle" id="side-toggle" aria-label="Thu gọn thanh bên" aria-expanded="true" title="Thu gọn thanh bên"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
     <div class="side-brand">
       <span class="logo" id="logo"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16305C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V11"/><path d="M10 20V5"/><path d="M16 20v-6"/><path d="M21 20H3"/><path d="M4 8l6-4 6 6 5-4"/></svg></span>
@@ -405,7 +424,7 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
         <button role="menuitem" id="m-logout">Đăng xuất</button>
       </div>
     </div>
-  </aside>
+  </div></aside>
 
   <div class="content">
     <header class="page-head">
@@ -443,7 +462,10 @@ dialog.wide{width:min(880px,calc(100vw - 32px))}
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const vnd = v => Math.round(v || 0).toLocaleString('vi-VN') + ' ₫';
-const short = v => {
+// Báo cáo tổng (thẻ chỉ số, biểu đồ, bảng tổng hợp, cảnh báo) luôn hiện theo tỷ đồng: 9,25 tỷ · 0,189 tỷ
+const short = (v, digits) => ((v || 0) / 1e9).toLocaleString('vi-VN', {maximumFractionDigits: digits ?? (Math.abs(v || 0) >= 1e9 ? 2 : 3)}) + ' tỷ';
+// Cách đọc số tiền đang gõ trong ô nhập (gợi ý cạnh ô, không phải báo cáo): 12,5 tr · 1,2 tỷ
+const spoken = v => {
   const a = Math.abs(v || 0), f = (x, d) => x.toLocaleString('vi-VN', {maximumFractionDigits: d});
   if (a >= 1e9) return f(v / 1e9, 2) + ' tỷ';
   if (a >= 1e6) return f(v / 1e6, 1) + ' tr';
@@ -673,8 +695,8 @@ function delta(cur, prev, label, goodUp = true) {
   if (!prev) return `<span class="sub">Kỳ trước (${label}) chưa có số liệu</span>`;
   const r = (cur - prev) / Math.abs(prev), up = cur >= prev, flat = Math.abs(r) < 0.005;
   const cls = flat ? 'flat' : (up === goodUp ? 'good' : 'bad');
-  const txt = prev < 0 || cur < 0 ? `${up ? '+' : '−'}${short(Math.abs(cur - prev))}`
-    : r > 4 ? `gấp ${(cur / prev).toLocaleString('vi-VN', {maximumFractionDigits: 1})} lần` : pct(Math.abs(r));
+  // Kỳ trước hoặc kỳ này âm: % khi đổi dấu không có ý nghĩa nên hiện chênh lệch tuyệt đối; còn lại luôn hiện %
+  const txt = prev < 0 || cur < 0 ? `${up ? '+' : '−'}${short(Math.abs(cur - prev))}` : pct(Math.abs(r));
   return `<span class="sub"><span class="delta ${cls}">${flat ? '■' : up ? '▲' : '▼'} ${txt}</span> so với ${label}</span>`;
 }
 // Đường xu hướng 12 tháng gần nhất (tính đến cuối kỳ đang xem)
@@ -698,6 +720,8 @@ function spark(vals, color, fill) {
 }
 
 /* ---------- các khối dùng chung ---------- */
+// Dòng Tổng cộng cuối danh sách phân bổ dạng thanh, cùng cột với các dòng trên
+const totalCat = tot => `<div class="cat total"><span>Tổng cộng</span><span class="gap"></span><span class="v num" title="${vnd(tot)}">${short(tot)}<small>100%</small></span></div>`;
 function mixPanel(st) {
   const kind = S.mix, rows = Object.entries(st.cat[kind]).sort((a, b) => b[1] - a[1]), tot = rows.reduce((s, r) => s + r[1], 0);
   const top = rows.slice(0, 5); if (rows.length > 5) top.push(['Khác (' + (rows.length - 5) + ' hạng mục)', rows.slice(5).reduce((s, r) => s + r[1], 0)]);
@@ -705,7 +729,7 @@ function mixPanel(st) {
   return `<section class="panel"><div class="panel-head"><h2>Cơ cấu ${kind === 'in' ? 'doanh thu' : 'chi phí'}</h2>
       <div class="seg-mini" role="group" aria-label="Chọn cơ cấu"><button data-mix="in" aria-pressed="${kind === 'in'}">Thu</button><button data-mix="out" aria-pressed="${kind === 'out'}">Chi</button></div></div>
     <div class="big-total num ${kind === 'in' ? 'c-rev' : 'c-exp'}">${short(tot)}</div>
-    ${top.length ? `<div class="cats">${top.map(([k, v]) => `<div class="cat"><span>${esc(k)}</span><div class="meter ${kind === 'in' ? 'rev' : 'exp'}"><i style="width:${(v / mx * 100).toFixed(1)}%"></i></div><span class="v num">${short(v)}<small>${pct(v / tot)}</small></span></div>`).join('')}</div>`
+    ${top.length ? `<div class="cats">${top.map(([k, v]) => `<div class="cat"><span>${esc(k)}</span><div class="meter ${kind === 'in' ? 'rev' : 'exp'}"><i style="width:${(v / mx * 100).toFixed(1)}%"></i></div><span class="v num">${short(v)}<small>${pct(v / tot)}</small></span></div>`).join('')}${totalCat(tot)}</div>`
       : `<p class="muted" style="margin:0">Chưa có khoản ${kind === 'in' ? 'thu' : 'chi'} nào trong kỳ này.</p>`}
   </section>`;
 }
@@ -719,7 +743,8 @@ function profitPanel(rows) {
       return `<button class="pbar" data-open="${esc(p.id)}" title="${esc(p.name)}: ${vnd(s.profit)}"><span class="pb-name"><span class="num">${esc(p.code)}</span><small>${esc(p.name)}</small></span>
         <span class="pb-track"><span class="fill${s.profit < 0 ? ' neg' : ''}" style="left:${left.toFixed(2)}%;width:${Math.max(w, 0.6).toFixed(2)}%"></span>${neg ? `<span class="zero" style="left:calc(${zero.toFixed(2)}% - 1px)"></span>` : ''}</span>
         <span class="pb-val num ${s.profit < 0 ? 'c-bad' : ''}">${short(s.profit)}</span></button>`;
-    }).join('')}</div>` : '<p class="muted" style="margin:0">Chưa có giao dịch trong kỳ này.</p>'}
+    }).join('')}${(() => { const t = list.reduce((a, r) => a + r.s.profit, 0);
+      return `<div class="pbar total" title="Tổng cộng: ${vnd(t)}"><span class="pb-name">Tổng cộng</span><span></span><span class="pb-val num ${t < 0 ? 'c-bad' : ''}">${short(t)}</span></div>`; })()}</div>` : '<p class="muted" style="margin:0">Chưa có giao dịch trong kỳ này.</p>'}
   </section>`;
 }
 function chartPanel(id, title) {
@@ -799,7 +824,12 @@ function viewOverview() {
         <span class="line"><span>Lợi nhuận${S.year === 'all' ? '' : ' kỳ này'}</span><b class="num ${s.profit < 0 ? 'c-bad' : ''}">${short(s.profit)}</b></span>
         <span class="line"><span>Đã thu ${pct(c)} hợp đồng</span><span>Đã chi ${pct(h.used)} ngân sách</span></span>
         <span class="meter ${meterCls(h.used)}"><i style="width:${Math.min(100, h.used * 100).toFixed(1)}%"></i></span>
-      </button>`).join('')}</div>
+      </button>`).join('')}
+        <div class="pcard total"><span class="pname" style="color:var(--ink)">Tổng cộng</span>
+          <span class="line"><span>Doanh thu${S.year === 'all' ? '' : ' kỳ này'}</span><b class="num c-rev" title="${vnd(st.rev)}">${short(st.rev)}</b></span>
+          <span class="line"><span>Chi phí${S.year === 'all' ? '' : ' kỳ này'}</span><b class="num c-exp" title="${vnd(st.exp)}">${short(st.exp)}</b></span>
+          <span class="line"><span>Lợi nhuận${S.year === 'all' ? '' : ' kỳ này'}</span><b class="num ${st.profit < 0 ? 'c-bad' : ''}" title="${vnd(st.profit)}">${short(st.profit)}</b></span>
+        </div></div>
     </section>
     <div class="grid2">${profitPanel(rows)}${mixPanel(st)}</div>
   </div>`;
@@ -896,8 +926,11 @@ function renderLedgerSide() {
   const pv = prevPeriod(), prev = pv ? S.txs.filter(t => t.type === type && within(pv.range)(t)).reduce((a, t) => a + (+t.amount || 0), 0) : 0;
   const byP = {}, byC = {};
   for (const t of rows) { byP[t.projectId] = (byP[t.projectId] || 0) + +t.amount; byC[t.category || 'Khác'] = (byC[t.category || 'Khác'] || 0) + +t.amount; }
-  const bars = (obj, label) => { const list = Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, 6), mx = Math.max(1, ...list.map(r => r[1]));
-    return list.length ? `<div class="cats">${list.map(([k, v]) => `<div class="cat"><span>${label(k)}</span><div class="meter ${isIn ? 'rev' : 'exp'}"><i style="width:${(v / mx * 100).toFixed(1)}%"></i></div><span class="v num">${short(v)}<small>${pct(v / total)}</small></span></div>`).join('')}</div>` : ''; };
+  // Tối đa 6 dòng; phần còn lại gộp vào một dòng "Khác" để dòng Tổng cộng khớp với tổng các dòng
+  const bars = (obj, label, unit) => { const all = Object.entries(obj).sort((a, b) => b[1] - a[1]), list = all.slice(0, 6).map(([k, v]) => [label(k), v]);
+    if (all.length > 6) list.push([`Khác (${all.length - 6} ${unit})`, all.slice(6).reduce((a, r) => a + r[1], 0)]);
+    const mx = Math.max(1, ...list.map(r => r[1]));
+    return list.length ? `<div class="cats">${list.map(([k, v]) => `<div class="cat"><span>${k}</span><div class="meter ${isIn ? 'rev' : 'exp'}"><i style="width:${(v / mx * 100).toFixed(1)}%"></i></div><span class="v num" title="${vnd(v)}">${short(v)}<small>${pct(v / total)}</small></span></div>`).join('')}${totalCat(total)}</div>` : ''; };
   const t0 = new Date(); t0.setHours(0, 0, 0, 0);
   const todays = S.txs.filter(t => t.type === type && (t.createdAt || 0) >= t0.getTime());
   el.innerHTML = `
@@ -906,8 +939,8 @@ function renderLedgerSide() {
         foot: (pv ? delta(total, prev, pv.label, isIn) : '<span class="sub">Toàn bộ thời gian</span>') + spark(last12(o => isIn ? o.rev : o.exp), isIn ? 'var(--rev)' : 'var(--exp)', `color-mix(in srgb,var(${isIn ? '--rev' : '--exp'}) 16%,transparent)`)})}
     </section>
     ${rows.length ? `<div class="grid2">
-      <section class="panel"><h2>Theo dự án</h2>${bars(byP, k => { const p = S.projects.find(x => x.id === k); return p ? `<span class="ell" title="${esc(p.name)}"><span class="num" style="font-weight:700">${esc(p.code)}</span> <span class="psub">${esc(p.name)}</span></span>` : 'Dự án đã xóa'; })}</section>
-      <section class="panel"><h2>Theo hạng mục</h2>${bars(byC, esc)}</section>
+      <section class="panel"><h2>Theo dự án</h2>${bars(byP, k => { const p = S.projects.find(x => x.id === k); return p ? `<span class="ell" title="${esc(p.name)}"><span class="num" style="font-weight:700">${esc(p.code)}</span> <span class="psub">${esc(p.name)}</span></span>` : 'Dự án đã xóa'; }, 'dự án')}</section>
+      <section class="panel"><h2>Theo hạng mục</h2>${bars(byC, esc, 'hạng mục')}</section>
     </div>` : ''}
     <section class="panel"><div class="panel-head"><h2>Các khoản ${word} trong kỳ</h2>${rows.length > 15 ? `<button class="link-btn" data-act="journal-type" data-id="${type}">Xem cả ${rows.length} khoản trong sổ →</button>` : ''}</div>
       ${rows.length ? txTable(rows, true, 15) : `<p class="muted" style="margin:0">Chưa có khoản ${word} nào trong ${periodLabel().toLowerCase()}.</p>`}</section>`;
@@ -950,12 +983,14 @@ function txTable(txs, showProject, limit = Infinity, offset = 0) {
       <td class="r num ${t.type === 'in' ? 'c-rev' : ''}" style="font-weight:800">${amt(t)}</td>
       ${S.canWrite ? `<td><div class="actions"><button class="btn sm" data-act="edit-tx" data-id="${esc(t.id)}">Sửa</button><button class="btn sm danger" data-act="del-tx" data-id="${esc(t.id)}">Xóa</button></div></td>` : ''}
     </tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="${showProject ? 5 : 4}">Thu <span class="num c-rev">${vnd(st.rev)}</span> · Chi <span class="num c-exp">${vnd(st.exp)}</span></td><td class="r num ${st.profit < 0 ? 'c-bad' : ''}">${total}</td>${S.canWrite ? '<td></td>' : ''}</tr></tfoot>
+    <tfoot><tr><td colspan="${showProject ? 5 : 4}">Tổng cộng: thu <span class="num c-rev">${vnd(st.rev)}</span> · chi <span class="num c-exp">${vnd(st.exp)}</span></td><td class="r num ${st.profit < 0 ? 'c-bad' : ''}">${total}</td>${S.canWrite ? '<td></td>' : ''}</tr></tfoot>
   </table></div>
   <ul class="txlist">${shown.map(t => {
     const inner = `<span class="l"><b>${esc(t.category)}</b><span class="psub">${fmtDate(t.date)}${showProject ? ` · ${code(t)}` : ''}${t.note ? ` · ${esc(t.note)}` : ''}</span></span><span class="amt num ${t.type === 'in' ? 'c-rev' : ''}">${amt(t)}</span>`;
     return `<li>${S.canWrite ? `<button class="txrow" data-act="edit-tx" data-id="${esc(t.id)}">${inner}</button>` : `<div class="txrow">${inner}</div>`}</li>`;
-  }).join('')}</ul>`;
+  }).join('')}
+    <li class="txtotal"><div class="txrow"><span class="l"><b>Tổng cộng</b><span class="psub">Thu <span class="num c-rev">${vnd(st.rev)}</span> · Chi <span class="num c-exp">${vnd(st.exp)}</span></span></span>
+      <span class="amt num ${st.profit < 0 ? 'c-bad' : ''}">${total}<small>Chênh lệch (₫)</small></span></div></li></ul>`;
 }
 
 function viewJournal() {
@@ -1002,9 +1037,12 @@ function drawChart(el, data) {
   const cumMode = S.chartMode === 'cum';
   let run = 0; const rows = data.map(d => ({...d, cum: (run += d.profit)}));
   const line = d => cumMode ? d.cum : d.profit;
-  const W = Math.max(280, el.clientWidth), H = 300, L = 56, R = 18, T = 22, B = 34;
   const hi = Math.max(1, ...rows.map(d => Math.max(d.rev, d.exp, line(d)))), lo = Math.min(0, ...rows.map(line));
   const step = niceStep(hi - lo), top = Math.ceil(hi / step) * step, bot = Math.floor(lo / step) * step;
+  // Trục tung theo tỷ đồng: đủ số lẻ để các mốc không bị làm tròn trùng nhau; lề trái nới theo nhãn dài nhất
+  let dg = 0; while (dg < 6 && Math.abs(Math.round(step / 1e9 * 10 ** dg) - step / 1e9 * 10 ** dg) > 1e-6) dg++;
+  const axis = v => v ? short(v, dg) : '0';
+  const W = Math.max(280, el.clientWidth), H = 300, R = 18, T = 22, B = 34, L = Math.max(56, 14 + 6.6 * Math.max(axis(top).length, axis(bot).length));
   const y = v => T + (top - v) / (top - bot) * (H - T - B), y0 = y(0);
   const n = rows.length, band = (W - L - R) / n, bw = Math.max(3, Math.min(22, band * 0.3)), gap = Math.max(1.5, Math.min(4, band * 0.05));
   const cx = i => L + band * i + band / 2;
@@ -1017,7 +1055,7 @@ function drawChart(el, data) {
   };
   let g = `<rect class="hl" x="0" y="${T - 8}" width="${band}" height="${H - T - B + 8}" rx="8" fill="var(--sunk)" opacity="0"/>`;
   for (let v = bot; v <= top + step / 2; v += step)
-    g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" ${Math.abs(v) < step / 1e6 ? 'stroke-width="1.5"' : 'stroke-dasharray="3 5"'}/><text x="${L - 10}" y="${y(v) + 4}" text-anchor="end">${v ? short(v) : '0'}</text>`;
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" ${Math.abs(v) < step / 1e6 ? 'stroke-width="1.5"' : 'stroke-dasharray="3 5"'}/><text x="${L - 10}" y="${y(v) + 4}" text-anchor="end">${axis(v)}</text>`;
   const pts = rows.map((d, i) => [cx(i), y(line(d))]);
   if (cumMode && n > 1) g += `<path d="M${pts[0][0]},${y0} L${pts.map(p => p.join(',')).join(' L')} L${pts[n - 1][0]},${y0} Z" fill="var(--pro)" opacity=".07"/>`;
   rows.forEach((d, i) => {
@@ -1057,7 +1095,7 @@ function moneyInput(id, val) {
 function bindMoney() {
   form.querySelectorAll('input[inputmode=numeric]').forEach(inp => inp.addEventListener('input', () => {
     const n = parseMoney(inp.value); inp.value = n ? n.toLocaleString('vi-VN') : '';
-    const hint = form.querySelector(`[data-hint="${inp.id}"]`); if (hint) hint.textContent = n ? short(n) : '';
+    const hint = form.querySelector(`[data-hint="${inp.id}"]`); if (hint) hint.textContent = n ? spoken(n) : '';
   }));
 }
 function openTx(tx, projectId, type = 'out') {
@@ -1068,7 +1106,7 @@ function openTx(tx, projectId, type = 'out') {
       <div class="field"><span>Loại</span><div class="seg"><input type="radio" name="x-type" id="x-in" value="in"><label for="x-in" class="in">Thu</label><input type="radio" name="x-type" id="x-out" value="out"><label for="x-out" class="out">Chi</label></div></div>
       <label class="field"><span>Ngày</span><input type="date" id="x-date" value="${esc(t.date)}"></label>
       <label class="field"><span>Hạng mục</span><input type="text" id="x-cat" list="x-cats" value="${esc(t.category)}" placeholder="Chọn hoặc gõ mới"><datalist id="x-cats"></datalist></label>
-      <label class="field"><span>Số tiền (₫) <b class="num" data-hint="x-amount" style="text-transform:none;letter-spacing:0">${t.amount ? short(t.amount) : ''}</b></span>${moneyInput('x-amount', t.amount)}</label>
+      <label class="field"><span>Số tiền (₫) <b class="num" data-hint="x-amount" style="text-transform:none;letter-spacing:0">${t.amount ? spoken(t.amount) : ''}</b></span>${moneyInput('x-amount', t.amount)}</label>
       <label class="field full"><span>Diễn giải</span><input type="text" id="x-note" value="${esc(t.note)}" placeholder="Ví dụ: Thanh toán đợt 2 cho nhà cung cấp thép"></label>
     </div>
     <div class="err" id="x-err"></div>
@@ -1094,7 +1132,7 @@ function openTx(tx, projectId, type = 'out') {
   dlg.showModal(); (tx ? $('#x-amount') : $('#x-cat')).focus();
 }
 function openProject(p) {
-  const n = S.projects.length + 1;
+  const n = S.projects.length + 1, cnt = p ? projTxs(p.id).length : 0;
   const x = p || {code: 'DA-' + String(n).padStart(2, '0'), name: '', client: '', manager: '', contractValue: 0, budget: 0, status: 'active', start: today(), end: ''};
   form.innerHTML = `<h2>${p ? 'Sửa dự án' : 'Tạo dự án mới'}</h2>
     <div class="form">
@@ -1103,24 +1141,23 @@ function openProject(p) {
       <label class="field full"><span>Tên dự án</span><input type="text" id="p-name" value="${esc(x.name)}" placeholder="Ví dụ: Thi công nhà xưởng giai đoạn 2"></label>
       <label class="field"><span>Khách hàng</span><input type="text" id="p-client" value="${esc(x.client)}"></label>
       <label class="field"><span>Người phụ trách</span><input type="text" id="p-manager" value="${esc(x.manager)}"></label>
-      <label class="field"><span>Giá trị hợp đồng (₫) <b class="num" data-hint="p-cv" style="text-transform:none;letter-spacing:0">${x.contractValue ? short(x.contractValue) : ''}</b></span>${moneyInput('p-cv', x.contractValue)}</label>
-      <label class="field"><span>Ngân sách chi phí (₫) <b class="num" data-hint="p-bg" style="text-transform:none;letter-spacing:0">${x.budget ? short(x.budget) : ''}</b></span>${moneyInput('p-bg', x.budget)}</label>
+      <label class="field"><span>Giá trị hợp đồng (₫) <b class="num" data-hint="p-cv" style="text-transform:none;letter-spacing:0">${x.contractValue ? spoken(x.contractValue) : ''}</b></span>${moneyInput('p-cv', x.contractValue)}</label>
+      <label class="field"><span>Ngân sách chi phí (₫) <b class="num" data-hint="p-bg" style="text-transform:none;letter-spacing:0">${x.budget ? spoken(x.budget) : ''}</b></span>${moneyInput('p-bg', x.budget)}</label>
       <label class="field"><span>Ngày bắt đầu</span><input type="date" id="p-start" value="${esc(x.start)}"></label>
       <label class="field"><span>Ngày kết thúc dự kiến</span><input type="date" id="p-end" value="${esc(x.end)}"></label>
     </div>
     <div class="err" id="p-err"></div>
-    <div class="dlg-foot">${p ? `<button type="button" class="btn danger" id="p-del">Xóa dự án</button>` : '<span></span>'}
+    ${cnt ? `<p class="muted" style="margin:0;font-size:12.5px">Không xóa được dự án đang có <b class="num">${cnt}</b> giao dịch. Xóa hoặc chuyển các giao dịch sang dự án khác trước, hoặc đổi trạng thái thành Hoàn thành.</p>` : ''}
+    <div class="dlg-foot">${p ? `<button type="button" class="btn danger" id="p-del"${cnt ? ' disabled title="Dự án còn giao dịch, không xóa được"' : ''}>Xóa dự án</button>` : '<span></span>'}
       <div class="inline"><button type="button" class="btn" id="p-cancel">Hủy</button><button type="submit" class="btn primary">${p ? 'Lưu thay đổi' : 'Tạo dự án'}</button></div></div>`;
   $('#p-status').value = x.status; bindMoney();
   $('#p-cancel').onclick = () => dlg.close();
-  if (p) {
-    const cnt = projTxs(p.id).length;
-    $('#p-del').onclick = e => armButton(e.target, `Xóa cả ${cnt} giao dịch? Bấm lần nữa`, async () => {
-      dlg.close(); toast('Đang xóa dự án…');
-      try { for (const t of projTxs(p.id)) await del('transactions', t.id); await del('projects', p.id); toast('Đã xóa dự án'); }
-      catch (er) { toast(failMsg(er)); }
-    });
-  }
+  // Chỉ xóa được dự án không còn giao dịch (máy chủ cũng chặn), để không mất dữ liệu
+  if (p && !cnt) $('#p-del').onclick = e => armButton(e.target, 'Bấm lần nữa để xóa', async () => {
+    dlg.close();
+    try { await del('projects', p.id); toast('Đã xóa dự án'); }
+    catch (er) { toast(failMsg(er)); }
+  });
   form.onsubmit = async e => {
     e.preventDefault();
     const data = {code: $('#p-code').value.trim(), name: $('#p-name').value.trim(), client: $('#p-client').value.trim(), manager: $('#p-manager').value.trim(),
@@ -1137,15 +1174,19 @@ function openProject(p) {
 }
 
 async function clearSample() {
-  try { await api('DELETE', 'sample'); S.txs = S.txs.filter(t => !t.sample); S.projects = S.projects.filter(p => !p.sample); render(); toast('Đã xóa dữ liệu ví dụ'); }
+  // Máy chủ giữ lại dự án ví dụ đã có giao dịch thật, nên lấy lại dữ liệu từ máy chủ thay vì tự lọc
+  try { await api('DELETE', 'sample'); await load(true); toast('Đã xóa dữ liệu ví dụ'); }
   catch (er) { toast(failMsg(er)); }
 }
 
 async function exportCsv() {
   const rows = journalRows().sort((a, b) => a.date.localeCompare(b.date));
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const st = sum(rows);
   const csv = '﻿' + ['Ngày,Mã dự án,Tên dự án,Loại,Hạng mục,Diễn giải,Số tiền (VND)',
-    ...rows.map(t => { const p = S.projects.find(x => x.id === t.projectId) || {}; return [t.date, p.code, p.name, t.type === 'in' ? 'Thu' : 'Chi', t.category, t.note, (t.type === 'in' ? 1 : -1) * t.amount].map(q).join(','); })].join('\r\n');
+    ...rows.map(t => { const p = S.projects.find(x => x.id === t.projectId) || {}; return [t.date, p.code, p.name, t.type === 'in' ? 'Thu' : 'Chi', t.category, t.note, (t.type === 'in' ? 1 : -1) * t.amount].map(q).join(','); }),
+    // Dòng Tổng cộng: cột Số tiền là chênh lệch thu − chi
+    ['Tổng cộng', '', '', '', '', `Tổng thu ${vnd(st.rev)} · Tổng chi ${vnd(st.exp)} · Chênh lệch thu − chi`, st.profit].map(q).join(',')].join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
   a.download = `so-giao-dich-${periodLabel().replace(/[^\p{L}\d]+/gu, '-').toLowerCase()}.csv`;
@@ -1205,7 +1246,7 @@ $('#main').addEventListener('submit', e => { const f = e.target.closest('form[da
 $('#main').addEventListener('input', e => {
   if (e.target.matches('[data-money]')) {
     const inp = e.target, n = parseMoney(inp.value); inp.value = n ? n.toLocaleString('vi-VN') : '';
-    const hint = $(`[data-hint="${inp.id}"]`); if (hint) hint.textContent = n ? short(n) : '';
+    const hint = $(`[data-hint="${inp.id}"]`); if (hint) hint.textContent = n ? spoken(n) : '';
   }
   if (e.target.matches('form[data-entry] input[list]')) e.target.closest('form').querySelectorAll('.qcat').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.qcat === e.target.value)));
   if (e.target.id === 'j-q') { S.jf.q = e.target.value; S.jpage = 0; renderJournalTable(); }
@@ -1376,6 +1417,8 @@ fetch('api/brand').then(r => r.json()).then(b => {
 fetch('api/info').then(r => r.json()).then(({env}) => {
   if (!env || env === 'production') return;
   const b = $('#envbar'); b.textContent = `MÔI TRƯỜNG THỬ NGHIỆM (${env}) · dữ liệu ở đây tách biệt với hệ thống chính`; b.hidden = false;
+  const envh = () => document.documentElement.style.setProperty('--envh', (innerWidth > 760 ? b.offsetHeight : 0) + 'px');
+  envh(); addEventListener('resize', envh);
   document.title = `[${env}] ` + document.title;
 }).catch(() => {});
 setInterval(() => { if (!document.hidden) load(false); }, 20000);
